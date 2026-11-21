@@ -81,8 +81,9 @@ const FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 18] = [
 ];
 
 /// Pairs Vietnamese lacks that carry the tone on their first vowel in an open syllable, new style too.
-const OPEN_FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 3] = [
+const OPEN_FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 4] = [
     (BaseLetter::I, BaseLetter::E),
+    (BaseLetter::I, BaseLetter::I),
     (BaseLetter::O, BaseLetter::U),
     (BaseLetter::U, BaseLetter::U),
 ];
@@ -235,9 +236,10 @@ fn tone_vowel(vowels: &[BaseLetter], ending: Ending, style: ToneStyle) -> Option
 }
 
 /// Which vowel of a pair carries the tone: the second of oa, oe, uy before a consonant or in the new style, a vowel
-/// with a mark of its own after another, the first of the other Vietnamese pairs, and the second of uo written without
-/// its marks. Other pairs carry it on the first vowel old style, and new style on the second, but for the open ie, ou,
-/// and uu.
+/// with a mark of its own after another, and the second of uo written without its marks. The other Vietnamese pairs
+/// end a syllable and carry it on their first vowel, which keeps it before a consonant only when it has a mark of its
+/// own (ưi, but uac). Pairs Vietnamese lacks carry it on the first vowel old style, and new style on the second, but
+/// for the open ie, ii, ou, and uu.
 fn pair_tone_vowel(first: BaseLetter, second: BaseLetter, ending: Ending, style: ToneStyle) -> usize {
     let second_in_new_style = usize::from(style == ToneStyle::New);
     if is_glide_pair(first, second) {
@@ -250,8 +252,11 @@ fn pair_tone_vowel(first: BaseLetter, second: BaseLetter, ending: Ending, style:
     if has_mark(second) || (first, second) == (BaseLetter::U, BaseLetter::O) {
         return 1;
     }
-    let first_when_open = ending == Ending::Open && OPEN_FIRST_VOWEL_PAIRS.contains(&(first, second));
-    if FIRST_VOWEL_PAIRS.contains(&(first, second)) || first_when_open {
+    let open = ending == Ending::Open;
+    if FIRST_VOWEL_PAIRS.contains(&(first, second)) {
+        return usize::from(!open && !has_mark(first));
+    }
+    if open && OPEN_FIRST_VOWEL_PAIRS.contains(&(first, second)) {
         0
     } else {
         second_in_new_style

@@ -237,3 +237,19 @@ fn open_ie_ou_uu_carry_the_tone_on_their_first_vowel_new_style_too() {
     assert_eq!(tone_on("hou", ToneStyle::New), Some(1), "o of hou");
     assert_eq!(tone_on("nguu", ToneStyle::New), Some(2), "the first u of uu");
 }
+
+#[test]
+fn a_pair_that_only_ends_a_syllable_carries_the_tone_on_its_second_vowel_before_a_consonant() {
+    assert_eq!(tone_on("luac", ToneStyle::Old), Some(2), "a of uac");
+    assert_eq!(tone_on("lua", ToneStyle::Old), Some(1), "u of an open ua");
+    assert_eq!(
+        tone_on("ưit", ToneStyle::Old),
+        Some(0),
+        "ư keeps it, having a mark of its own"
+    );
+    assert_eq!(
+        tone_on("wii", ToneStyle::New),
+        Some(1),
+        "an open ii keeps it on the first i, new style too"
+    );
+}
