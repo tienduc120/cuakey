@@ -5,6 +5,7 @@
 extern crate alloc;
 
 mod app_name;
+mod charset;
 mod choices;
 mod error;
 mod hotkey;
@@ -16,6 +17,7 @@ mod setting_change;
 mod settings;
 
 pub use app_name::AppName;
+pub use charset::{BaseLetter, Letter, LetterCase, Tone, decode, encode, units_in};
 pub use choices::{CodeTable, InputMethod, Language};
 pub use error::PreferencesError;
 pub use hotkey::{Hotkey, Modifier, ModifierSet};
