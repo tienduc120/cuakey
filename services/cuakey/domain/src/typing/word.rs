@@ -273,8 +273,8 @@ impl Word {
         }
     }
 
-    /// Turns the d that starts the syllable into đ, or back. Without spell check, a d just typed after a vowel takes the
-    /// stroke too.
+    /// Turns the d that starts the syllable into đ, or back. Without spell check, the d typed last takes the stroke too:
+    /// add shows ađ.
     fn stroke(&mut self, syllable: &Syllable<'_>, rules: Rules) -> Outcome {
         let first = syllable.start();
         let last = self.glyphs.len().saturating_sub(1);
