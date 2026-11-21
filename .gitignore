@@ -1,0 +1,5 @@
+/target/
+
+# Design specs, plans and plan-execution workspaces stay local
+/docs/superpowers/
+/.superpowers/
