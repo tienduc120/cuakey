@@ -230,7 +230,16 @@ impl Composer {
             .macros
             .lookup(shown, match_case)
             .or_else(|| self.macros.lookup(typed_keys, match_case))
-            .or_else(|| raised.is_on().then(|| self.macros.lookup_raised(shown)).flatten())?;
+            .or_else(|| {
+                raised
+                    .is_on()
+                    .then(|| {
+                        self.macros
+                            .lookup_raised(shown)
+                            .or_else(|| self.macros.lookup_raised(typed_keys))
+                    })
+                    .flatten()
+            })?;
         let typed = text_of(key).filter(|c| !c.is_control());
         insert.extend(typed);
         Some(Edit::Replace {

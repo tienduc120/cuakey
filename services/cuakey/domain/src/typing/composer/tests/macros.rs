@@ -400,3 +400,18 @@ fn a_capital_the_user_typed_still_needs_match_caps() {
         "no match: the user typed the capital"
     );
 }
+
+#[test]
+fn a_shortcut_that_matches_only_by_its_keys_fires_at_a_capitalised_sentence_start() {
+    let mut composer = composer_for(
+        &capitalising(OnOff::Off),
+        Language::Vietnamese,
+        &[("btw", "by the way")],
+    );
+
+    assert_eq!(
+        type_text(&mut composer, "tooi. btw "),
+        "tôi. By the way ",
+        "w became ư on screen; the keys were btw"
+    );
+}
