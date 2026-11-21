@@ -4,6 +4,7 @@ mod composer;
 mod telex;
 mod tone;
 mod vni;
+mod word;
 
 use alloc::string::String;
 
