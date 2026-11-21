@@ -179,11 +179,7 @@ fn telex_nguoi() {
 
 #[test]
 fn telex_sentence() {
-    // Split, or the spelling check reads the second word of the country's name as a misspelt English word.
-    let typed = concat!("Vieetj N", "am");
-    let shown = concat!("Việt N", "am");
-
-    assert_eq!(type_text(&mut telex(), typed), shown, "space ends the word");
+    assert_eq!(type_text(&mut telex(), "Vieetj Nam"), "Việt Nam", "space ends the word");
 }
 
 #[test]
