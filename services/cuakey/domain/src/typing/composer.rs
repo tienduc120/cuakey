@@ -79,7 +79,7 @@ impl Composer {
     pub fn press(&mut self, key: KeyPress) -> Edit {
         let ended = self.ended.take();
         if key.mods().ctrl_or_alt().is_on() {
-            return self.pass_chord();
+            return self.leave_word();
         }
         if self.settings.language() == Language::English {
             return self.press_in_english(key);
@@ -89,6 +89,10 @@ impl Composer {
         }
         match self.keystroke(key) {
             Some(keystroke) => self.type_into_word(keystroke, key),
+            None if self.types_itself_after_the_word(key) => {
+                self.sentence = text_of(key).map_or(self.sentence, |c| self.sentence.after(c));
+                self.leave_word()
+            }
             None => self.end_word(key),
         }
     }
@@ -119,8 +123,9 @@ impl Composer {
         &self.shown
     }
 
-    /// A Ctrl or Alt chord is for the app, which acts on the text as the screen shows it: the word ends unchanged.
-    fn pass_chord(&mut self) -> Edit {
+    /// The word ends as the screen shows it, and the key goes through: a Ctrl or Alt chord is for the app, which acts on
+    /// the text as the screen shows it.
+    fn leave_word(&mut self) -> Edit {
         self.raised = OnOff::Off;
         self.word = Word::default();
         self.shown.clear();
@@ -290,6 +295,12 @@ impl Composer {
             InputMethod::SimpleTelex => telex::effects(key.code(), telex::Style::Simple),
             InputMethod::Vni => vni::effects(key.code(), key.mods().shift()),
         }
+    }
+
+    /// Whether `key` types itself after the word and leaves the word as it shows: a bracket in Simple Telex.
+    fn types_itself_after_the_word(&self, key: KeyPress) -> bool {
+        self.settings.typing().input_method() == InputMethod::SimpleTelex
+            && matches!(key.code(), KeyCode::LeftBracket | KeyCode::RightBracket)
     }
 
     /// Telex types a `w` that starts a word as w, when the setting asks for it.

@@ -672,6 +672,26 @@ fn a_w_typed_again_to_take_back_its_vowel_is_no_quick_first_consonant() {
 }
 
 #[test]
+fn simple_telex_brackets_end_the_word_as_it_shows() {
+    let quick = settings()
+        .with(SettingChange::InputMethod(InputMethod::SimpleTelex))
+        .with(SettingChange::QuickFirstConsonant(OnOff::On))
+        .with(SettingChange::QuickLastConsonant(OnOff::On));
+    let spelled = vietnamese().with(SettingChange::InputMethod(InputMethod::SimpleTelex));
+    for (settings, keys, shown) in [
+        (&quick, "ju]", "ju]"),
+        (&quick, "uh[", "uh["),
+        (&spelled, "asd[", "ád["),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(settings), keys),
+            shown,
+            "{keys:?}: no quick consonant written out and no restore"
+        );
+    }
+}
+
+#[test]
 fn quick_last_consonant() {
     let mut composer = composer_with(&vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On)));
 
