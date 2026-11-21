@@ -76,6 +76,16 @@ impl MacroTable {
         self.entries.values()
     }
 
+    /// What `word` expands to when the typing engine raised its first letter by itself: the shortcut is the word with
+    /// that letter lower case, and the expansion's first letter is raised to match.
+    pub fn lookup_raised(&self, word: &str) -> Option<String> {
+        let mut chars = word.chars();
+        let first = chars.next()?;
+        let lowered: String = first.to_lowercase().chain(chars).collect();
+        let entry = self.entries.get(lowered.as_str())?;
+        Some(WordCase::Capitalised.apply(&entry.expansion))
+    }
+
     /// What `word` expands to. A shortcut matches exactly; with `match_caps` on, a Capitalised word or an ALL CAPS
     /// word also matches the shortcut in lower case, and the expansion takes the word's case.
     pub fn lookup(&self, word: &str, match_caps: OnOff) -> Option<String> {

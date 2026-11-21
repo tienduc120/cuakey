@@ -54,6 +54,8 @@ pub struct Composer {
     ended: Option<(Word, String)>,
     sentence: Sentence,
     macros: MacroTable,
+    /// The engine capitalised the first letter of the word being typed, which the user typed in lower case.
+    raised: OnOff,
 }
 
 impl Composer {
@@ -65,6 +67,7 @@ impl Composer {
             ended: None,
             sentence: Sentence::default(),
             macros: MacroTable::default(),
+            raised: OnOff::Off,
         }
     }
 
@@ -85,6 +88,7 @@ impl Composer {
 
     /// Forgets the word, so the next key starts a new one: after a click, a focus change, or a language switch.
     pub fn break_word(&mut self) {
+        self.raised = OnOff::Off;
         self.word = Word::default();
         self.shown.clear();
         self.ended = None;
@@ -145,6 +149,14 @@ impl Composer {
     }
 
     fn type_into_word(&mut self, keystroke: Keystroke, key: KeyPress) -> Edit {
+        if self.word.is_empty() {
+            let typed = typed_by(key).map(Glyph::to_char);
+            self.raised = if typed.is_some_and(|c| c != keystroke.typed.to_char()) {
+                OnOff::On
+            } else {
+                OnOff::Off
+            };
+        }
         self.word.type_key(keystroke, self.rules());
         self.sentence = self.sentence.after(keystroke.typed.to_char());
         let before = mem::replace(&mut self.shown, self.word.render());
@@ -155,11 +167,12 @@ impl Composer {
     /// A key that types no letter ends the word: the word may change once more, then the key follows.
     fn end_word(&mut self, key: KeyPress) -> Edit {
         let word = mem::take(&mut self.word);
+        let raised = mem::replace(&mut self.raised, OnOff::Off);
         let shown = mem::take(&mut self.shown);
         if let Some(c) = text_of(key) {
             self.sentence = self.sentence.after(c);
         }
-        if let Some(edit) = self.macro_edit(&shown, &word.typed_keys(), key) {
+        if let Some(edit) = self.macro_edit(&shown, &word.typed_keys(), raised, key) {
             return edit;
         }
         let ending = word.ending(self.rules());
@@ -194,7 +207,8 @@ impl Composer {
             return Edit::PassThrough;
         }
         let shown = mem::take(&mut self.shown);
-        self.macro_edit(&shown, &shown, key).unwrap_or(Edit::PassThrough)
+        self.macro_edit(&shown, &shown, OnOff::Off, key)
+            .unwrap_or(Edit::PassThrough)
     }
 
     /// Whether macros expand in the language being typed.
@@ -207,7 +221,7 @@ impl Composer {
     /// The edit that swaps the word on screen for its macro's expansion, found by the word as shown or else by the keys
     /// as typed, followed by the key that ended the word. The
     /// key goes into the edit when it types text, and is sent after it when it types none.
-    fn macro_edit(&self, shown: &str, typed_keys: &str, key: KeyPress) -> Option<Edit> {
+    fn macro_edit(&self, shown: &str, typed_keys: &str, raised: OnOff, key: KeyPress) -> Option<Edit> {
         if !self.macros_apply() {
             return None;
         }
@@ -215,7 +229,8 @@ impl Composer {
         let mut insert = self
             .macros
             .lookup(shown, match_case)
-            .or_else(|| self.macros.lookup(typed_keys, match_case))?;
+            .or_else(|| self.macros.lookup(typed_keys, match_case))
+            .or_else(|| raised.is_on().then(|| self.macros.lookup_raised(shown)).flatten())?;
         let typed = text_of(key).filter(|c| !c.is_control());
         insert.extend(typed);
         Some(Edit::Replace {

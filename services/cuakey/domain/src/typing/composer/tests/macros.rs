@@ -365,3 +365,38 @@ fn enter_and_tab_are_sent_after_the_expansion_not_typed_into_it() {
         );
     }
 }
+
+fn capitalising(match_caps: OnOff) -> Settings {
+    settings()
+        .with(SettingChange::CapitalizeSentences(OnOff::On))
+        .with(SettingChange::MacroMatchCase(match_caps))
+}
+
+#[test]
+fn a_macro_fires_on_the_first_word_of_a_sentence_the_engine_capitalised() {
+    let mut composer = composer_for(&capitalising(OnOff::Off), Language::Vietnamese, &[("ko", "không")]);
+
+    assert_eq!(
+        type_text(&mut composer, "tooi. ko "),
+        "tôi. Không ",
+        "the engine raised the k, so the expansion is raised too"
+    );
+}
+
+#[test]
+fn a_macro_fires_on_a_capitalised_first_word_with_match_caps_on() {
+    let mut composer = composer_for(&capitalising(OnOff::On), Language::Vietnamese, &[("ko", "không")]);
+
+    assert_eq!(type_text(&mut composer, "tooi. ko "), "tôi. Không ", "match caps on");
+}
+
+#[test]
+fn a_capital_the_user_typed_still_needs_match_caps() {
+    let mut composer = composer_for(&capitalising(OnOff::Off), Language::Vietnamese, &[("ko", "không")]);
+
+    assert_eq!(
+        type_text(&mut composer, "tooi Ko "),
+        "tôi Ko ",
+        "no match: the user typed the capital"
+    );
+}
