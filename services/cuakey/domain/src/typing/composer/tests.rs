@@ -827,3 +827,14 @@ fn without_spell_check_restoring_waits_for_a_word_that_still_shows_a_mark() {
         "with spell check, restoring types the doubled consonant as typed"
     );
 }
+
+#[test]
+fn a_quick_last_consonant_leaves_uo_as_it_is_too() {
+    let quick = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
+
+    assert_eq!(
+        type_text(&mut composer_with(&quick), "thuowg"),
+        "thuơg",
+        "g is no ng yet"
+    );
+}
