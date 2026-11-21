@@ -141,7 +141,7 @@ pub(super) fn spelling(letters: Option<&[BaseLetter]>, consonants: Consonants) -
     let last = syllable.last_consonants();
     let first_ok = first.is_empty() || first_consonants(consonants).any(|c| c == first);
     let last_ok = last.is_empty() || last_consonants(consonants).any(|c| c == last);
-    if first_ok && last_ok && is_vowel_group(syllable.vowels(), last.is_empty()) {
+    if first_ok && last_ok && vowels_fit(syllable.vowels(), last.is_empty()) {
         return Spelling::Syllable;
     }
     let first_starts = first_consonants(consonants).any(|c| c.starts_with(first));
@@ -170,9 +170,14 @@ pub(super) fn may_end_syllable(last: &[BaseLetter], consonants: Consonants) -> b
     last.is_empty() || last_consonants(consonants).any(|c| c.starts_with(last))
 }
 
-/// Whether `vowels` are a Vietnamese vowel group, in a syllable that is `open` or not: uơ only ends one.
-fn is_vowel_group(vowels: &[BaseLetter], open: bool) -> bool {
-    VOWEL_GROUPS.contains(&vowels) && (open || vowels != [U, OHorn])
+/// Whether `vowels` are a Vietnamese vowel group.
+pub(super) fn is_vowel_group(vowels: &[BaseLetter]) -> bool {
+    VOWEL_GROUPS.contains(&vowels)
+}
+
+/// Whether `vowels` may stand in a syllable that is `open` or not: uơ only ends one.
+fn vowels_fit(vowels: &[BaseLetter], open: bool) -> bool {
+    is_vowel_group(vowels) && (open || vowels != [U, OHorn])
 }
 
 #[cfg(test)]

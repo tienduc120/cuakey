@@ -791,3 +791,15 @@ fn without_spell_check_d_strokes_a_d_typed_after_a_vowel() {
 fn a_consonant_that_ends_no_syllable_leaves_uo_as_it_is() {
     assert_eq!(type_text(&mut telex(), "thuowg"), "thuơg", "g ends no syllable");
 }
+
+#[test]
+fn a_mark_goes_on_a_vowel_before_another_only_where_vietnamese_writes_that_pair() {
+    assert_eq!(
+        type_text(&mut telex(), "beoe"),
+        "beoe",
+        "êo is no Vietnamese vowel group"
+    );
+    assert_eq!(type_text(&mut telex(), "keue"), "kêu", "êu is one");
+    assert_eq!(type_text(&mut telex(), "muaw"), "mưa", "as is ưa");
+    assert_eq!(type_text(&mut telex(), "tuoio"), "tuôi", "and uôi");
+}

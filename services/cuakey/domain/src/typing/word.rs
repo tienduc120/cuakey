@@ -525,7 +525,8 @@ fn render(glyphs: &[Glyph]) -> String {
     glyphs.iter().map(|glyph| glyph.to_char()).collect()
 }
 
-/// Where `mark` goes in `syllable`. After th, a mark on an open uo goes on the o alone: thuở.
+/// Where `mark` goes in `syllable`. After th, a mark on an open uo goes on the o alone: thuở. A mark on a vowel before
+/// another goes there only when Vietnamese writes the vowels it makes: êu, but no êo.
 fn mark_target(syllable: &Syllable<'_>, mark: Mark) -> Option<MarkTarget> {
     let target = syllable.mark_target(mark)?;
     let open_after_th =
@@ -536,6 +537,24 @@ fn mark_target(syllable: &Syllable<'_>, mark: Mark) -> Option<MarkTarget> {
             plain: BaseLetter::O,
             marked: BaseLetter::OHorn,
         }),
+        MarkTarget::One { at, marked, .. } if !fits_before_the_rest(syllable, at, marked) => None,
         MarkTarget::HornPair { .. } | MarkTarget::One { .. } => Some(target),
     }
+}
+
+/// Whether the syllable's vowels, with the vowel at `at` written as `marked`, are a Vietnamese vowel group, when
+/// another vowel follows that one.
+fn fits_before_the_rest(syllable: &Syllable<'_>, at: usize, marked: BaseLetter) -> bool {
+    let vowels = syllable.vowels();
+    let Some(place) = at.checked_sub(syllable.vowels_start()) else {
+        return true;
+    };
+    if place + 1 >= vowels.len() {
+        return true;
+    }
+    let mut written = vowels.to_vec();
+    if let Some(vowel) = written.get_mut(place) {
+        *vowel = marked;
+    }
+    spelling::is_vowel_group(&written)
 }
