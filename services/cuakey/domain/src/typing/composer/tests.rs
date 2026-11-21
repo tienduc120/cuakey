@@ -803,3 +803,14 @@ fn a_mark_goes_on_a_vowel_before_another_only_where_vietnamese_writes_that_pair(
     assert_eq!(type_text(&mut telex(), "muaw"), "mưa", "as is ưa");
     assert_eq!(type_text(&mut telex(), "tuoio"), "tuôi", "and uôi");
 }
+
+#[test]
+fn restoring_keeps_the_pair_quick_telex_typed() {
+    let quick = settings().with(SettingChange::QuickTelex(OnOff::On));
+
+    assert_eq!(
+        type_text(&mut composer_with(&quick), "success "),
+        "suches ",
+        "the cc typed ch, and restoring types the keys as the word took them"
+    );
+}

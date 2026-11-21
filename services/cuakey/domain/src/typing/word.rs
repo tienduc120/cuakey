@@ -190,7 +190,8 @@ impl Word {
         self.place_tone(rules.style);
     }
 
-    /// Quick Telex: a consonant typed right after itself types the second letter of the pair it starts.
+    /// Quick Telex: a consonant typed right after itself types the second letter of the pair it starts, which is also
+    /// what restoring the word types for it.
     fn type_doubled_consonant(&mut self, key: Keystroke) -> bool {
         let Some(letter) = key.typed.letter() else {
             return false;
@@ -203,6 +204,9 @@ impl Word {
             return false;
         };
         self.glyphs.push(Glyph::Letter(second));
+        if let Some(last) = self.keys.last_mut() {
+            last.typed = Glyph::Letter(second);
+        }
         true
     }
 
