@@ -219,9 +219,7 @@ impl Word {
         let Some(letters) = letters_of(&self.glyphs) else {
             return Outcome::NotHere;
         };
-        let Some(syllable) = Syllable::read(&letters) else {
-            return Outcome::NotHere;
-        };
+        let syllable = Syllable::last(&letters);
         match effect {
             Effect::Mark(mark) => self.put_mark(&syllable, mark),
             Effect::Tone(tone) => self.put_tone(&syllable, tone, rules.style),
@@ -364,14 +362,12 @@ impl Word {
         self.keys.retain(|key| key.at < len);
     }
 
-    /// Moves the tone onto the vowel that carries it now. A word that is no syllable keeps it where it is.
+    /// Moves the tone of the last syllable onto the vowel that carries it now.
     fn place_tone(&mut self, style: ToneStyle) {
         let Some(letters) = letters_of(&self.glyphs) else {
             return;
         };
-        let Some(syllable) = Syllable::read(&letters) else {
-            return;
-        };
+        let syllable = Syllable::last(&letters);
         let (Some((from, tone)), Some(to)) = (self.tone_in(&syllable), syllable.tone_position(style)) else {
             return;
         };

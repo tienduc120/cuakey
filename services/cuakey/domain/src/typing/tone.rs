@@ -87,11 +87,6 @@ impl<'a> Syllable<'a> {
         }
     }
 
-    /// The word read as one syllable, or `None` when a vowel follows its last consonants.
-    pub(super) fn read(letters: &'a [BaseLetter]) -> Option<Self> {
-        Some(Self::last(letters)).filter(Self::starts_word)
-    }
-
     /// Whether the syllable is the whole word.
     pub(super) const fn starts_word(&self) -> bool {
         self.start == 0

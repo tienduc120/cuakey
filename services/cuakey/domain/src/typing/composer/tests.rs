@@ -404,8 +404,18 @@ fn capitals_keep_their_case_when_marked() {
 }
 
 #[test]
-fn a_vowel_after_the_final_consonant_stops_the_marks() {
-    assert_eq!(type_text(&mut telex(), "hellos"), "hellos", "not a Vietnamese syllable");
+fn without_spell_check_marks_go_on_the_last_syllable_of_a_longer_word() {
+    assert_eq!(type_text(&mut telex(), "hellos"), "helló", "the o of lo");
+    assert_eq!(
+        type_text(&mut telex(), "after"),
+        "àtẻ",
+        "each syllable keeps its own tone"
+    );
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "hellos"),
+        "hellos",
+        "with spell check, a word of two syllables is not Vietnamese"
+    );
 }
 
 #[test]

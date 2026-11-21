@@ -30,12 +30,12 @@ fn letters(word: &str) -> Vec<BaseLetter> {
 
 fn tone_on(word: &str, style: ToneStyle) -> Option<usize> {
     let letters = letters(word);
-    Syllable::read(&letters).and_then(|syllable| syllable.tone_position(style))
+    Syllable::last(&letters).tone_position(style)
 }
 
 fn mark_on(word: &str, mark: Mark) -> Option<MarkTarget> {
     let letters = letters(word);
-    Syllable::read(&letters).and_then(|syllable| syllable.mark_target(mark))
+    Syllable::last(&letters).mark_target(mark)
 }
 
 fn one(at: usize, plain: BaseLetter, marked: BaseLetter) -> MarkTarget {
@@ -99,21 +99,22 @@ fn a_final_consonant_closes_the_syllable() {
     let open = letters("toa");
     let closed = letters("toan");
 
-    assert_eq!(Syllable::read(&open).map(|s| s.ending()), Some(Ending::Open), "toa");
-    assert_eq!(
-        Syllable::read(&closed).map(|s| s.ending()),
-        Some(Ending::Closed),
-        "toan"
-    );
+    assert_eq!(Syllable::last(&open).ending(), Ending::Open, "toa");
+    assert_eq!(Syllable::last(&closed).ending(), Ending::Closed, "toan");
 }
 
 #[test]
-fn a_vowel_after_the_final_consonant_is_not_a_syllable() {
-    let syllable = letters("hell");
-    let more = letters("hello");
+fn a_vowel_after_the_final_consonant_starts_another_syllable() {
+    let one = letters("hell");
+    let two = letters("hello");
 
-    assert!(Syllable::read(&syllable).is_some(), "hell is one syllable");
-    assert_eq!(Syllable::read(&more), None, "hello is not");
+    assert!(Syllable::last(&one).starts_word(), "hell is one syllable");
+    assert!(!Syllable::last(&two).starts_word(), "hello is two");
+    assert_eq!(
+        tone_on("hello", ToneStyle::Old),
+        Some(4),
+        "the o of its last syllable carries the tone"
+    );
 }
 
 #[test]
@@ -121,8 +122,8 @@ fn consonants_alone_are_a_syllable_with_no_vowel_to_mark() {
     let consonants = letters("nh");
 
     assert_eq!(
-        Syllable::read(&consonants).map(|s| s.ending()),
-        Some(Ending::Open),
+        Syllable::last(&consonants).ending(),
+        Ending::Open,
         "a vowel may still follow"
     );
     assert_eq!(tone_on("nh", ToneStyle::Old), None, "no vowel for the tone");
