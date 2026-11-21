@@ -1,4 +1,4 @@
-use super::{CompareArgs, fetch_commands_for_sha, tool_command};
+use super::{CompareArgs, checkout_is_current, fetch_commands_for_sha, fetch_failure, tool_command};
 
 fn strings(args: &[&str]) -> Vec<String> {
     args.iter().map(|a| (*a).to_owned()).collect()
@@ -98,4 +98,26 @@ fn the_tool_runs_in_release_from_its_own_manifest_with_the_arguments_after_a_sep
             "3",
         ])
     );
+}
+
+#[test]
+fn a_failed_fetch_names_the_command_that_fetches_again() {
+    let command = strings(&["git", "checkout", "FETCH_HEAD"]);
+
+    let error = fetch_failure(&command);
+
+    assert_eq!(
+        error.to_string(),
+        "fetching OpenKey failed at `git checkout FETCH_HEAD`; run `cargo xtask compare-openkey` again to fetch it"
+    );
+}
+
+#[test]
+fn a_checkout_at_another_commit_is_fetched_again() {
+    assert!(checkout_is_current(Some("89c2fd3bf258562f2349f89b49d81e2f140c3fc3\n")));
+    assert!(
+        !checkout_is_current(Some("0123456789abcdef0123456789abcdef01234567\n")),
+        "a checkout of another commit is stale"
+    );
+    assert!(!checkout_is_current(None), "a directory git cannot read is fetched");
 }

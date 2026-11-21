@@ -18,6 +18,7 @@ fn differs(step: usize, expected: &str, actual: &str, table: CodeTable) -> Diver
         step,
         expected: encode(expected, table),
         actual: encode(actual, table),
+        unmodelled: None,
     }
 }
 
@@ -88,6 +89,27 @@ fn a_difference_at_the_closing_space_says_so() {
     let report = tally.render(Duration::from_secs(1));
     assert!(
         report.contains("- `hag`, after the Space that ends it: expected `hang `, CuaKey `hag `."),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_reply_the_tool_does_not_model_is_a_finding_and_not_the_end_of_the_run() {
+    let mut tally = CorpusTally::default();
+    tally.begin_file(CORPUS_FILES[0], vec![line("ab")]);
+
+    tally.record(
+        0,
+        Combo::default_for(InputMethod::Telex),
+        Some(Divergence {
+            unmodelled: Some(-1),
+            ..differs(1, "a", "ab", CodeTable::Unicode)
+        }),
+    );
+
+    let report = tally.render(Duration::from_secs(1));
+    assert!(
+        report.contains("CuaKey `ab`. OpenKey gave a reply this tool does not model (-1), so the run stopped there."),
         "{report}"
     );
 }

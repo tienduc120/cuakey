@@ -13,6 +13,10 @@ use crate::screen::Screen;
 /// The longest reply the host applies; it ignores a longer one.
 const MAX_REPLY: usize = 32;
 
+/// A reply from `OpenKey` the tool does not know how to apply, by the shim's number for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Unmodelled(pub i32);
+
 /// A text box `OpenKey` types into.
 #[derive(Debug)]
 pub struct OpenKeyScreen<'engine> {
@@ -34,7 +38,7 @@ impl<'engine> OpenKeyScreen<'engine> {
         }
     }
 
-    pub fn stroke(&mut self, stroke: Stroke) -> Result<(), String> {
+    pub fn stroke(&mut self, stroke: Stroke) -> Result<(), Unmodelled> {
         let Stroke::Key(key) = stroke else {
             // The host tells the engine of the button going down and of it coming up; neither changes the text.
             for _ in 0..2 {
@@ -47,11 +51,7 @@ impl<'engine> OpenKeyScreen<'engine> {
         match reply.action {
             Action::PassThrough => self.pass_through(key, reply.after),
             Action::Replace | Action::ReplaceThenKey | Action::ReplaceThenKeyThenNewWord => self.replace(key, &reply),
-            Action::Unmodelled(number) => {
-                return Err(format!(
-                    "OpenKey answered with a reply this tool does not model ({number})"
-                ));
-            }
+            Action::Unmodelled(number) => return Err(Unmodelled(number)),
         }
         Ok(())
     }

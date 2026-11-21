@@ -17,6 +17,8 @@ pub struct Divergence {
     pub step: usize,
     pub expected: Vec<u16>,
     pub actual: Vec<u16>,
+    /// The number of a reply from `OpenKey` the tool cannot apply, when that is what stopped the run.
+    pub unmodelled: Option<i32>,
 }
 
 /// How many runs there were, and how many of them differed.
@@ -42,6 +44,7 @@ impl Count {
 /// The runs of one line that differed after the same key with the same texts: one entry of the report.
 #[derive(Debug)]
 struct Group {
+    unmodelled: Option<i32>,
     combos: Vec<Combo>,
     /// The combination the entry shows: the one closest to the defaults.
     shown: Combo,
@@ -53,6 +56,7 @@ struct Group {
 struct GroupKey {
     line: usize,
     step: usize,
+    unmodelled: Option<i32>,
     expected: String,
     actual: String,
 }
@@ -201,10 +205,12 @@ fn add_to_group(groups: &mut HashMap<GroupKey, Group>, line: usize, combo: Combo
     let key = GroupKey {
         line,
         step: divergence.step,
+        unmodelled: divergence.unmodelled,
         expected: decode(&divergence.expected, combo.table),
         actual: decode(&divergence.actual, combo.table),
     };
     let group = groups.entry(key).or_insert_with(|| Group {
+        unmodelled: divergence.unmodelled,
         combos: Vec::new(),
         shown: combo,
         expected: divergence.expected.clone(),
@@ -245,15 +251,23 @@ fn render_file(out: &mut String, file: &FileTally) {
         );
         let _ = writeln!(
             out,
-            "- `{}`, after {after}: expected {}, CuaKey {}. Under `{}`{}.",
+            "- `{}`, after {after}: expected {}, CuaKey {}.{} Under `{}`{}.",
             line.text,
             show(&group.expected, group.shown.table),
             show(&group.actual, group.shown.table),
+            unmodelled_note(group.unmodelled),
             group.shown,
             spread(group, per_line, file.file.methods)
         );
     }
     out.push('\n');
+}
+
+/// Says when a reply the tool cannot apply stopped the run, so it reads as a finding about the tool.
+fn unmodelled_note(unmodelled: Option<i32>) -> String {
+    unmodelled.map_or_else(String::new, |number| {
+        format!(" OpenKey gave a reply this tool does not model ({number}), so the run stopped there.")
+    })
 }
 
 /// How many combinations end the same way, and the settings they all share.
@@ -323,12 +337,13 @@ pub fn render_random(seed: u64, count: usize, findings: &[RandomFinding], elapse
         let table = finding.combo.table;
         let _ = write!(
             out,
-            "- `{}`, after key {} `{}`: expected {}, CuaKey {}. Under `{}`.",
+            "- `{}`, after key {} `{}`: expected {}, CuaKey {}.{} Under `{}`.",
             finding.sequence,
             finding.divergence.step + 1,
             finding.step_key,
             show(&finding.divergence.expected, table),
             show(&finding.divergence.actual, table),
+            unmodelled_note(finding.divergence.unmodelled),
             finding.combo
         );
         match &finding.accepted {

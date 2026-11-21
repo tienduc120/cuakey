@@ -27,6 +27,14 @@ fn random_mode_takes_a_count_and_a_seed_that_defaults_to_one() {
 }
 
 #[test]
+fn random_mode_needs_at_least_one_sequence() {
+    assert_eq!(
+        parse_mode(&args("--random 0")),
+        Err("--random needs at least one sequence; with none it would pass without comparing anything".to_owned())
+    );
+}
+
+#[test]
 fn arguments_that_mean_nothing_together_are_refused() {
     assert_eq!(
         parse_mode(&args("--seed 3")),

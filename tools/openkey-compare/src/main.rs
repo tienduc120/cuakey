@@ -21,7 +21,7 @@ use cuakey_domain::ComposerSettings;
 use crate::combo::Combo;
 use crate::corpus::{CORPUS_FILES, CorpusFile, Line, Notation, Stroke, notation};
 use crate::cuakey_screen::CuaKeyScreen;
-use crate::openkey_screen::OpenKeyScreen;
+use crate::openkey_screen::{OpenKeyScreen, Unmodelled};
 use crate::oracle::OpenKey;
 use crate::random::Rng;
 use crate::report::{CorpusTally, Divergence, RandomFinding};
@@ -75,6 +75,9 @@ fn parse_mode(args: &[String]) -> Result<Mode, String> {
         }
     }
     match (random, seed, filter) {
+        (Some(0), ..) => {
+            Err("--random needs at least one sequence; with none it would pass without comparing anything".to_owned())
+        }
         (Some(count), seed, None) => Ok(Mode::Random {
             count,
             seed: seed.unwrap_or(DEFAULT_SEED),
@@ -127,7 +130,7 @@ fn compare_corpus(engine: &mut OpenKey, filter: Option<CorpusFile>, started: Ins
         tally.begin_file(file, lines);
         for &method in file.methods {
             for combo in Combo::all_for(method) {
-                compare_lines(engine, combo, &typed, &mut tally)?;
+                compare_lines(engine, combo, &typed, &mut tally);
             }
         }
         println!("{}: done after {:.1} s", file.name, started.elapsed().as_secs_f64());
@@ -140,19 +143,13 @@ fn compare_corpus(engine: &mut OpenKey, filter: Option<CorpusFile>, started: Ins
     })
 }
 
-fn compare_lines(
-    engine: &mut OpenKey,
-    combo: Combo,
-    lines: &[Vec<Stroke>],
-    tally: &mut CorpusTally,
-) -> Result<(), String> {
+fn compare_lines(engine: &mut OpenKey, combo: Combo, lines: &[Vec<Stroke>], tally: &mut CorpusTally) {
     engine.configure(combo);
     let settings = combo.cuakey_settings();
     for (at, strokes) in lines.iter().enumerate() {
-        let divergence = first_divergence(engine, combo, &settings, strokes)?;
+        let divergence = first_divergence(engine, combo, &settings, strokes);
         tally.record(at, combo, divergence);
     }
-    Ok(())
 }
 
 fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instant) -> Result<Outcome, String> {
@@ -165,7 +162,7 @@ fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instan
         let combo = random::combo(&mut rng);
         let strokes = random::sequence(&mut rng, combo.method);
         engine.configure(combo);
-        let Some(divergence) = first_divergence(engine, combo, &combo.cuakey_settings(), &strokes)? else {
+        let Some(divergence) = first_divergence(engine, combo, &combo.cuakey_settings(), &strokes) else {
             continue;
         };
         let sequence = notation(&strokes);
@@ -197,21 +194,22 @@ fn first_divergence(
     combo: Combo,
     settings: &ComposerSettings,
     strokes: &[Stroke],
-) -> Result<Option<Divergence>, String> {
+) -> Option<Divergence> {
     let mut openkey = OpenKeyScreen::start(engine, combo.table);
     let mut cuakey = CuaKeyScreen::new(settings.clone());
     for (step, stroke) in strokes.iter().enumerate() {
-        openkey.stroke(*stroke)?;
+        let unmodelled = openkey.stroke(*stroke).err().map(|Unmodelled(number)| number);
         cuakey.stroke(*stroke);
-        if openkey.units() != cuakey.units() {
-            return Ok(Some(Divergence {
+        if unmodelled.is_some() || openkey.units() != cuakey.units() {
+            return Some(Divergence {
                 step,
                 expected: openkey.units().to_vec(),
                 actual: cuakey.units().to_vec(),
-            }));
+                unmodelled,
+            });
         }
     }
-    Ok(None)
+    None
 }
 
 #[cfg(test)]

@@ -52,11 +52,13 @@ pub fn combo(rng: &mut Rng) -> Combo {
     Combo { method, table, toggles }
 }
 
-/// One random sequence for `method`, of 1 to 12 strokes.
+/// One random sequence for `method`: 1 to 12 strokes, then a Space.
 pub fn sequence(rng: &mut Rng, method: InputMethod) -> Vec<Stroke> {
     let length = 1 + rng.below(MAX_LENGTH);
     let caps = if rng.chance(5) { OnOff::On } else { OnOff::Off };
-    (0..length).map(|_| stroke(rng, method, caps)).collect()
+    // A Space ends the last word, as it ends each corpus line: restoring and quick consonants act at a word end.
+    let space = Stroke::Key(KeyPress::new(KeyCode::Space, KeyMods::none().with_caps_lock(caps)));
+    (0..length).map(|_| stroke(rng, method, caps)).chain([space]).collect()
 }
 
 const VOWELS: [KeyCode; 6] = [KeyCode::A, KeyCode::E, KeyCode::I, KeyCode::O, KeyCode::U, KeyCode::Y];

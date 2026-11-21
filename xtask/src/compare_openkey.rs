@@ -6,13 +6,13 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 
 /// The `OpenKey` commit the comparison is made against: moving it changes what the tool calls expected.
 const OPENKEY_SHA: &str = "89c2fd3bf258562f2349f89b49d81e2f140c3fc3";
 const OPENKEY_REPOSITORY: &str = "https://github.com/tuyenvm/OpenKey";
 const OPENKEY_DIR: &str = "target/openkey";
-/// A file only a finished checkout has, so an interrupted fetch is fetched again.
+/// A file only a finished checkout has, so an interrupted fetch is fetched again; a checkout of another commit is too.
 const OPENKEY_MARKER: &str = "Sources/OpenKey/engine/Engine.cpp";
 const TOOL_MANIFEST: &str = "tools/openkey-compare/Cargo.toml";
 
@@ -101,16 +101,42 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<bool> {
 
 fn fetch_openkey(root: &Path) -> Result<()> {
     let dir = root.join(OPENKEY_DIR);
-    if dir.join(OPENKEY_MARKER).is_file() {
+    if dir.join(OPENKEY_MARKER).is_file() && checkout_is_current(checkout_head(&dir).as_deref()) {
         return Ok(());
     }
     fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
     for command in fetch_commands_for_sha(OPENKEY_SHA) {
         if !run_command(&dir, &command)? {
-            bail!("fetching OpenKey failed at `{}`", command.join(" "));
+            return Err(fetch_failure(&command));
         }
     }
     Ok(())
+}
+
+pub(crate) fn fetch_failure(command: &[String]) -> anyhow::Error {
+    anyhow!(
+        "fetching OpenKey failed at `{}`; run `cargo xtask compare-openkey` again to fetch it",
+        command.join(" ")
+    )
+}
+
+/// Whether the checkout whose `git rev-parse HEAD` printed `head` is at the pinned commit.
+pub(crate) fn checkout_is_current(head: Option<&str>) -> bool {
+    head.is_some_and(|head| head.trim() == OPENKEY_SHA)
+}
+
+/// What `git rev-parse HEAD` prints in `dir`, or `None` when git cannot read a checkout there.
+fn checkout_head(dir: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 /// Runs `command` in `dir` with this terminal's output, so a long build shows its progress.
