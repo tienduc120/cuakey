@@ -8,7 +8,7 @@ use super::spelling::Consonants;
 use super::tone::ToneStyle;
 use super::word::{Glyph, Keystroke, Rules, Word};
 use super::{ComposerSettings, Edit, Effect, KeyPress, letter_char, telex, vni};
-use crate::{InputMethod, KeyCode, Language, Letter, LetterCase, OnOff};
+use crate::{CodeTable, InputMethod, KeyCode, Language, Letter, LetterCase, OnOff, units_in};
 
 /// The keys besides letters that can type into a word, with what each types without and with Shift.
 const SYMBOL_KEYS: [(KeyCode, char, char); 12] = [
@@ -69,9 +69,7 @@ impl Composer {
             return Edit::PassThrough;
         }
         if key.code() == KeyCode::Backspace && key.mods().ctrl_or_alt() == OnOff::Off {
-            self.word.delete_last();
-            self.shown = self.word.render();
-            return Edit::PassThrough;
+            return self.delete_back();
         }
         match self.keystroke(key) {
             Some(keystroke) => self.type_into_word(keystroke, key),
@@ -95,6 +93,16 @@ impl Composer {
     /// The word being typed, as the screen shows it.
     pub fn word(&self) -> &str {
         &self.shown
+    }
+
+    /// Backspace deletes the last character of the word; with no word, the key goes through.
+    fn delete_back(&mut self) -> Edit {
+        if self.word.is_empty() {
+            return Edit::PassThrough;
+        }
+        self.word.delete_last();
+        let before = mem::replace(&mut self.shown, self.word.render());
+        backspace_edit(&before, &self.shown, self.settings.typing().code_table())
     }
 
     /// The key as the word sees it, or `None` when it ends the word.
@@ -218,6 +226,21 @@ fn edit_between(before: &str, after: &str, typed: char) -> Edit {
             insert,
             resend_key: false,
         }
+    }
+}
+
+/// The edit Backspace makes from `before` to `after`: `PassThrough` when the key deletes the one code unit that goes.
+fn backspace_edit(before: &str, after: &str, table: CodeTable) -> Edit {
+    let mut kept = before.chars();
+    let last = kept.next_back();
+    if kept.as_str() == after && last.is_some_and(|c| units_in(c, table) == 1) {
+        return Edit::PassThrough;
+    }
+    let (delete, insert) = difference(before, after);
+    Edit::Replace {
+        delete,
+        insert,
+        resend_key: false,
     }
 }
 

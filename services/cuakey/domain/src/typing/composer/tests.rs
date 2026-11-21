@@ -2,7 +2,8 @@ use alloc::string::String;
 
 use super::Composer;
 use crate::{
-    ComposerSettings, Edit, InputMethod, KeyCode, KeyMods, KeyPress, Language, OnOff, SettingChange, Settings,
+    CodeTable, ComposerSettings, Edit, InputMethod, KeyCode, KeyMods, KeyPress, Language, OnOff, SettingChange,
+    Settings,
 };
 
 const LETTER_KEYS: [KeyCode; 26] = [
@@ -623,4 +624,28 @@ fn restore_before_tab_resends_key() {
     };
     assert_eq!(insert, "as", "the keys as typed");
     assert!(resend_key, "the Tab itself follows");
+}
+
+#[test]
+fn backspace_deletes_every_code_unit_of_the_last_letter() {
+    let compound = settings().with(SettingChange::CodeTable(CodeTable::UnicodeCompound));
+    let mut composer = composer_with(&compound);
+    type_text(&mut composer, "taas");
+
+    let edit = composer.press(KeyPress::new(KeyCode::Backspace, KeyMods::none()));
+
+    assert_eq!(
+        edit,
+        Edit::Replace {
+            delete: 1,
+            insert: String::new(),
+            resend_key: false,
+        },
+        "ấ is two code units in Unicode compound, so the edit deletes the letter"
+    );
+    assert_eq!(
+        composer.press(KeyPress::new(KeyCode::Backspace, KeyMods::none())),
+        Edit::PassThrough,
+        "a letter of one code unit goes with the key itself"
+    );
 }
