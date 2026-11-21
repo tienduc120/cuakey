@@ -159,7 +159,7 @@ impl Composer {
         if let Some(c) = text_of(key) {
             self.sentence = self.sentence.after(c);
         }
-        if let Some(edit) = self.macro_edit(&shown, key) {
+        if let Some(edit) = self.macro_edit(&shown, &word.typed_keys(), key) {
             return edit;
         }
         let ending = word.ending(self.rules());
@@ -194,7 +194,7 @@ impl Composer {
             return Edit::PassThrough;
         }
         let shown = mem::take(&mut self.shown);
-        self.macro_edit(&shown, key).unwrap_or(Edit::PassThrough)
+        self.macro_edit(&shown, &shown, key).unwrap_or(Edit::PassThrough)
     }
 
     /// Whether macros expand in the language being typed.
@@ -204,13 +204,18 @@ impl Composer {
             && (self.settings.language() == Language::Vietnamese || macros.macros_in_english().is_on())
     }
 
-    /// The edit that swaps the word on screen for its macro's expansion, followed by the key that ended the word. The
+    /// The edit that swaps the word on screen for its macro's expansion, found by the word as shown or else by the keys
+    /// as typed, followed by the key that ended the word. The
     /// key goes into the edit when it types text, and is sent after it when it types none.
-    fn macro_edit(&self, shown: &str, key: KeyPress) -> Option<Edit> {
+    fn macro_edit(&self, shown: &str, typed_keys: &str, key: KeyPress) -> Option<Edit> {
         if !self.macros_apply() {
             return None;
         }
-        let mut insert = self.macros.lookup(shown, self.settings.macros().match_case())?;
+        let match_case = self.settings.macros().match_case();
+        let mut insert = self
+            .macros
+            .lookup(shown, match_case)
+            .or_else(|| self.macros.lookup(typed_keys, match_case))?;
         let typed = text_of(key);
         insert.extend(typed);
         Some(Edit::Replace {

@@ -142,6 +142,11 @@ impl Word {
         }
     }
 
+    /// The characters of the keys that typed the word, as typed.
+    pub(super) fn typed_keys(&self) -> String {
+        self.keys.iter().map(|key| key.typed.to_char()).collect()
+    }
+
     pub(super) fn is_empty(&self) -> bool {
         self.glyphs.is_empty()
     }
@@ -462,7 +467,7 @@ impl Word {
         let taken_back = matches!(self.state, State::AsTyped { .. });
         let checked = rules.spell_check.is_on() || (taken_back && self.shows_a_mark());
         if rules.restore.is_on() && self.changed && checked && self.spelling(rules) != Spelling::Syllable {
-            let typed: String = self.keys.iter().map(|key| key.typed.to_char()).collect();
+            let typed = self.typed_keys();
             return (typed != self.render()).then_some(typed);
         }
         let quick = self.with_quick_consonants(rules.consonants)?;

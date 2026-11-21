@@ -176,18 +176,18 @@ fn macros_off_expands_nothing() {
 #[test]
 fn macro_match_caps() {
     let settings = settings().with(SettingChange::MacroMatchCase(OnOff::On));
-    let mut composer = composer_for(&settings, Language::Vietnamese, &[("bt", "by the way")]);
+    let mut composer = composer_for(&settings, Language::Vietnamese, &[("btw", "by the way")]);
 
-    assert_eq!(type_text(&mut composer, "bt "), "by the way ", "lower case");
-    assert_eq!(type_text(&mut composer, "Bt "), "By the way ", "Capitalised");
-    assert_eq!(type_text(&mut composer, "BT "), "BY THE WAY ", "ALL CAPS");
+    assert_eq!(type_text(&mut composer, "btw "), "by the way ", "lower case");
+    assert_eq!(type_text(&mut composer, "Btw "), "By the way ", "Capitalised");
+    assert_eq!(type_text(&mut composer, "BTW "), "BY THE WAY ", "ALL CAPS");
 }
 
 #[test]
 fn without_match_caps_a_capital_is_no_match() {
-    let mut composer = telex_with(&[("bt", "by the way")]);
+    let mut composer = composer_for(&Settings::default(), Language::Vietnamese, &[("btw", "by the way")]);
 
-    assert_eq!(type_text(&mut composer, "Bt "), "Bt ", "the case must match");
+    assert_eq!(type_text(&mut composer, "Btw "), "Btw ", "the case must match");
 }
 
 #[test]
@@ -292,4 +292,56 @@ fn a_new_composer_has_no_macros() {
     let mut composer = composer_with(&settings());
 
     assert_eq!(type_text(&mut composer, "ko "), "ko ", "no table, no expansion");
+}
+
+#[test]
+fn a_shortcut_matches_the_keys_as_typed_with_spell_check_on() {
+    let mut composer = composer_for(&Settings::default(), Language::Vietnamese, &[("btw", "by the way")]);
+
+    assert_eq!(
+        type_text(&mut composer, "btw "),
+        "by the way ",
+        "w became ư on screen, the keys were btw"
+    );
+}
+
+#[test]
+fn a_shortcut_matches_the_keys_as_typed_with_spell_check_off() {
+    let mut composer = telex_with(&[("btw", "by the way")]);
+
+    assert_eq!(type_text(&mut composer, "btw "), "by the way ", "spell check off");
+}
+
+#[test]
+fn match_caps_applies_to_the_keys_as_typed() {
+    let settings = Settings::default().with(SettingChange::MacroMatchCase(OnOff::On));
+    let mut composer = composer_for(&settings, Language::Vietnamese, &[("btw", "by the way")]);
+
+    assert_eq!(type_text(&mut composer, "Btw "), "By the way ", "Capitalised");
+    assert_eq!(type_text(&mut composer, "BTW "), "BY THE WAY ", "ALL CAPS");
+}
+
+#[test]
+fn a_shortcut_in_screen_form_still_matches() {
+    let mut composer = composer_for(&Settings::default(), Language::Vietnamese, &[("đc", "được")]);
+
+    assert_eq!(type_text(&mut composer, "ddc "), "được ", "dd typed đ");
+}
+
+#[test]
+fn the_edit_deletes_the_word_as_shown_when_the_keys_matched() {
+    let mut composer = telex_with(&[("btw", "by the way")]);
+    type_text(&mut composer, "btw");
+
+    let edit = press(&mut composer, KeyCode::Space);
+
+    assert_eq!(
+        edit,
+        Edit::Replace {
+            delete: 3,
+            insert: "by the way ".into(),
+            resend_key: false,
+        },
+        "the screen shows btư, three characters"
+    );
 }
