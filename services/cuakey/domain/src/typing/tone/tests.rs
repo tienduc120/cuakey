@@ -202,3 +202,38 @@ fn the_last_syllable_of_a_longer_word_starts_after_the_vowel_before() {
     assert_eq!(last.first_consonants(), [BaseLetter::L, BaseLetter::L], "llo");
     assert_eq!(last.vowels(), [BaseLetter::O], "o");
 }
+
+#[test]
+fn vowels_vietnamese_lacks_carry_the_tone_on_the_first_old_style_and_the_second_new_style() {
+    assert_eq!(tone_on("viet", ToneStyle::Old), Some(1), "i of viet");
+    assert_eq!(tone_on("viet", ToneStyle::New), Some(2), "e of viet");
+    assert_eq!(tone_on("nea", ToneStyle::Old), Some(1), "e of nea");
+    assert_eq!(tone_on("nea", ToneStyle::New), Some(2), "a of nea");
+    assert_eq!(tone_on("ưo", ToneStyle::Old), Some(0), "ư of ưo");
+    assert_eq!(tone_on("ưo", ToneStyle::New), Some(1), "o of ưo");
+    assert_eq!(
+        tone_on("phuong", ToneStyle::Old),
+        Some(3),
+        "uo, written without its marks, as ươ or uô"
+    );
+}
+
+#[test]
+fn three_vowels_vietnamese_lacks_carry_it_on_the_middle_one_old_style() {
+    assert_eq!(tone_on("ưii", ToneStyle::Old), Some(1), "the middle i");
+    assert_eq!(tone_on("nguye", ToneStyle::Old), Some(3), "y of uye");
+    assert_eq!(tone_on("ưii", ToneStyle::New), Some(0), "new style, the first");
+    assert_eq!(
+        tone_on("nguye", ToneStyle::New),
+        Some(4),
+        "new style, the vowel after uy"
+    );
+}
+
+#[test]
+fn open_ie_ou_uu_carry_the_tone_on_their_first_vowel_new_style_too() {
+    assert_eq!(tone_on("tie", ToneStyle::New), Some(1), "i of tie");
+    assert_eq!(tone_on("tiet", ToneStyle::New), Some(2), "e of a closed tiet");
+    assert_eq!(tone_on("hou", ToneStyle::New), Some(1), "o of hou");
+    assert_eq!(tone_on("nguu", ToneStyle::New), Some(2), "the first u of uu");
+}

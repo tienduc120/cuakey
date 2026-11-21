@@ -6,14 +6,14 @@ use super::Mark;
 use crate::BaseLetter;
 
 /// Where an open syllable of oa, oe, or uy carries its tone: old style on the first vowel (hòa), new style on the
-/// second (hoà).
+/// second (hoà). Vowels Vietnamese does not group together carry it on the first old style, on the second new style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ToneStyle {
     Old,
     New,
 }
 
-/// Whether a syllable ends in a consonant, which moves the tone onto its last vowel.
+/// Whether a syllable ends in a consonant, which moves the tone of oa, oe, and uy onto their second vowel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Ending {
     Open,
@@ -56,6 +56,50 @@ const VOWELS: [(BaseLetter, BaseLetter); 12] = [
     (BaseLetter::U, BaseLetter::U),
     (BaseLetter::UHorn, BaseLetter::U),
     (BaseLetter::Y, BaseLetter::Y),
+];
+
+/// Pairs of vowels that carry the tone on their first vowel in either style: ai, ưa, âu, and the like.
+const FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 18] = [
+    (BaseLetter::A, BaseLetter::I),
+    (BaseLetter::A, BaseLetter::O),
+    (BaseLetter::A, BaseLetter::U),
+    (BaseLetter::A, BaseLetter::Y),
+    (BaseLetter::ACircumflex, BaseLetter::U),
+    (BaseLetter::ACircumflex, BaseLetter::Y),
+    (BaseLetter::E, BaseLetter::O),
+    (BaseLetter::ECircumflex, BaseLetter::U),
+    (BaseLetter::I, BaseLetter::A),
+    (BaseLetter::I, BaseLetter::U),
+    (BaseLetter::O, BaseLetter::I),
+    (BaseLetter::OCircumflex, BaseLetter::I),
+    (BaseLetter::OHorn, BaseLetter::I),
+    (BaseLetter::U, BaseLetter::A),
+    (BaseLetter::U, BaseLetter::I),
+    (BaseLetter::UHorn, BaseLetter::A),
+    (BaseLetter::UHorn, BaseLetter::I),
+    (BaseLetter::UHorn, BaseLetter::U),
+];
+
+/// Pairs Vietnamese lacks that carry the tone on their first vowel in an open syllable, new style too.
+const OPEN_FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 3] = [
+    (BaseLetter::I, BaseLetter::E),
+    (BaseLetter::O, BaseLetter::U),
+    (BaseLetter::U, BaseLetter::U),
+];
+
+/// The groups of three vowels Vietnamese writes, which carry the tone on their middle vowel.
+const VIETNAMESE_TRIPLES: [&[BaseLetter]; 11] = [
+    &[BaseLetter::O, BaseLetter::A, BaseLetter::I],
+    &[BaseLetter::O, BaseLetter::A, BaseLetter::Y],
+    &[BaseLetter::O, BaseLetter::E, BaseLetter::O],
+    &[BaseLetter::U, BaseLetter::ACircumflex, BaseLetter::Y],
+    &[BaseLetter::U, BaseLetter::OCircumflex, BaseLetter::I],
+    &[BaseLetter::UHorn, BaseLetter::OHorn, BaseLetter::I],
+    &[BaseLetter::UHorn, BaseLetter::OHorn, BaseLetter::U],
+    &[BaseLetter::I, BaseLetter::ECircumflex, BaseLetter::U],
+    &[BaseLetter::Y, BaseLetter::ECircumflex, BaseLetter::U],
+    &[BaseLetter::U, BaseLetter::Y, BaseLetter::A],
+    &[BaseLetter::U, BaseLetter::Y, BaseLetter::U],
 ];
 
 impl<'a> Syllable<'a> {
@@ -177,15 +221,51 @@ fn glide_belongs_to_first_consonants(first_consonants: &[BaseLetter], vowels: &[
 
 /// Which of `vowels` carries the tone.
 fn tone_vowel(vowels: &[BaseLetter], ending: Ending, style: ToneStyle) -> Option<usize> {
-    if let Some(marked) = vowels.iter().rposition(|v| has_mark(*v)) {
-        return Some(marked);
+    match vowels {
+        [] => None,
+        [_] => Some(0),
+        [first, second] => Some(pair_tone_vowel(*first, *second, ending, style)),
+        [_, _, ..] => Some(triple_tone_vowel(vowels, style)),
     }
-    match (vowels, ending) {
-        ([], _) => None,
-        (_, Ending::Closed) => vowels.len().checked_sub(1),
-        ([_], Ending::Open) => Some(0),
-        ([first, second], Ending::Open) => Some(usize::from(style == ToneStyle::New && is_glide_pair(*first, *second))),
-        (_, Ending::Open) => Some(1),
+}
+
+/// Which vowel of a pair carries the tone: the second of oa, oe, uy before a consonant or in the new style, a vowel
+/// with a mark of its own after another, the first of the other Vietnamese pairs, and the second of uo written without
+/// its marks. Other pairs carry it on the first vowel old style, and new style on the second, but for the open ie, ou,
+/// and uu.
+fn pair_tone_vowel(first: BaseLetter, second: BaseLetter, ending: Ending, style: ToneStyle) -> usize {
+    let second_in_new_style = usize::from(style == ToneStyle::New);
+    if is_glide_pair(first, second) {
+        return if ending == Ending::Closed {
+            1
+        } else {
+            second_in_new_style
+        };
+    }
+    if has_mark(second) || (first, second) == (BaseLetter::U, BaseLetter::O) {
+        return 1;
+    }
+    let first_when_open = ending == Ending::Open && OPEN_FIRST_VOWEL_PAIRS.contains(&(first, second));
+    if FIRST_VOWEL_PAIRS.contains(&(first, second)) || first_when_open {
+        0
+    } else {
+        second_in_new_style
+    }
+}
+
+/// Which of three vowels or more carries the tone: the middle one of a Vietnamese group, or the ê of uyê. A group
+/// Vietnamese lacks carries it on the middle vowel too, but new style on the vowel after a glide pair (uye), and on a
+/// first vowel with a mark of its own (ưii).
+fn triple_tone_vowel(vowels: &[BaseLetter], style: ToneStyle) -> usize {
+    let first_three = vowels.get(..3);
+    if first_three == Some(&[BaseLetter::U, BaseLetter::Y, BaseLetter::ECircumflex]) {
+        return 2;
+    }
+    let vietnamese = VIETNAMESE_TRIPLES.iter().any(|triple| first_three == Some(*triple));
+    match (style, vowels) {
+        (ToneStyle::New, [first, second, ..]) if !vietnamese && is_glide_pair(*first, *second) => 2,
+        (ToneStyle::New, [first, ..]) if !vietnamese && has_mark(*first) => 0,
+        _ => 1,
     }
 }
 
