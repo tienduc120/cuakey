@@ -838,3 +838,20 @@ fn a_quick_last_consonant_leaves_uo_as_it_is_too() {
         "g is no ng yet"
     );
 }
+
+#[test]
+fn an_exclamation_mark_ends_the_sentence_too() {
+    let capitals = vietnamese().with(SettingChange::CapitalizeSentences(OnOff::On));
+    let vni_capitals = capitals.clone().with(SettingChange::InputMethod(InputMethod::Vni));
+
+    assert_eq!(
+        type_text(&mut composer_with(&capitals), "tooi! ban"),
+        "tôi! Ban",
+        "Telex: the ! ends the word and the sentence"
+    );
+    assert_eq!(
+        type_text(&mut composer_with(&vni_capitals), "to6i! ban"),
+        "tôi! Ban",
+        "VNI: Shift with 1 types ! and ends the sentence"
+    );
+}

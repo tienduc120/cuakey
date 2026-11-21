@@ -218,12 +218,13 @@ fn typed_by(key: KeyPress) -> Option<Glyph> {
     shifted_char(&SYMBOL_KEYS, key).map(Glyph::Other)
 }
 
-/// The character a key that ends the word types, if any.
+/// The character a key that ends the word types, if any: a digit or symbol key ends a word where the input method
+/// gives it nothing to do.
 fn text_of(key: KeyPress) -> Option<char> {
     if key.mods().ctrl_or_alt().is_on() {
         return None;
     }
-    shifted_char(&WORD_END_KEYS, key)
+    shifted_char(&WORD_END_KEYS, key).or_else(|| shifted_char(&SYMBOL_KEYS, key))
 }
 
 fn shifted_char(keys: &[(KeyCode, char, char)], key: KeyPress) -> Option<char> {
