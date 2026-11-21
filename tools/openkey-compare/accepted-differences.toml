@@ -1,0 +1,10 @@
+# Differences found by random sequences that are accepted: no person would type the keys, so a random run that finds
+# only these passes. The corpus has no such list; it must match exactly.
+#
+# One table per difference. `sequence` is the keys in the corpus notation and `settings` the label the report prints
+# for them, both exactly as the report shows them; `reason` says in one line why the difference is accepted.
+#
+# [[accepted]]
+# sequence = "a<bs><bs>s"
+# settings = "telex unicode spell-check restore"
+# reason = "a Backspace on an empty text box"

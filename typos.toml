@@ -1,6 +1,7 @@
 # Spelling check for code, comments, and docs (crate-ci/typos). Protected.
 [files]
-extend-exclude = ["target/", "*.lock", "LICENSES/", ".xtask/"]
+# The comparison corpus is raw key sequences (Telex, VNI), not words.
+extend-exclude = ["target/", "*.lock", "LICENSES/", ".xtask/", "tools/openkey-compare/corpus/"]
 
 [default.extend-words]
 Nam = "Nam"

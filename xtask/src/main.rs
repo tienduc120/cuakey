@@ -74,7 +74,7 @@ fn main() -> ExitCode {
         Cmd::Hook { event } => return hook::run(&root, &event),
         Cmd::Doctor => doctor::run(&root, &mut out),
         Cmd::NewService { name, aggregate } => scaffold::new_service(&root, &name, &aggregate, &mut out).map(|()| true),
-        Cmd::CompareOpenkey { args } => compare_openkey::run(&args),
+        Cmd::CompareOpenkey { args } => compare_openkey::run(&root, &args),
     };
     match result {
         Ok(true) => ExitCode::SUCCESS,
