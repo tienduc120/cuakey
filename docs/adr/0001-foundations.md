@@ -1,6 +1,6 @@
 # 0001 - Foundations
 
-- **Status**: accepted
+- **Status**: accepted; decision 4 in part superseded by 0014
 - **Date**: 2026-11-12
 
 ## Context

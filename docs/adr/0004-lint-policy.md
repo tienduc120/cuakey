@@ -1,6 +1,6 @@
 # 0004 - Lint policy: deny everything, suppress one item with a reason
 
-- **Status**: accepted
+- **Status**: accepted; decision 1 in part superseded by 0014
 - **Date**: 2026-11-12
 
 ## Context

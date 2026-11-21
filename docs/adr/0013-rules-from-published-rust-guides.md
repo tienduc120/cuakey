@@ -1,6 +1,6 @@
 # 0013 - Rules from published Rust guides
 
-- **Status**: accepted
+- **Status**: accepted; decision 6 in part superseded by 0014
 - **Date**: 2026-11-14
 
 ## Context
@@ -37,4 +37,4 @@ Each was read and not adopted, for the reason given:
 - **`panic = "abort"`** (ANSSI suggests it): `platform-task` needs unwinding to report a panicking task.
 - **Embark's lint list verbatim**: stale, with deprecated lints that would break the build.
 - **The safety-critical drafts' bans on macros and procedural macros**: they would rule out `thiserror`, `tracing`, and `tokio`.
-- **Left for later, each with its own ADR**: `max_width = 100` (Google, rust-lang), cargo-vet audits (Mozilla, ANSSI), a cargo-hack feature check, and an auditable, signed release binary (docs/deferred.md).
+- **Left for later, each with its own ADR**: `max_width = 100` (Google, rust-lang), cargo-vet audits (Mozilla, ANSSI), a cargo-hack feature check, and an auditable, signed release binary.

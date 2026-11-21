@@ -1,6 +1,6 @@
 # 0009 - Supervised tasks, the clock port, and the HTTP server
 
-- **Status**: accepted
+- **Status**: accepted; decision 3 superseded by 0014
 - **Date**: 2026-11-12
 
 ## Context

@@ -1,6 +1,6 @@
 # 0011 - Errors are values owned by the layer that raises them
 
-- **Status**: accepted
+- **Status**: accepted; decision 4 in part superseded by 0014
 - **Date**: 2026-11-12
 
 ## Context
