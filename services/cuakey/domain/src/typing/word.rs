@@ -462,15 +462,12 @@ impl Word {
     /// What the word shows once it ends, when that differs from what it shows now: the keys as they were typed, when
     /// restoring is on and keys changed a word that is not Vietnamese (without spell check, only once a key took its
     /// change back and while a mark still shows); otherwise the quick consonants written out, which spell check allows
-    /// only when they make a Vietnamese word. A word with no vowel stays as it is.
+    /// only when they make a Vietnamese word. A word with no vowel is never restored.
     pub(super) fn ending(&self, rules: Rules) -> Option<String> {
         let has_vowel = self.glyphs.iter().any(|glyph| glyph.base().is_some_and(is_vowel));
-        if !has_vowel {
-            return None;
-        }
         let taken_back = matches!(self.state, State::AsTyped { .. });
         let checked = rules.spell_check.is_on() || (taken_back && self.shows_a_mark());
-        if rules.restore.is_on() && self.changed && checked && self.spelling(rules) != Spelling::Syllable {
+        if rules.restore.is_on() && self.changed && checked && has_vowel && self.spelling(rules) != Spelling::Syllable {
             let typed = self.typed_keys();
             return (typed != self.render()).then_some(typed);
         }
@@ -489,14 +486,16 @@ impl Word {
     }
 
     /// The word with an f, j, or w that starts it, and a g, h, or k that ends it after a vowel, written as the pair
-    /// each stands for, when the settings ask for it and the word has one.
+    /// each stands for, when the settings ask for it and the word has one. A first letter typed by a key that took its
+    /// own change back, as the w of ww, is the letter the typist asked for.
     fn with_quick_consonants(&self, consonants: Consonants) -> Option<Vec<Glyph>> {
         let mut glyphs = self.glyphs.clone();
         let mut changed = false;
         if consonants.quick_last.is_on() {
             changed |= write_last_pair(&mut glyphs);
         }
-        if consonants.quick_first.is_on() {
+        let first_taken_back = self.state == State::AsTyped { from: 0 };
+        if consonants.quick_first.is_on() && !first_taken_back {
             changed |= write_first_pair(&mut glyphs);
         }
         changed.then_some(glyphs)
@@ -519,10 +518,10 @@ fn write_last_pair(glyphs: &mut Vec<Glyph>) -> bool {
     true
 }
 
-/// Writes out an f, j, or w that starts `glyphs`, the pair's second letter in capitals only when the word goes on in
-/// capitals.
+/// Writes out an f, j, or w that starts `glyphs` and is not alone, the pair's second letter in capitals only when the
+/// word goes on in capitals.
 fn write_first_pair(glyphs: &mut Vec<Glyph>) -> bool {
-    let Some(first) = glyphs.first().and_then(|g| g.letter()) else {
+    let Some(first) = glyphs.first().and_then(|g| g.letter()).filter(|_| glyphs.len() > 1) else {
         return false;
     };
     let Some([one, two]) = quick::first_pair(first.base()) else {

@@ -621,6 +621,57 @@ fn quick_first_consonant() {
 }
 
 #[test]
+fn without_spell_check_a_quick_first_consonant_is_written_out_before_no_vowel_too() {
+    let quick_first = settings().with(SettingChange::QuickFirstConsonant(OnOff::On));
+    let simple_quick_first = quick_first
+        .clone()
+        .with(SettingChange::InputMethod(InputMethod::SimpleTelex));
+    for (settings, keys, shown) in [
+        (&simple_quick_first, "ww ", "quw "),
+        (&simple_quick_first, "jp ", "gip "),
+        (&quick_first, "fr ", "phr "),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(settings), keys),
+            shown,
+            "{keys:?}: the word has no vowel yet, but spell check is off"
+        );
+    }
+}
+
+#[test]
+fn a_quick_first_consonant_typed_alone_stays_a_letter() {
+    let quick_first = settings().with(SettingChange::QuickFirstConsonant(OnOff::On));
+    let simple_quick_first = quick_first
+        .clone()
+        .with(SettingChange::InputMethod(InputMethod::SimpleTelex));
+    for (settings, keys) in [
+        (&simple_quick_first, "w "),
+        (&simple_quick_first, "W "),
+        (&quick_first, "f "),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(settings), keys),
+            keys,
+            "{keys:?}: a letter alone is the letter itself"
+        );
+    }
+}
+
+#[test]
+fn a_w_typed_again_to_take_back_its_vowel_is_no_quick_first_consonant() {
+    let quick_first = settings()
+        .with(SettingChange::QuickFirstConsonant(OnOff::On))
+        .with(SettingChange::KeepW(OnOff::Off));
+
+    assert_eq!(
+        type_text(&mut composer_with(&quick_first), "wwu "),
+        "wu ",
+        "the second w asked for the letter w itself"
+    );
+}
+
+#[test]
 fn quick_last_consonant() {
     let mut composer = composer_with(&vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On)));
 
