@@ -903,3 +903,25 @@ fn a_lone_y_before_a_consonant_takes_no_tone() {
         "as does the y of uy before a consonant"
     );
 }
+
+#[test]
+fn one_vowel_written_twice_takes_no_tone_but_oo_and_uu() {
+    let vni_new = settings()
+        .with(SettingChange::InputMethod(InputMethod::Vni))
+        .with(SettingChange::NewToneStyle(OnOff::On));
+    let quick = settings().with(SettingChange::QuickTelex(OnOff::On));
+
+    assert_eq!(type_text(&mut vni(), "the6e1"), "thêe1", "êe is no vowel group");
+    assert_eq!(
+        type_text(&mut composer_with(&vni_new), "the6e1"),
+        "thêe1",
+        "in either style"
+    );
+    assert_eq!(
+        type_text(&mut composer_with(&quick), "ggif"),
+        "giif",
+        "nor is the ii after gi"
+    );
+    assert_eq!(type_text(&mut telex(), "nguur"), "ngủu", "uu is written as ưu");
+    assert_eq!(type_text(&mut vni(), "mooc1"), "moóc", "oo is Vietnamese");
+}

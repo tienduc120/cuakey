@@ -173,9 +173,18 @@ impl<'a> Syllable<'a> {
         tone_vowel(self.vowels(), self.ending(), style).map(|at| self.vowels.start + at)
     }
 
-    /// Whether a tone key may mark the syllable: a lone y never comes before a last consonant, so it takes no tone there.
+    /// Whether a tone key may mark the syllable. A lone y never comes before a last consonant, and no vowel is written
+    /// twice but oo (moóc) and uu (as ưu), so those take no tone.
     pub(super) fn takes_tone(&self) -> bool {
-        !(self.vowels() == [BaseLetter::Y] && self.ending() == Ending::Closed)
+        let lone_y_closed = self.vowels() == [BaseLetter::Y] && self.ending() == Ending::Closed;
+        let doubled = match self.vowels() {
+            [first, second] => {
+                let plain = plain_vowel(*first);
+                plain == plain_vowel(*second) && !matches!(plain, Some(BaseLetter::O | BaseLetter::U))
+            }
+            _ => false,
+        };
+        !lone_y_closed && !doubled
     }
 
     /// The vowels `mark` goes on, or `None` when no vowel takes it.
@@ -222,12 +231,13 @@ pub(super) fn has_mark(letter: BaseLetter) -> bool {
 }
 
 /// Whether the first of `vowels` belongs to the `first_consonants` before them: the u after q always (qua, and qu
-/// itself), the i of gi when another vowel follows (gia).
+/// itself), the i of gi when another vowel but i follows (gia).
 fn glide_belongs_to_first_consonants(first_consonants: &[BaseLetter], vowels: &[BaseLetter]) -> bool {
-    matches!(
-        (first_consonants, vowels),
-        ([BaseLetter::G], [BaseLetter::I, _, ..]) | ([.., BaseLetter::Q], [BaseLetter::U, ..])
-    )
+    match (first_consonants, vowels) {
+        ([.., BaseLetter::Q], [BaseLetter::U, ..]) => true,
+        ([BaseLetter::G], [BaseLetter::I, next, ..]) => *next != BaseLetter::I,
+        _ => false,
+    }
 }
 
 /// Which of `vowels` carries the tone.
