@@ -217,15 +217,30 @@ impl Word {
         rules.spell_check == OnOff::Off || self.spelling(rules) != Spelling::Foreign
     }
 
+    /// How the word reads as Vietnamese: a digit or symbol that types itself after letters makes it foreign, but the
+    /// letters after one that starts the word are read on their own.
     fn spelling(&self, rules: Rules) -> Spelling {
-        spelling::spelling(letters_of(&self.glyphs).as_deref(), rules.consonants)
+        let from = tail_start(&self.glyphs);
+        let letter_before = self.glyphs.iter().take(from).any(|glyph| glyph.letter().is_some());
+        if letter_before {
+            return Spelling::Foreign;
+        }
+        spelling::spelling(
+            letters_of(self.glyphs.get(from..).unwrap_or_default()).as_deref(),
+            rules.consonants,
+        )
+    }
+
+    /// The letters after the last digit or symbol of the word, which marks and tones go on, and where they start.
+    fn tail(&self) -> (Vec<BaseLetter>, usize) {
+        let from = tail_start(&self.glyphs);
+        let letters = self.glyphs.iter().skip(from).filter_map(|glyph| glyph.base()).collect();
+        (letters, from)
     }
 
     fn apply(&mut self, effect: Effect, case: LetterCase, rules: Rules) -> Outcome {
-        let Some(letters) = letters_of(&self.glyphs) else {
-            return Outcome::NotHere;
-        };
-        let syllable = Syllable::last(&letters);
+        let (letters, from) = self.tail();
+        let syllable = Syllable::last(&letters).after(from);
         let reaches_vowels = spelling::may_end_syllable(syllable.last_consonants(), rules.consonants);
         match effect {
             Effect::Mark(mark) if reaches_vowels => self.put_mark(&syllable, mark),
@@ -393,10 +408,8 @@ impl Word {
             quick_first: OnOff::Off,
             quick_last: OnOff::Off,
         };
-        let Some(letters) = letters_of(&self.glyphs) else {
-            return;
-        };
-        let syllable = Syllable::last(&letters);
+        let (letters, from) = self.tail();
+        let syllable = Syllable::last(&letters).after(from);
         let horn_on_o_alone = syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn];
         let closed =
             syllable.ending() == Ending::Closed && spelling::may_end_syllable(syllable.last_consonants(), as_written);
@@ -407,10 +420,8 @@ impl Word {
 
     /// Moves the tone of the last syllable onto the vowel that carries it now.
     fn place_tone(&mut self, style: ToneStyle) {
-        let Some(letters) = letters_of(&self.glyphs) else {
-            return;
-        };
-        let syllable = Syllable::last(&letters);
+        let (letters, from) = self.tail();
+        let syllable = Syllable::last(&letters).after(from);
         let (Some((from, tone)), Some(to)) = (self.tone_in(&syllable), syllable.tone_position(style)) else {
             return;
         };
@@ -539,6 +550,14 @@ fn write_first_pair(glyphs: &mut Vec<Glyph>) -> bool {
 
 fn letter_glyph(base: BaseLetter, case: LetterCase) -> Option<Glyph> {
     Letter::from_parts(base, Tone::Ngang, case).map(Glyph::Letter)
+}
+
+/// Where the letters after the last character of `glyphs` that is no letter start.
+fn tail_start(glyphs: &[Glyph]) -> usize {
+    glyphs
+        .iter()
+        .rposition(|glyph| glyph.letter().is_none())
+        .map_or(0, |at| at + 1)
 }
 
 /// The letters of `glyphs` without tone or case, or `None` when one is no letter.

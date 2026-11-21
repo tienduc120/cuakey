@@ -37,7 +37,9 @@ pub(super) enum MarkTarget {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Syllable<'a> {
     letters: &'a [BaseLetter],
-    /// Where the syllable starts in the word.
+    /// Where `letters` start in the word.
+    offset: usize,
+    /// Where the syllable starts in `letters`.
     start: usize,
     vowels: Range<usize>,
 }
@@ -110,6 +112,7 @@ impl<'a> Syllable<'a> {
         let Some(last_vowel) = letters.iter().rposition(|l| is_vowel(*l)) else {
             return Self {
                 letters,
+                offset: 0,
                 start: 0,
                 vowels: letters.len()..letters.len(),
             };
@@ -127,19 +130,26 @@ impl<'a> Syllable<'a> {
         let glide = usize::from(glide_belongs_to_first_consonants(first_consonants, vowels));
         Self {
             letters,
+            offset: 0,
             start,
             vowels: first_vowel + glide..last_vowel + 1,
         }
     }
 
+    /// The syllable with its places counted in a word whose first `offset` characters come before `letters`.
+    #[must_use]
+    pub(super) const fn after(self, offset: usize) -> Self {
+        Self { offset, ..self }
+    }
+
     /// Whether the syllable is the whole word.
     pub(super) const fn starts_word(&self) -> bool {
-        self.start == 0
+        self.offset == 0 && self.start == 0
     }
 
     /// Where the syllable starts in the word.
     pub(super) const fn start(&self) -> usize {
-        self.start
+        self.offset + self.start
     }
 
     /// The consonants before the vowels, with the glide of qu or gi.
@@ -149,7 +159,7 @@ impl<'a> Syllable<'a> {
 
     /// Where the vowels start in the word.
     pub(super) const fn vowels_start(&self) -> usize {
-        self.vowels.start
+        self.offset + self.vowels.start
     }
 
     pub(super) fn vowels(&self) -> &'a [BaseLetter] {
@@ -170,7 +180,7 @@ impl<'a> Syllable<'a> {
 
     /// The place in the word of the vowel that carries the tone, or `None` when there is no vowel.
     pub(super) fn tone_position(&self, style: ToneStyle) -> Option<usize> {
-        tone_vowel(self.vowels(), self.ending(), style).map(|at| self.vowels.start + at)
+        tone_vowel(self.vowels(), self.ending(), style).map(|at| self.vowels_start() + at)
     }
 
     /// Whether a tone key may mark the syllable. A y that is the whole vowel group never comes before a last consonant
@@ -192,7 +202,7 @@ impl<'a> Syllable<'a> {
     /// The vowels `mark` goes on, or `None` when no vowel takes it.
     pub(super) fn mark_target(&self, mark: Mark) -> Option<MarkTarget> {
         let vowels = self.vowels();
-        let start = self.vowels.start;
+        let start = self.vowels_start();
         let pair = horn_pair(vowels, mark).map(|u| MarkTarget::HornPair {
             u: start + u,
             o: start + u + 1,

@@ -428,6 +428,36 @@ fn vni_digits_with_nothing_to_mark_are_typed() {
 }
 
 #[test]
+fn marks_and_tones_go_on_the_letters_after_a_vni_digit_that_types_itself() {
+    let vni_spelled = vietnamese().with(SettingChange::InputMethod(InputMethod::Vni));
+    for (composer, keys, shown) in [
+        (vni(), "7u1", "7ú"),
+        (vni(), "5bru5", "5brụ"),
+        (vni(), "t1ad5g3a2", "t1ad5g3à"),
+        (composer_with(&vni_spelled), "7u1 ", "7ú "),
+    ] {
+        let mut composer = composer;
+        assert_eq!(
+            type_text(&mut composer, keys),
+            shown,
+            "{keys:?}: the letters after the digit take the marks"
+        );
+    }
+}
+
+#[test]
+fn with_spell_check_a_vni_digit_after_letters_makes_the_word_foreign() {
+    let vni_spelled = vietnamese().with(SettingChange::InputMethod(InputMethod::Vni));
+    for (keys, shown) in [("i8a4", "i8a4"), ("a1b2 ", "a1b2 ")] {
+        assert_eq!(
+            type_text(&mut composer_with(&vni_spelled), keys),
+            shown,
+            "{keys:?}: the word mixes letters and digits, so it stays or goes back to its keys"
+        );
+    }
+}
+
+#[test]
 fn keys_that_type_no_letter_end_the_word() {
     for text in ["vie j", "vie,j", "vie.j", "vie\nj", "vie\tj"] {
         let mut composer = telex();
