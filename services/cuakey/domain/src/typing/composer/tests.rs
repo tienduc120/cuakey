@@ -746,3 +746,10 @@ fn a_lone_w_types_u_horn_only_where_the_syllable_has_no_vowel_yet() {
     assert_eq!(type_text(&mut telex(), "e]"), "e]", "nor a bracket");
     assert_eq!(type_text(&mut telex(), "tw"), "tư", "after consonants alone, w types ư");
 }
+
+#[test]
+fn the_u_after_q_is_never_the_vowel_of_the_syllable() {
+    assert_eq!(type_text(&mut telex(), "qus"), "qus", "qu has no vowel for the tone");
+    assert_eq!(type_text(&mut telex(), "quas"), "quá", "the a after qu takes it");
+    assert_eq!(type_text(&mut telex(), "quys"), "quý", "as does the y");
+}

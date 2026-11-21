@@ -166,12 +166,12 @@ fn has_mark(letter: BaseLetter) -> bool {
     plain_vowel(letter).is_some_and(|plain| plain != letter)
 }
 
-/// Whether the first of `vowels` belongs to the `first_consonants` before them, as the i of gi and the u of qu do
-/// when another vowel follows: gia, qua.
+/// Whether the first of `vowels` belongs to the `first_consonants` before them: the u after q always (qua, and qu
+/// itself), the i of gi when another vowel follows (gia).
 fn glide_belongs_to_first_consonants(first_consonants: &[BaseLetter], vowels: &[BaseLetter]) -> bool {
     matches!(
         (first_consonants, vowels),
-        ([BaseLetter::G], [BaseLetter::I, _, ..]) | ([BaseLetter::Q], [BaseLetter::U, _, ..])
+        ([BaseLetter::G], [BaseLetter::I, _, ..]) | ([.., BaseLetter::Q], [BaseLetter::U, ..])
     )
 }
 
