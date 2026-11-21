@@ -725,3 +725,16 @@ fn without_spell_check_a_word_typed_as_it_is_stays_so_after_backspace() {
         assert_eq!(type_text(&mut telex(), keys), shown, "{keys:?}: {why}");
     }
 }
+
+#[test]
+fn marks_and_tones_never_reach_past_consonants_that_cannot_end_a_syllable() {
+    assert_eq!(type_text(&mut telex(), "java"), "java", "v ends no syllable");
+    assert_eq!(
+        type_text(&mut telex(), "alsof"),
+        "alsò",
+        "the o after ls starts its own syllable"
+    );
+    assert_eq!(type_text(&mut vni(), "abc1"), "abc1", "nor does bc");
+    assert_eq!(type_text(&mut vni(), "a1b2"), "áb2", "the 2 types itself");
+    assert_eq!(type_text(&mut telex(), "toans"), "toán", "n ends a syllable");
+}

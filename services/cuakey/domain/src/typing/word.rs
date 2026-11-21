@@ -220,11 +220,13 @@ impl Word {
             return Outcome::NotHere;
         };
         let syllable = Syllable::last(&letters);
+        let reaches_vowels = spelling::may_end_syllable(syllable.last_consonants(), rules.consonants);
         match effect {
-            Effect::Mark(mark) => self.put_mark(&syllable, mark),
-            Effect::Tone(tone) => self.put_tone(&syllable, tone, rules.style),
+            Effect::Mark(mark) if reaches_vowels => self.put_mark(&syllable, mark),
+            Effect::Tone(tone) if reaches_vowels => self.put_tone(&syllable, tone, rules.style),
             Effect::Stroke => self.stroke(),
             Effect::Vowel(vowel) => self.type_vowel(&syllable, vowel, case),
+            Effect::Mark(_) | Effect::Tone(_) => Outcome::NotHere,
         }
     }
 

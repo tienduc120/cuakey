@@ -164,6 +164,12 @@ fn last_consonants(consonants: Consonants) -> impl Iterator<Item = &'static [Bas
     LAST_CONSONANTS.iter().chain(quick).copied()
 }
 
+/// Whether `last` letters may follow a syllable's vowels as its last consonants, or start them, so marks and tones
+/// still reach the vowels before them.
+pub(super) fn may_end_syllable(last: &[BaseLetter], consonants: Consonants) -> bool {
+    last.is_empty() || last_consonants(consonants).any(|c| c.starts_with(last))
+}
+
 /// Whether `vowels` are a Vietnamese vowel group.
 fn is_vowel_group(vowels: &[BaseLetter]) -> bool {
     VOWEL_GROUPS.contains(&vowels)
