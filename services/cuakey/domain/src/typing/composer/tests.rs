@@ -805,12 +805,25 @@ fn a_mark_goes_on_a_vowel_before_another_only_where_vietnamese_writes_that_pair(
 }
 
 #[test]
-fn restoring_keeps_the_pair_quick_telex_typed() {
+fn without_spell_check_restoring_waits_for_a_word_that_still_shows_a_mark() {
     let quick = settings().with(SettingChange::QuickTelex(OnOff::On));
 
     assert_eq!(
         type_text(&mut composer_with(&quick), "success "),
         "suches ",
-        "the cc typed ch, and restoring types the keys as the word took them"
+        "the tone taken back leaves no mark, so the word stays"
+    );
+    assert_eq!(
+        type_text(&mut telex(), "taass "),
+        "taas ",
+        "â is still shown, so the keys are typed again"
+    );
+    assert_eq!(
+        type_text(
+            &mut composer_with(&vietnamese().with(SettingChange::QuickTelex(OnOff::On))),
+            "vieejtt "
+        ),
+        "vieejtt ",
+        "with spell check, restoring types the doubled consonant as typed"
     );
 }

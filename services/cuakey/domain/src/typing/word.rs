@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use super::quick;
 use super::spelling::{self, Consonants, Spelling};
-use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, is_vowel};
+use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, has_mark, is_vowel};
 use super::{Effect, Mark};
 use crate::{BaseLetter, KeyCode, Letter, LetterCase, OnOff, Tone};
 
@@ -190,8 +190,7 @@ impl Word {
         self.place_tone(rules.style);
     }
 
-    /// Quick Telex: a consonant typed right after itself types the second letter of the pair it starts, which is also
-    /// what restoring the word types for it.
+    /// Quick Telex: a consonant typed right after itself types the second letter of the pair it starts.
     fn type_doubled_consonant(&mut self, key: Keystroke) -> bool {
         let Some(letter) = key.typed.letter() else {
             return false;
@@ -204,9 +203,6 @@ impl Word {
             return false;
         };
         self.glyphs.push(Glyph::Letter(second));
-        if let Some(last) = self.keys.last_mut() {
-            last.typed = Glyph::Letter(second);
-        }
         true
     }
 
@@ -449,14 +445,15 @@ impl Word {
 
     /// What the word shows once it ends, when that differs from what it shows now: the keys as they were typed, when
     /// restoring is on and keys changed a word that is not Vietnamese (without spell check, only once a key took its
-    /// change back); otherwise the quick consonants written out, which spell check allows only when they make a
-    /// Vietnamese word. A word with no vowel stays as it is.
+    /// change back and while a mark still shows); otherwise the quick consonants written out, which spell check allows
+    /// only when they make a Vietnamese word. A word with no vowel stays as it is.
     pub(super) fn ending(&self, rules: Rules) -> Option<String> {
         let has_vowel = self.glyphs.iter().any(|glyph| glyph.base().is_some_and(is_vowel));
         if !has_vowel {
             return None;
         }
-        let checked = rules.spell_check.is_on() || matches!(self.state, State::AsTyped { .. });
+        let taken_back = matches!(self.state, State::AsTyped { .. });
+        let checked = rules.spell_check.is_on() || (taken_back && self.shows_a_mark());
         if rules.restore.is_on() && self.changed && checked && self.spelling(rules) != Spelling::Syllable {
             return Some(self.keys.iter().map(|key| key.typed.to_char()).collect());
         }
@@ -464,6 +461,14 @@ impl Word {
         let allowed = rules.spell_check == OnOff::Off
             || spelling::spelling(letters_of(&quick).as_deref(), rules.consonants) == Spelling::Syllable;
         allowed.then(|| render(&quick))
+    }
+
+    /// Whether a letter of the word carries a tone or a vowel mark.
+    fn shows_a_mark(&self) -> bool {
+        self.glyphs
+            .iter()
+            .filter_map(|glyph| glyph.letter())
+            .any(|letter| letter.tone() != Tone::Ngang || has_mark(letter.base()))
     }
 
     /// The word with an f, j, or w that starts it, and a g, h, or k that ends it after a vowel, written as the pair

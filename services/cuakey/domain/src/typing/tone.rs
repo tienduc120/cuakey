@@ -211,7 +211,7 @@ pub(super) fn is_vowel(letter: BaseLetter) -> bool {
 }
 
 /// ă â ê ô ơ ư: a vowel with a mark of its own, which draws the tone to it.
-fn has_mark(letter: BaseLetter) -> bool {
+pub(super) fn has_mark(letter: BaseLetter) -> bool {
     plain_vowel(letter).is_some_and(|plain| plain != letter)
 }
 
