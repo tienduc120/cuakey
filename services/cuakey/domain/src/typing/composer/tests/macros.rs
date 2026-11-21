@@ -103,21 +103,20 @@ fn a_shifted_break_key_types_its_shifted_character() {
 }
 
 #[test]
-fn a_chord_ends_the_word_and_is_sent_after_the_expansion() {
-    let mut composer = telex_with(&[("ko", "không")]);
-    type_text(&mut composer, "ko");
+fn a_chord_never_expands_a_macro() {
+    let in_english = settings().with(SettingChange::MacrosInEnglish(OnOff::On));
+    for language in [Language::Vietnamese, Language::English] {
+        let mut composer = composer_for(&in_english, language, &[("ko", "không")]);
+        type_text(&mut composer, "ko");
 
-    let edit = composer.press(KeyPress::new(KeyCode::A, KeyMods::none().with_ctrl_or_alt(OnOff::On)));
+        let edit = composer.press(KeyPress::new(KeyCode::A, KeyMods::none().with_ctrl_or_alt(OnOff::On)));
 
-    assert_eq!(
-        edit,
-        Edit::Replace {
-            delete: 2,
-            insert: "không".into(),
-            resend_key: true,
-        },
-        "Ctrl+A goes on to the app"
-    );
+        assert_eq!(
+            edit,
+            Edit::PassThrough,
+            "{language:?}: Ctrl+A acts on the text the screen shows, so the shortcut stays"
+        );
+    }
 }
 
 #[test]

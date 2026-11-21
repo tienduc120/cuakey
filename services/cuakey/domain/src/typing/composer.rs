@@ -74,10 +74,13 @@ impl Composer {
     /// What to do on screen with `key`.
     pub fn press(&mut self, key: KeyPress) -> Edit {
         let ended = self.ended.take();
+        if key.mods().ctrl_or_alt().is_on() {
+            return self.pass_chord();
+        }
         if self.settings.language() == Language::English {
             return self.press_in_english(key);
         }
-        if key.code() == KeyCode::Backspace && key.mods().ctrl_or_alt() == OnOff::Off {
+        if key.code() == KeyCode::Backspace {
             return self.delete_back(ended);
         }
         match self.keystroke(key) {
@@ -111,6 +114,14 @@ impl Composer {
         &self.shown
     }
 
+    /// A Ctrl or Alt chord is for the app, which acts on the text as the screen shows it: the word ends unchanged.
+    fn pass_chord(&mut self) -> Edit {
+        self.raised = OnOff::Off;
+        self.word = Word::default();
+        self.shown.clear();
+        Edit::PassThrough
+    }
+
     /// Backspace deletes the last character of the word; with no word, the key goes through, and right after a Space
     /// takes up the word the Space ended.
     fn delete_back(&mut self, ended: Option<(Word, String)>) -> Edit {
@@ -128,9 +139,6 @@ impl Composer {
 
     /// The key as the word sees it, or `None` when it ends the word.
     fn keystroke(&self, key: KeyPress) -> Option<Keystroke> {
-        if key.mods().ctrl_or_alt().is_on() {
-            return None;
-        }
         let effects = self.effects_of(key)?;
         let typed = typed_by(key)?;
         let starts_word = self.word.is_empty();
@@ -181,7 +189,7 @@ impl Composer {
             insert: text.clone(),
             resend_key: true,
         });
-        if key.code() == KeyCode::Space && key.mods().ctrl_or_alt() == OnOff::Off {
+        if key.code() == KeyCode::Space {
             self.ended = Some(match ending {
                 Some(text) => (Word::as_typed(&text), text),
                 None => (word, shown),
@@ -197,12 +205,11 @@ impl Composer {
             self.break_word();
             return Edit::PassThrough;
         }
-        let chord = key.mods().ctrl_or_alt().is_on();
-        if key.code() == KeyCode::Backspace && !chord {
+        if key.code() == KeyCode::Backspace {
             self.shown.pop();
             return Edit::PassThrough;
         }
-        if let Some(glyph) = typed_by(key).filter(|_| !chord) {
+        if let Some(glyph) = typed_by(key) {
             self.shown.push(glyph.to_char());
             return Edit::PassThrough;
         }
@@ -302,9 +309,6 @@ fn typed_by(key: KeyPress) -> Option<Glyph> {
 /// The character a key that ends the word types, if any: a digit or symbol key ends a word where the input method
 /// gives it nothing to do.
 fn text_of(key: KeyPress) -> Option<char> {
-    if key.mods().ctrl_or_alt().is_on() {
-        return None;
-    }
     shifted_char(&WORD_END_KEYS, key).or_else(|| shifted_char(&SYMBOL_KEYS, key))
 }
 

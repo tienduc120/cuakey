@@ -465,6 +465,24 @@ fn a_chord_or_a_key_with_no_text_ends_the_word() {
 }
 
 #[test]
+fn a_chord_ends_the_word_as_the_screen_shows_it() {
+    let quick_last = vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On));
+    for (settings, keys) in [(vietnamese(), "asno"), (quick_last, "ok")] {
+        let mut composer = composer_with(&settings);
+        type_text(&mut composer, keys);
+
+        let edit = composer.press(KeyPress::new(KeyCode::S, KeyMods::none().with_ctrl_or_alt(OnOff::On)));
+
+        assert_eq!(
+            edit,
+            Edit::PassThrough,
+            "{keys:?}: Ctrl+S neither restores the word nor writes out a quick consonant"
+        );
+        assert_eq!(composer.word(), "", "{keys:?}: the chord ends the word");
+    }
+}
+
+#[test]
 fn breaking_the_word_starts_a_new_one() {
     let mut composer = telex();
     type_text(&mut composer, "vie");
