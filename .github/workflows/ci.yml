@@ -17,7 +17,6 @@ env:
 
 jobs:
   verify:
-    # server-only: a desktop app adds a windows-latest job (AGENTS.md, "Server-only rules").
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -57,6 +56,36 @@ jobs:
 
       # A gate that rewrites a file (a stale Cargo.lock, say) must fail here, not pass with a dirty tree.
       - name: Clean worktree
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"
+
+  # The app ships for Windows, so the same gates also run where it runs: the MSVC toolchain and Windows paths
+  # (ADR-0014).
+  verify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-nextest@0.9.151,cargo-deny@0.20.2,cargo-shear@1.14.0,typos@1.52.2
+
+      - name: Verify
+        run: cargo xtask verify --full
+
+      - name: Clean worktree
+        shell: bash
         run: |
           git status --porcelain
           test -z "$(git status --porcelain)"

@@ -32,8 +32,7 @@ allow = ["thiserror", "tracing", "jiff"]
 # Adapters depend inward and never on the delivery layer.
 layers = ["domain", "application"]
 platform = ["*"]
-# server-only: axum, tower-http, and hyper are web crates; a desktop app drops them here (AGENTS.md, "Server-only rules").
-deny = ["axum", "tower-http", "hyper", "anyhow"]
+deny = ["anyhow"]
 
 [kinds.interfaces]
 # Delivery talks to use cases only; domain types and storage stay behind the application boundary.
@@ -41,10 +40,9 @@ layers = ["application"]
 platform = ["*"]
 deny = ["sqlx", "anyhow"]
 
-[kinds.api]
-# The composition root: wires adapters to use cases and serves them. Nothing depends on it.
-# server-only: a desktop app replaces this kind with a desktop root that runs the window and message loop
-# (AGENTS.md, "Server-only rules").
+[kinds.desktop]
+# The composition root: wires adapters to use cases and starts the UI toolkit's event loop on the main thread. Its
+# main.rs starts with #![windows_subsystem = "windows"]. Nothing depends on it (ADR-0014).
 layers = ["domain", "application", "infrastructure", "interfaces"]
 platform = ["*"]
 deny = ["anyhow"]

@@ -3,8 +3,9 @@
 [workspace]
 resolver = "3"
 members = ["xtask", "platform/*", "services/*/*"]
-# Rule fixtures are staged as a workspace of their own by `cargo xtask rules`.
-exclude = ["fixtures"]
+# Rule fixtures are staged as a workspace of their own by `cargo xtask rules`. A tool in tools/ is its own Cargo
+# project, outside the gates (ADR-0014).
+exclude = ["fixtures", "tools"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,21 +15,18 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+# A crate enters here in the change that first uses it: cargo-shear refuses an entry no member uses (ADR-0015).
+
 # Platform crates. Services reach shared technical code only through these.
 platform-clock = { path = "platform/clock" }
-platform-http = { path = "platform/http" }
-platform-task = { path = "platform/task" }
 
 # Runtime
-axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 jiff = { version = "0.2.43", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = { version = "2.0.21", default-features = false }
 tokio = { version = "1.54.1", default-features = false }
 tokio-util = { version = "0.7.20", default-features = false }
-tower = { version = "0.5.3", default-features = false }
-tower-http = { version = "0.7.1", default-features = false }
 tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "fmt", "json", "env-filter"] }
 
@@ -42,18 +40,16 @@ toml = "1.2.1"
 toml_edit = "0.25.19"
 walkdir = "2.5.0"
 
-# Tests
-http-body-util = "0.1.3"
-
 # An overflow stops the program instead of producing a wrong value, in every profile (Android; ANSSI LANG-ARITH).
 # `cargo xtask verify` refuses a dev or test profile that turns overflow checks or debug assertions off.
 [profile.release]
 overflow-checks = true
 
 [workspace.lints.rust]
-# A Windows desktop app needs unsafe for Win32 and COM: it makes this "deny" and allows it in one platform-windows
-# crate only, with every block documented (AGENTS.md, "Server-only rules").
-unsafe_code = "forbid"
+# Win32 and COM calls are unsafe, so unsafe code is denied rather than forbidden: platform-windows alone lowers it,
+# once, at its crate root with #![expect(unsafe_code, reason = "...")]. The `unsafe-outside-platform-windows` gate
+# refuses that anywhere else (ADR-0014).
+unsafe_code = "deny"
 non_ascii_idents = "forbid"
 rust_2018_idioms = { level = "deny", priority = -1 }
 unreachable_pub = "deny"
@@ -122,8 +118,8 @@ wildcard_dependencies = "deny"
 # From the published guides (ADR-0013).
 unused_result_ok = "deny" # Microsoft: `.ok();` throws an error away as surely as `let _ =`
 as_underscore = "deny"    # Linux kernel, Rust Foundation safety-critical: name the type a cast produces
-# Unsafe discipline (Android, Chromium, Fuchsia, Google, Linux kernel, Microsoft). Inert while unsafe_code is forbid;
-# they bind the one crate that may ever hold unsafe.
+# Unsafe discipline (Android, Chromium, Fuchsia, Google, Linux kernel, Microsoft). They bind platform-windows, the one
+# crate that may hold unsafe: every block says why it is sound and holds one unsafe operation.
 undocumented_unsafe_blocks = "deny"
 multiple_unsafe_ops_per_block = "deny"
 unnecessary_safety_comment = "deny"

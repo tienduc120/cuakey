@@ -28,8 +28,8 @@ An existing test is the specification: change it only when the specification cha
 | domain | plain values; time as a `jiff::Timestamp` you build |
 | application | the fakes in its own `testing` module and `platform_clock::FixedClock`; `#[tokio::test]` |
 | infrastructure | the adapter itself, with a real backing store when there is one |
-| interfaces | the router called with `tower::ServiceExt::oneshot`, the use case built over the application's fakes (`features = ["test-support"]`) |
-| api | the assembled service on `127.0.0.1:0`, stopped by cancelling its token |
+| interfaces | the UI state after an action (a form submitted, a message shown), the use case built over the application's fakes (`features = ["test-support"]`) |
+| desktop | the assembled app with its real adapters, driven the way a window drives it, without opening one |
 
 A fake records what it was asked and answers with a programmed outcome; assert on what it recorded.
 

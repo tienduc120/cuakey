@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use proc_macro2::{TokenStream, TokenTree};
 use syn::spanned::Spanned as _;
 use syn::visit::{self, Visit};
 use syn::{AttrStyle, Attribute, Expr, Fields, ImplItem, Lit, Meta, Type};
@@ -12,13 +13,25 @@ use super::workspace::{Crate, Location};
 /// The doc-comment marker that makes a struct an aggregate root (ADR-0007).
 const AGGREGATE_MARKER: &str = "agent:aggregate";
 
+/// The one crate that may lower `unsafe_code` from the workspace's deny, for Win32 and COM calls (ADR-0014).
+const UNSAFE_CRATE: &str = "platform-windows";
+
+/// Lint levels below the workspace's `deny`.
+const LOWERING: [&str; 3] = ["allow", "expect", "warn"];
+
 /// `files` are (path relative to the repository, source) pairs of one crate.
 pub(crate) fn check(c: &Crate, files: &[(String, String)]) -> Vec<Finding> {
     let check_restore =
         matches!(c.location(), Location::Layer { layer, .. } if layer != "domain" && layer != "infrastructure");
+    let unsafe_code = if c.name == UNSAFE_CRATE {
+        UnsafeCode::MayLower
+    } else {
+        UnsafeCode::Denied
+    };
     let mut v = Visitor {
         no_std: c.no_std,
         check_restore,
+        unsafe_code,
         ..Visitor::default()
     };
     for (path, src) in files {
@@ -38,10 +51,19 @@ struct Aggregate {
     id_type: Option<String>,
 }
 
+/// Whether a crate may lower `unsafe_code` below the workspace's deny.
+#[derive(Default, PartialEq, Eq)]
+enum UnsafeCode {
+    #[default]
+    Denied,
+    MayLower,
+}
+
 #[derive(Default)]
 struct Visitor {
     no_std: bool,
     check_restore: bool,
+    unsafe_code: UnsafeCode,
     file: String,
     test_file: bool,
     found: Vec<Finding>,
@@ -102,6 +124,13 @@ impl<'ast> Visit<'ast> for Visitor {
                            #[expect(lint, reason = \"...\")] on the one item that needs it"
                 .to_owned();
             self.push(i.span().start().line, "source-inner-allow", message);
+        }
+        if self.unsafe_code == UnsafeCode::Denied && lowers_unsafe_code(i) {
+            let message = format!(
+                "only {UNSAFE_CRATE} may hold unsafe code (ADR-0014): elsewhere `unsafe_code` stays denied; put the \
+                 unsafe call behind a safe function in {UNSAFE_CRATE}"
+            );
+            self.push(i.span().start().line, "unsafe-outside-platform-windows", message);
         }
     }
 
@@ -197,6 +226,49 @@ impl<'ast> Visit<'ast> for Visitor {
             visit::visit_impl_item_fn(self, i);
         }
     }
+}
+
+/// `#[allow(unsafe_code)]`, `#[expect(..)]`, or `#[warn(..)]`, inner or outer, also behind any `cfg_attr`.
+fn lowers_unsafe_code(a: &Attribute) -> bool {
+    let Meta::List(list) = &a.meta else { return false };
+    let Some(name) = list.path.get_ident().map(ToString::to_string) else {
+        return false;
+    };
+    if LOWERING.contains(&name.as_str()) {
+        names_unsafe_code(list.tokens.clone())
+    } else {
+        name == "cfg_attr" && lowers_inside(list.tokens.clone())
+    }
+}
+
+/// Whether the attributes a `cfg_attr` applies lower `unsafe_code`, through any depth of nested `cfg_attr`.
+fn lowers_inside(tokens: TokenStream) -> bool {
+    let mut previous: Option<String> = None;
+    for token in tokens {
+        match token {
+            TokenTree::Ident(ident) => previous = Some(ident.to_string()),
+            TokenTree::Group(group) => {
+                let found = match previous.as_deref() {
+                    Some("cfg_attr") => lowers_inside(group.stream()),
+                    Some(lint) if LOWERING.contains(&lint) => names_unsafe_code(group.stream()),
+                    Some(_) | None => false,
+                };
+                if found {
+                    return true;
+                }
+                previous = None;
+            }
+            TokenTree::Punct(_) | TokenTree::Literal(_) => previous = None,
+        }
+    }
+    false
+}
+
+/// A lint list names `unsafe_code` as a word; a `reason` string that mentions it does not count.
+fn names_unsafe_code(tokens: TokenStream) -> bool {
+    tokens
+        .into_iter()
+        .any(|t| matches!(t, TokenTree::Ident(ident) if ident == "unsafe_code"))
 }
 
 fn fn_name(item: &ImplItem) -> Option<String> {

@@ -182,3 +182,79 @@ fn a_file_that_does_not_parse_is_a_finding_not_a_pass() {
         vec!["source-parse"]
     );
 }
+
+const EXPECT_UNSAFE: &str = "#![expect(unsafe_code, reason = \"Win32 calls are unsafe\")]\npub fn f() {}\n";
+
+fn named(name: &str, rel: &str) -> Crate {
+    Crate {
+        name: name.to_owned(),
+        ..at(rel, false)
+    }
+}
+
+#[test]
+fn platform_windows_may_lower_unsafe_code() {
+    let windows = named("platform-windows", "platform/windows");
+
+    assert_eq!(
+        rules(&windows, &[("platform/windows/src/lib.rs", EXPECT_UNSAFE)]),
+        Vec::<&str>::new()
+    );
+}
+
+#[test]
+fn no_other_crate_may_lower_unsafe_code() {
+    let service = named("billing-infrastructure", "services/billing/infrastructure");
+    let platform = named("platform-clock", "platform/clock");
+
+    assert_eq!(
+        rules(
+            &service,
+            &[("services/billing/infrastructure/src/lib.rs", EXPECT_UNSAFE)]
+        ),
+        vec!["unsafe-outside-platform-windows"]
+    );
+    assert_eq!(
+        rules(&platform, &[("platform/clock/src/lib.rs", EXPECT_UNSAFE)]),
+        vec!["unsafe-outside-platform-windows"]
+    );
+}
+
+#[test]
+fn every_way_of_lowering_unsafe_code_is_caught() {
+    let service = named("billing-domain", "services/billing/domain");
+    let lowered = [
+        "#[expect(unsafe_code, reason = \"x\")]\nfn f() {}\n",
+        "#[allow(unsafe_code, reason = \"x\")]\nfn f() {}\n",
+        "#[warn(unsafe_code)]\nfn f() {}\n",
+        "#[cfg_attr(windows, expect(unsafe_code, reason = \"x\"))]\nfn f() {}\n",
+        "#[cfg_attr(windows, cfg_attr(test, allow(dead_code, unsafe_code)))]\nfn f() {}\n",
+    ];
+
+    for src in lowered {
+        assert_eq!(
+            rules(&service, &[("services/billing/domain/src/a.rs", src)]),
+            vec!["unsafe-outside-platform-windows"],
+            "{src}"
+        );
+    }
+}
+
+#[test]
+fn raising_unsafe_code_or_lowering_another_lint_is_fine() {
+    let service = named("billing-domain", "services/billing/domain");
+    let fine = [
+        "#[deny(unsafe_code)]\nfn f() {}\n",
+        "#[forbid(unsafe_code)]\nfn f() {}\n",
+        "#[expect(clippy::indexing_slicing, reason = \"x\")]\nfn f() {}\n",
+        "#[cfg_attr(windows, expect(dead_code, reason = \"unsafe_code is not lowered here\"))]\nfn f() {}\n",
+    ];
+
+    for src in fine {
+        assert_eq!(
+            rules(&service, &[("services/billing/domain/src/a.rs", src)]),
+            Vec::<&str>::new(),
+            "{src}"
+        );
+    }
+}

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use super::{TaskError, Tasks};
+use super::{TaskError, Tasks, spawn_thread};
 
 const GRACE: Duration = Duration::from_secs(5);
 
@@ -100,4 +100,27 @@ async fn a_task_that_ignores_cancellation_is_aborted_after_the_grace_period_and_
         matches!(errors.0.as_slice(), [TaskError::Stuck { name: "stubborn", .. }]),
         "{errors:?}"
     );
+}
+
+#[test]
+fn spawned_thread_runs_and_joins() {
+    let ran = Arc::new(AtomicBool::new(false));
+    let seen = Arc::clone(&ran);
+
+    let thread = spawn_thread("worker", move || seen.store(true, Ordering::SeqCst)).unwrap();
+    thread.join().unwrap();
+
+    assert!(ran.load(Ordering::SeqCst), "the body ran before join returned");
+}
+
+#[test]
+fn panic_in_thread_is_reported() {
+    let thread = spawn_thread("hook", || panic!("hook failed")).unwrap();
+
+    let error = thread.join().unwrap_err();
+
+    let TaskError::Panicked { name, message } = &error else {
+        panic!("{error:?}")
+    };
+    assert_eq!((*name, message.as_str()), ("hook", "hook failed"));
 }

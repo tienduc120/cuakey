@@ -37,8 +37,8 @@ disallowed-methods = [
   { path = "tokio::task::JoinSet::spawn", reason = "run concurrent work through platform_task, which cancels, awaits, and reports panics" },
   { path = "tokio::runtime::Handle::spawn", reason = "run concurrent work through platform_task, which cancels, awaits, and reports panics" },
   { path = "tokio::runtime::Runtime::spawn", reason = "run concurrent work through platform_task, which cancels, awaits, and reports panics" },
-  { path = "std::thread::spawn", reason = "a detached thread outlives its caller; use std::thread::scope, or platform_task in async code" },
-  { path = "std::thread::Builder::spawn", reason = "a detached thread outlives its caller; use std::thread::scope, or platform_task in async code" },
+  { path = "std::thread::spawn", reason = "a detached thread outlives its caller; use std::thread::scope, platform_task::spawn_thread for a thread of its own, or platform_task in async code" },
+  { path = "std::thread::Builder::spawn", reason = "a detached thread outlives its caller; use std::thread::scope, platform_task::spawn_thread for a thread of its own, or platform_task in async code" },
 
   # Waiting on nothing hides a race; tests that need time use tokio::time::pause.
   { path = "std::thread::sleep", reason = "wait on a timer, a channel, or a cancellation token; tests use tokio::time::pause" },
@@ -59,10 +59,6 @@ disallowed-methods = [
   { path = "tracing_subscriber::util::SubscriberInitExt::try_init", reason = "only a composition root installs the global subscriber" },
   { path = "tracing_subscriber::fmt::SubscriberBuilder::init", reason = "only a composition root installs the global subscriber" },
   { path = "tracing_subscriber::fmt::SubscriberBuilder::try_init", reason = "only a composition root installs the global subscriber" },
-
-  # A server with no timeouts is held open by the slowest client.
-  # server-only: a desktop app drops this ban together with platform-http (AGENTS.md, "Server-only rules").
-  { path = "axum::serve", reason = "serve through platform_http::Server, which requires every timeout" },
 
   # A caught panic hides a bug (Google; Microsoft M-PANIC-CONTINUATION).
   { path = "std::panic::catch_unwind", reason = "a panic is a bug: let platform_task report it rather than catch and carry on" },

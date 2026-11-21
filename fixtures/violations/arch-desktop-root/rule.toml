@@ -1,0 +1,3 @@
+enforcer = "gates"
+contains = "arch-layer: desktop-root-interfaces must not depend on desktop-root-desktop"
+doc = "nothing depends on the desktop composition root"

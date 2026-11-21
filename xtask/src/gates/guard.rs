@@ -367,8 +367,8 @@ fn never_returns(command: &[&str]) -> Option<String> {
              fails a test after two minutes (.config/nextest.toml)."
         }
         ("cargo", Some("run")) if runs_service(command) => {
-            "a service runs until it is stopped, which hangs the session. Its tests start it on port 0; to run it \
-             by hand, start it in the background."
+            "an app runs until it is closed, which hangs the session. Its tests drive the assembled app without a \
+             window; to run it by hand, start it in the background."
         }
         ("cargo", Some("watch")) => "`cargo watch` never returns. Run the one command you need.",
         ("cargo", Some("update")) if !(has("-p") || has("--package") || has("--precise")) => {
@@ -392,7 +392,7 @@ fn never_returns(command: &[&str]) -> Option<String> {
     Some(format!("BLOCKED: {reason}"))
 }
 
-/// A `-api` or `-worker` binary is a server: it runs until stopped.
+/// A `-desktop` or `-worker` binary runs until it is closed or stopped.
 fn runs_service(command: &[&str]) -> bool {
     let named = command.windows(2).filter_map(|w| match w {
         [flag, name] if matches!(*flag, "-p" | "--package" | "--bin") => Some(*name),
@@ -405,7 +405,7 @@ fn runs_service(command: &[&str]) -> bool {
     });
     named
         .chain(inline)
-        .any(|n| n.ends_with("-api") || n.ends_with("-worker"))
+        .any(|n| n.ends_with("-desktop") || n.ends_with("-worker"))
 }
 
 #[cfg(test)]

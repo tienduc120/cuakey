@@ -1,9 +1,13 @@
 //! Supervised concurrency (ADR-0009). Every task belongs to a [`Tasks`] set: the first failure or panic cancels the
 //! rest, [`Tasks::wait`] returns only when all have stopped, and dropping the set aborts whatever is still running.
-//! This is the only crate allowed to start a task; clippy.toml refuses `tokio::spawn` everywhere else.
+//! Work that must own an OS thread starts with [`spawn_thread`], whose handle reports a panic when joined.
+//! This is the only crate allowed to start a task or a thread; clippy.toml refuses `tokio::spawn` and
+//! `std::thread::spawn` everywhere else.
 
 use std::any::Any;
 use std::collections::HashMap;
+use std::io;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use tokio::task::{Id, JoinError, JoinSet};
@@ -134,6 +138,35 @@ impl Tasks {
 
     fn name(&self, id: Id) -> &'static str {
         self.names.get(&id).copied().unwrap_or("unnamed")
+    }
+}
+
+/// A dedicated OS thread started by [`spawn_thread`].
+#[derive(Debug)]
+#[must_use = "dropping the handle detaches the thread; join it to learn whether it panicked"]
+pub struct ThreadHandle {
+    name: &'static str,
+    handle: JoinHandle<()>,
+}
+
+/// Starts `body` on its own named OS thread, for work that must own its thread, such as a Win32 message loop. Work
+/// that can share a runtime belongs in [`Tasks`] instead.
+pub fn spawn_thread(name: &'static str, body: impl FnOnce() + Send + 'static) -> io::Result<ThreadHandle> {
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "platform-task is the one place that starts threads (ADR-0009, ADR-0014)"
+    )]
+    let handle = thread::Builder::new().name(name.to_owned()).spawn(body)?;
+    Ok(ThreadHandle { name, handle })
+}
+
+impl ThreadHandle {
+    /// Waits for the thread to return; a panic comes back as [`TaskError::Panicked`], naming the thread.
+    pub fn join(self) -> Result<(), TaskError> {
+        self.handle.join().map_err(|payload| TaskError::Panicked {
+            name: self.name,
+            message: panic_message(payload),
+        })
     }
 }
 

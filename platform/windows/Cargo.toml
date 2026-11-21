@@ -1,0 +1,11 @@
+[package]
+name = "platform-windows"
+description = "Windows itself, behind safe functions: the one crate allowed unsafe code, for Win32 and COM (ADR-0014)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

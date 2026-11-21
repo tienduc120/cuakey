@@ -1,5 +1,6 @@
 //! `cargo xtask`: the repository's single command surface (AGENTS.md).
 
+mod compare_openkey;
 mod doctor;
 mod gates;
 mod hook;
@@ -50,6 +51,11 @@ enum Cmd {
         #[arg(long)]
         aggregate: String,
     },
+    /// Compare typing with `OpenKey` as a black box; arguments after `--` go to the comparison tool.
+    CompareOpenkey {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -68,6 +74,7 @@ fn main() -> ExitCode {
         Cmd::Hook { event } => return hook::run(&root, &event),
         Cmd::Doctor => doctor::run(&root, &mut out),
         Cmd::NewService { name, aggregate } => scaffold::new_service(&root, &name, &aggregate, &mut out).map(|()| true),
+        Cmd::CompareOpenkey { args } => compare_openkey::run(&args),
     };
     match result {
         Ok(true) => ExitCode::SUCCESS,

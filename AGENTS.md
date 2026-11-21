@@ -2,7 +2,7 @@
 
 CuaKey is a Vietnamese typing app for Windows, written in Rust and built on these rules. It has one service, `services/cuakey`.
 
-The decisions behind it: [docs/adr/](docs/adr/README.md). What is deliberately not built yet, and what triggers it: [docs/deferred.md](docs/deferred.md). Do not report a rule as enforced unless a tool in this repo checks it.
+The decisions behind it: [docs/adr/](docs/adr/README.md). Do not report a rule as enforced unless a tool in this repo checks it.
 
 ## How to work
 
@@ -31,8 +31,9 @@ Run from the repository root. There is no Make; `cargo xtask` is the command sur
 - **The typing engine is written from scratch.** Never read or copy OpenKey's source; compare behaviour only through `cargo xtask compare-openkey`.
 - **Test first.** No production code without a test that failed first, for the right reason. Unit tests live in a sibling file (`#[cfg(test)] mod tests;` next to `<module>/tests.rs`), never inline. Follow the `writing-rust-tests` skill.
 - **Start a service with the generator.** `cargo xtask new-service` copies the witness `services/example` under a new name, so it starts green. Change `services/example` only when every future service should change, and keep it passing every gate.
-- **Errors are typed values owned by the layer that raises them.** `Result<T, E>` with a `thiserror` enum per operation; never panic for an expected failure; keep the cause as `#[source]`; only `interfaces` maps an outcome to a status, with an exhaustive `match`. `anyhow` is for the tool only. Follow the `handling-errors` skill (ADR-0011).
-- **Concurrency only through `platform-task`, serving only through `platform-http`, time only through `platform-clock`.** clippy refuses `tokio::spawn`, `std::thread::spawn`, `std::thread::sleep`, `axum::serve`, `SystemTime::now`, `CancellationToken::new`, `std::env::var`, and `std::process::exit` everywhere else (ADR-0009).
+- **Errors are typed values owned by the layer that raises them.** `Result<T, E>` with a `thiserror` enum per operation; never panic for an expected failure; keep the cause as `#[source]`; only `interfaces` maps an outcome to what the user sees, with an exhaustive `match`. `anyhow` is for the tool only. Follow the `handling-errors` skill (ADR-0011).
+- **Concurrency only through `platform-task`, time only through `platform-clock`.** A thread of its own (a message loop) starts with `platform_task::spawn_thread`. clippy refuses `tokio::spawn`, `std::thread::spawn`, `std::thread::sleep`, `SystemTime::now`, `CancellationToken::new`, `std::env::var`, and `std::process::exit` everywhere else (ADR-0009, ADR-0014).
+- **`unsafe` lives only in `platform-windows`**, behind safe functions; every block holds one unsafe operation and a safety comment that says why it is sound (ADR-0014).
 - **Suppress a lint only with `#[expect(lint, reason = "...")]` on the one item that needs it.** `#[allow]` and crate-wide `#![allow]` are refused. A suppression is debt: say so to the user.
 - **A new dependency is a decision, not an edit.** Versions live once in the root `Cargo.toml` (`[workspace.dependencies]`), which is protected; a member writes `{ workspace = true }`. Propose it with an ADR, and credit it in the README.
 - **Never weaken a gate to make a change pass.** `Cargo.toml`, `clippy.toml`, `architecture.toml`, `deny.toml`, the other root configs, `xtask/src/gates`, and `fixtures/` are the rules that judge you: change them only with the user's explicit approval. Fix the cause instead.
@@ -52,9 +53,9 @@ One bounded context per service under `services/<name>/`, one crate per layer. A
 | --- | --- | --- |
 | `<svc>-domain` | nothing of ours | only `thiserror`, `jiff`; the crate is `#![no_std]`, so the compiler keeps I/O, threads, env, and the clock out (ADR-0006) |
 | `<svc>-application` | its domain, `platform-clock` | only `thiserror`, `tracing`, `jiff` |
-| `<svc>-infrastructure` | its domain and application, any platform | not `axum`, `tower-http`, `hyper`, `anyhow` |
+| `<svc>-infrastructure` | its domain and application, any platform | not `anyhow` |
 | `<svc>-interfaces` | its application, any platform | not `sqlx`, `anyhow` |
-| `<svc>-api` | its own layers, any platform | not `anyhow` |
+| `<svc>-desktop` | its own layers, any platform | not `anyhow`; nothing depends on it |
 | `platform-<name>` | other platform crates, never a service | not `anyhow` |
 
 - A service never depends on another service's crates. Nothing depends on `xtask`.
@@ -66,25 +67,22 @@ Enforced, each with a fixture:
 
 - **Layer rules** (`cargo xtask verify`, `architecture.toml`): the table above, `#![no_std]` in the domain, and every crate under `services/<svc>/<layer>`, `platform/<name>`, or `xtask`.
 - **Manifest policy**: `[lints] workspace = true`, package fields inherited from the workspace, the package named after where it lives, external versions only from the workspace.
-- **Source rules** (syn): aggregate shape, `restore` only in infrastructure, no `extern crate std` in a `no_std` crate, no inline test modules, no crate-wide `#![allow]`.
+- **Source rules** (syn): aggregate shape, `restore` only in infrastructure, no `extern crate std` in a `no_std` crate, no inline test modules, no crate-wide `#![allow]`, and `unsafe_code` lowered (`allow`, `expect`, `warn`) only in `platform-windows`.
 - **Rules from published guides** (`cargo xtask verify`, ADR-0013): no `assert!` outside tests (`debug_assert!` is fine); domain values with private fields and fallible construction (no `pub` field, `Deref`, or `From<primitive>`); no mutable statics in services; no direct file, network, process, or environment access in the application layer; no `#[path]`; error messages lowercase with no trailing period; log values as fields, not inside the message; no glob re-exports; overflow checks on in release and never turned off; no build flags from the environment (`RUSTFLAGS`, `RUSTC_WRAPPER`).
-- **Lints** (`Cargo.toml`, `clippy.toml`): clippy `all` and `pedantic` at deny, plus picked restriction lints: no `unwrap`/`expect`/`panic`/`todo`/indexing outside tests, no `println!`, no `mod.rs`, no wildcard arm on an enum, no `#[allow]`, no `unsafe`, functions under 80 lines, no lock guard across an `.await`, every public type implements `Debug`, no `.ok();` that drops an error, no `catch_unwind`, no `Box::leak` or `ManuallyDrop`, no `as _`, public items linted like private ones, and the bans listed under Hard rules.
+- **Lints** (`Cargo.toml`, `clippy.toml`): clippy `all` and `pedantic` at deny, plus picked restriction lints: no `unwrap`/`expect`/`panic`/`todo`/indexing outside tests, no `println!`, no `mod.rs`, no wildcard arm on an enum, no `#[allow]`, no `unsafe` outside `platform-windows` and none there without a safety comment, functions under 80 lines, no lock guard across an `.await`, every public type implements `Debug`, no `.ok();` that drops an error, no `catch_unwind`, no `Box::leak` or `ManuallyDrop`, no `as _`, public items linted like private ones, and the bans listed under Hard rules.
 - **Supply chain** (`deny.toml`, in `verify --full`): permissive licenses only, advisories, crates.io only, and banned crates (`anyhow` outside the tool, `async-trait`, `lazy_static`, `openssl`, deprecated YAML crates, and `ctor`/`inventory`/`linkme`, since no code runs before `main`).
 - **Tests**: nextest fails a test after two minutes and fails one that leaks a child process.
 
-## Server-only rules
+## Desktop adaptations
 
-This base targets backend services, and a few rules exist only for that. Each carries a `server-only` comment where it lives. When the project is a desktop app (Windows or otherwise), replace exactly these, with an ADR, and keep every other rule:
+These rules come from a base written for backend services. CuaKey is a Windows desktop app, so a few differ, as ADR-0014 records; every other rule here applies unchanged:
 
-| Rule | Where | For a desktop app |
-| --- | --- | --- |
-| `platform-http` and the `axum::serve` ban | `platform/http`, `clippy.toml` | delete both: there is no server |
-| The `api` kind, an HTTP composition root | `architecture.toml`, `services/example/api` | a desktop root kind instead: it opens the window and runs the message loop, with `#![windows_subsystem = "windows"]` in `main.rs` |
-| Web crates denied in infrastructure | `architecture.toml` (`axum`, `tower-http`, `hyper`) | drop the line |
-| `interfaces` maps outcomes to HTTP status | `services/example/interfaces` | map them to UI state and messages; keep the exhaustive `match` |
-| `unsafe_code = "forbid"` everywhere | `Cargo.toml` | Win32 and COM calls are `unsafe`: allow it in one `platform-windows` crate only, with every block documented (`undocumented_unsafe_blocks`) |
-| `platform-task` on tokio, and the spawn bans | `platform/task`, `clippy.toml` | keep them for background work; the UI toolkit's own event loop runs on the main thread, started from the desktop root |
-| CI on Linux only | `.github/workflows/ci.yml` | add a `windows-latest` job |
+- There is no HTTP server crate. The composition root kind is `desktop`: it wires the adapters, starts the UI toolkit's event loop on the main thread, and its `main.rs` starts with `#![windows_subsystem = "windows"]`.
+- `interfaces` maps each outcome to UI state (the message a window shows), with an exhaustive `match`.
+- `unsafe_code` is denied, not forbidden. Only `platform-windows` lowers it, once, at its crate root with `#![expect(unsafe_code, reason = "...")]`, written together with its first `unsafe` block.
+- `platform-task` keeps tokio and the spawn bans for background work; `platform_task::spawn_thread` starts a thread of its own, such as a Win32 message loop.
+- CI runs `verify --full` on `windows-latest` as well as Linux.
+- `tools/` is outside the workspace, like `fixtures/`: a tool there is its own Cargo project.
 
 ## Agent guard
 
@@ -97,7 +95,7 @@ It asks the user, in Claude Code's permission prompt, before:
 It refuses outright, with a reason you can act on:
 
 - skipping the git hooks: `--no-verify`, `git commit -n`, `LEFTHOOK=0`, `core.hooksPath`, `lefthook uninstall`.
-- commands that never return or move too much at once: `cargo test` (use nextest), `cargo run` of an `-api` or `-worker` binary in the foreground, `cargo watch`, a bare `cargo update`, `docker compose up` without `-d`, following logs, `tail -f`, `Get-Content -Wait`.
+- commands that never return or move too much at once: `cargo test` (use nextest), `cargo run` of a `-desktop` or `-worker` binary in the foreground, `cargo watch`, a bare `cargo update`, `docker compose up` without `-d`, following logs, `tail -f`, `Get-Content -Wait`.
 
 The prompt is used only in the permission modes where Claude Code documents that it reaches the user (default, plan, auto). In `acceptEdits`, `bypassPermissions`, and `dontAsk` a protected change is refused instead; there, or for a session of many rule changes, the user starts the session with `XTASK_ALLOW_PROTECTED=1`, which lifts only the protected-file rule (ADR-0012).
 
@@ -117,6 +115,8 @@ Grow this by correction: when any tool gets something wrong, add the line.
 - **clippy never flags `pub use x::*`**, whatever its settings; the `glob-reexport` gate does.
 - **clippy reports the resolved path of a banned call** (`tokio::task::spawn`, not `tokio::spawn`). A fixture's expected text must name the resolved path.
 - **An `async fn` impl with nothing to await is refused** (`unused_async_trait_impl`). Return `std::future::ready(..)` from a plain `fn` instead.
+- **An `#[expect]` with nothing to meet fails the build** (`unfulfilled_lint_expectations`, denied as a warning). That is why `platform-windows` gains `#![expect(unsafe_code, ...)]` only together with its first `unsafe` block.
+- **The text `SAFETY:` in any comment above an item counts as a safety comment**, even inside a crate doc, so `unnecessary_safety_comment` fires on a safe item below it. Write "safety comment" in prose instead.
 - **A test in one layer cannot name another layer's types it may not depend on.** Use the fakes from that layer's `testing` module (`features = ["test-support"]` on the dev-dependency).
 - **`doc_markdown` wants backticks** around identifiers in doc comments, such as `no_std` or `CreateNote`.
 - **Cargo treats a `members` glob that matches nothing as a literal path** and fails to load the workspace.

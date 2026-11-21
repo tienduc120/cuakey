@@ -41,19 +41,19 @@ fn service(svc: &str) -> Vec<Crate> {
         krate(
             &format!("{p}/interfaces"),
             &format!("{svc}-interfaces"),
-            &[&format!("{svc}-application"), "axum"],
+            &[&format!("{svc}-application"), "egui"],
         ),
         krate(
-            &format!("{p}/api"),
-            &format!("{svc}-api"),
+            &format!("{p}/desktop"),
+            &format!("{svc}-desktop"),
             &[
                 &format!("{svc}-infrastructure"),
                 &format!("{svc}-interfaces"),
-                "platform-http",
+                "platform-windows",
             ],
         ),
         krate("platform/clock", "platform-clock", &["jiff"]),
-        krate("platform/http", "platform-http", &["axum"]),
+        krate("platform/windows", "platform-windows", &["windows"]),
         krate("xtask", "xtask", &["anyhow"]),
     ]
 }
@@ -116,14 +116,14 @@ fn a_service_never_depends_on_another_service() {
 
 #[test]
 fn platform_code_knows_nothing_of_any_service() {
-    let crates = with_dep(service("billing"), "platform-http", "billing-application", false);
+    let crates = with_dep(service("billing"), "platform-windows", "billing-application", false);
 
     assert_eq!(rules(&crates), vec!["arch-layer"]);
 }
 
 #[test]
 fn a_layer_may_use_only_the_platform_crates_its_kind_allows() {
-    let crates = with_dep(service("billing"), "billing-application", "platform-http", false);
+    let crates = with_dep(service("billing"), "billing-application", "platform-windows", false);
 
     assert_eq!(rules(&crates), vec!["arch-platform"]);
 }
@@ -133,6 +133,20 @@ fn nothing_may_depend_on_the_tool() {
     let crates = with_dep(service("billing"), "platform-clock", "xtask", false);
 
     assert_eq!(rules(&crates), vec!["arch-tool"]);
+}
+
+#[test]
+fn nothing_may_depend_on_the_desktop_root() {
+    for layer in [
+        "billing-domain",
+        "billing-application",
+        "billing-infrastructure",
+        "billing-interfaces",
+    ] {
+        let crates = with_dep(service("billing"), layer, "billing-desktop", false);
+
+        assert_eq!(rules(&crates), vec!["arch-layer"], "{layer}");
+    }
 }
 
 #[test]
