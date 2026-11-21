@@ -233,8 +233,12 @@ impl Word {
                 self.put_tone(&syllable, tone, rules.style)
             }
             Effect::Stroke => self.stroke(&syllable, rules),
-            Effect::Vowel(vowel) => self.type_vowel(&syllable, vowel, case),
-            Effect::Mark(_) | Effect::Tone(_) => Outcome::NotHere,
+            Effect::Vowel(vowel)
+                if spelling::may_precede_typed_vowel(syllable.first_consonants(), rules.consonants.zwjf_first) =>
+            {
+                self.type_vowel(&syllable, vowel, case)
+            }
+            Effect::Mark(_) | Effect::Tone(_) | Effect::Vowel(_) => Outcome::NotHere,
         }
     }
 

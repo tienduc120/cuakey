@@ -787,6 +787,42 @@ fn a_lone_w_types_u_horn_only_where_the_syllable_has_no_vowel_yet() {
 }
 
 #[test]
+fn a_lone_w_types_u_horn_only_after_a_first_consonant_that_goes_before_it() {
+    for (keys, shown) in [
+        ("nhw", "như"),
+        ("trw", "trư"),
+        ("ngw", "ngư"),
+        ("pw", "pư"),
+        ("qw", "qư"),
+        ("h[", "hơ"),
+    ] {
+        assert_eq!(
+            type_text(&mut telex(), keys),
+            shown,
+            "{keys:?}: a Vietnamese first consonant"
+        );
+    }
+    let quick_first = settings().with(SettingChange::QuickFirstConsonant(OnOff::On));
+    for (composer, keys) in [
+        (telex(), "btw"),
+        (telex(), "kw"),
+        (telex(), "ghw"),
+        (telex(), "jw"),
+        (telex(), "zw"),
+        (composer_with(&quick_first), "fw"),
+        (telex(), "k["),
+        (telex(), "pr]"),
+    ] {
+        let mut composer = composer;
+        assert_eq!(
+            type_text(&mut composer, keys),
+            keys,
+            "{keys:?}: no Vietnamese syllable starts so, so the key types itself"
+        );
+    }
+}
+
+#[test]
 fn the_u_after_q_is_never_the_vowel_of_the_syllable() {
     assert_eq!(type_text(&mut telex(), "qus"), "qus", "qu has no vowel for the tone");
     assert_eq!(type_text(&mut telex(), "quas"), "quá", "the a after qu takes it");

@@ -61,6 +61,9 @@ const FIRST_CONSONANTS: [&[BaseLetter]; 26] = [
 ];
 
 const ZWJF_FIRST: [&[BaseLetter]; 4] = [&[Z], &[W], &[J], &[F]];
+
+/// The first consonants that go only before i, e, ê, and y.
+const BEFORE_FRONT_VOWELS_ONLY: [&[BaseLetter]; 3] = [&[K], &[G, H], &[N, G, H]];
 const QUICK_FIRST: [&[BaseLetter]; 3] = [&[F], &[J], &[W]];
 
 /// The consonants a Vietnamese syllable ends with.
@@ -162,6 +165,18 @@ fn first_consonants(consonants: Consonants) -> impl Iterator<Item = &'static [Ba
 fn last_consonants(consonants: Consonants) -> impl Iterator<Item = &'static [BaseLetter]> {
     let quick = QUICK_LAST.iter().filter(move |_| consonants.quick_last.is_on());
     LAST_CONSONANTS.iter().chain(quick).copied()
+}
+
+/// The first letters of ph and qu, which a typist may write out as p and q alone before a vowel.
+const STARTS_OF_PAIRS: [&[BaseLetter]; 2] = [&[P], &[Q]];
+
+/// Whether a vowel a key types on its own, ư or ơ, may follow `first`: with no consonant before it, or after a first
+/// consonant that goes before it, or the p or q that starts ph or qu. Quick first consonants do not count: f stands for
+/// ph only once the word ends.
+pub(super) fn may_precede_typed_vowel(first: &[BaseLetter], zwjf_first: OnOff) -> bool {
+    let zwjf = ZWJF_FIRST.iter().filter(|_| zwjf_first.is_on());
+    let mut known = FIRST_CONSONANTS.iter().chain(&STARTS_OF_PAIRS).chain(zwjf);
+    first.is_empty() || (known.any(|c| *c == first) && !BEFORE_FRONT_VOWELS_ONLY.contains(&first))
 }
 
 /// Whether `last` letters may follow a syllable's vowels as its last consonants, or start them, so marks and tones
