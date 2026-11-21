@@ -1,9 +1,11 @@
+use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use super::Composer;
 use crate::{
-    CodeTable, ComposerSettings, Edit, InputMethod, KeyCode, KeyMods, KeyPress, Language, OnOff, SettingChange,
-    Settings,
+    BaseLetter, CodeTable, ComposerSettings, Edit, InputMethod, KeyCode, KeyMods, KeyPress, Language, Letter,
+    LetterCase, OnOff, SettingChange, Settings, Tone,
 };
 
 const LETTER_KEYS: [KeyCode; 26] = [
@@ -924,4 +926,218 @@ fn one_vowel_written_twice_takes_no_tone_but_oo_and_uu() {
     );
     assert_eq!(type_text(&mut telex(), "nguur"), "ngủu", "uu is written as ưu");
     assert_eq!(type_text(&mut vni(), "mooc1"), "moóc", "oo is Vietnamese");
+}
+
+#[test]
+fn the_y_after_qu_takes_the_tone_before_a_consonant() {
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "quynhf"),
+        "quỳnh",
+        "the u of qu is no vowel of its own"
+    );
+    assert_eq!(type_text(&mut vni(), "quyt5"), "quỵt", "VNI alike");
+}
+
+/// Where a word is typed with its tone key.
+#[derive(Debug, Clone, Copy)]
+enum ToneKeyAt {
+    /// Right after the vowel that carries it, before any last consonant.
+    AfterVowel,
+    /// After the whole word.
+    End,
+}
+
+/// An input method as a typist uses it: the key typed after each plain letter for its mark, and the key for each tone.
+#[derive(Debug)]
+struct Keyboard {
+    method: InputMethod,
+    marks: [(BaseLetter, char, char); 7],
+    tones: [(Tone, char); 5],
+}
+
+const TELEX_KEYBOARD: Keyboard = Keyboard {
+    method: InputMethod::Telex,
+    marks: [
+        (BaseLetter::ABreve, 'a', 'w'),
+        (BaseLetter::ACircumflex, 'a', 'a'),
+        (BaseLetter::ECircumflex, 'e', 'e'),
+        (BaseLetter::OCircumflex, 'o', 'o'),
+        (BaseLetter::OHorn, 'o', 'w'),
+        (BaseLetter::UHorn, 'u', 'w'),
+        (BaseLetter::DStroke, 'd', 'd'),
+    ],
+    tones: [
+        (Tone::Sac, 's'),
+        (Tone::Huyen, 'f'),
+        (Tone::Hoi, 'r'),
+        (Tone::Nga, 'x'),
+        (Tone::Nang, 'j'),
+    ],
+};
+
+const VNI_KEYBOARD: Keyboard = Keyboard {
+    method: InputMethod::Vni,
+    marks: [
+        (BaseLetter::ABreve, 'a', '8'),
+        (BaseLetter::ACircumflex, 'a', '6'),
+        (BaseLetter::ECircumflex, 'e', '6'),
+        (BaseLetter::OCircumflex, 'o', '6'),
+        (BaseLetter::OHorn, 'o', '7'),
+        (BaseLetter::UHorn, 'u', '7'),
+        (BaseLetter::DStroke, 'd', '9'),
+    ],
+    tones: [
+        (Tone::Sac, '1'),
+        (Tone::Huyen, '2'),
+        (Tone::Hoi, '3'),
+        (Tone::Nga, '4'),
+        (Tone::Nang, '5'),
+    ],
+};
+
+/// Real Vietnamese words, each with the tone style it is written in (on: new style).
+const REAL_WORDS: &[(&str, OnOff)] = &[
+    ("quỳnh", OnOff::Off),
+    ("quýnh", OnOff::Off),
+    ("quỵt", OnOff::Off),
+    ("quýt", OnOff::Off),
+    ("quyết", OnOff::Off),
+    ("quyền", OnOff::Off),
+    ("quạ", OnOff::Off),
+    ("quốc", OnOff::Off),
+    ("gìn", OnOff::Off),
+    ("giết", OnOff::Off),
+    ("giữ", OnOff::Off),
+    ("gió", OnOff::Off),
+    ("giường", OnOff::Off),
+    ("ý", OnOff::Off),
+    ("kỷ", OnOff::Off),
+    ("mỹ", OnOff::Off),
+    ("tỵ", OnOff::Off),
+    ("huỳnh", OnOff::Off),
+    ("khuỷu", OnOff::Off),
+    ("tuýt", OnOff::Off),
+    ("moóc", OnOff::Off),
+    ("goòng", OnOff::Off),
+    ("soóc", OnOff::Off),
+    ("cừu", OnOff::Off),
+    ("hưu", OnOff::Off),
+    ("thuở", OnOff::Off),
+    ("được", OnOff::Off),
+    ("người", OnOff::Off),
+    ("hòa", OnOff::Off),
+    ("hoà", OnOff::On),
+    ("khỏe", OnOff::Off),
+    ("khoẻ", OnOff::On),
+    ("thúy", OnOff::Off),
+    ("thuý", OnOff::On),
+    ("má", OnOff::Off),
+    ("mắt", OnOff::Off),
+    ("mất", OnOff::Off),
+    ("mẹ", OnOff::Off),
+    ("lễ", OnOff::Off),
+    ("tím", OnOff::Off),
+    ("có", OnOff::Off),
+    ("cố", OnOff::Off),
+    ("mở", OnOff::Off),
+    ("thú", OnOff::Off),
+    ("từ", OnOff::Off),
+    ("hái", OnOff::Off),
+    ("cháo", OnOff::Off),
+    ("sáu", OnOff::Off),
+    ("máy", OnOff::Off),
+    ("dấu", OnOff::Off),
+    ("đấy", OnOff::Off),
+    ("kéo", OnOff::Off),
+    ("nếu", OnOff::Off),
+    ("mía", OnOff::Off),
+    ("dịu", OnOff::Off),
+    ("tiếng", OnOff::Off),
+    ("toán", OnOff::Off),
+    ("hoặc", OnOff::Off),
+    ("khoét", OnOff::Off),
+    ("gói", OnOff::Off),
+    ("tối", OnOff::Off),
+    ("mới", OnOff::Off),
+    ("múa", OnOff::Off),
+    ("tuần", OnOff::Off),
+    ("thuế", OnOff::Off),
+    ("múi", OnOff::Off),
+    ("muốn", OnOff::Off),
+    ("huýt", OnOff::Off),
+    ("cửa", OnOff::Off),
+    ("ngửi", OnOff::Off),
+    ("yến", OnOff::Off),
+    ("ngoài", OnOff::Off),
+    ("xoáy", OnOff::Off),
+    ("ngoẹo", OnOff::Off),
+    ("khuấy", OnOff::Off),
+    ("tuổi", OnOff::Off),
+    ("chuyện", OnOff::Off),
+    ("nhiều", OnOff::Off),
+    ("rượu", OnOff::Off),
+    ("yếu", OnOff::Off),
+    ("khuya", OnOff::Off),
+];
+
+/// The keys that type `word` on `keyboard`, its tone key typed `at` that place.
+fn keys_for(word: &str, keyboard: &Keyboard, at: ToneKeyAt) -> String {
+    let letters: Vec<Letter> = word.chars().map(|c| Letter::from_char(c).unwrap()).collect();
+    let tone_key = letters
+        .iter()
+        .find_map(|letter| keyboard.tones.iter().find(|(tone, _)| *tone == letter.tone()))
+        .map(|(_, key)| *key);
+    let last_vowel = letters.iter().rposition(|letter| letter.with_tone(Tone::Sac).is_some());
+    let mut keys = String::new();
+    for (place, letter) in letters.iter().enumerate() {
+        match keyboard.marks.iter().find(|(base, ..)| *base == letter.base()) {
+            Some((_, plain, mark)) => {
+                keys.push(*plain);
+                keys.push(*mark);
+            }
+            None => keys.extend(Letter::from_parts(letter.base(), Tone::Ngang, LetterCase::Lower).map(Letter::to_char)),
+        }
+        if matches!(at, ToneKeyAt::AfterVowel) && Some(place) == last_vowel {
+            keys.extend(tone_key);
+        }
+    }
+    if matches!(at, ToneKeyAt::End) {
+        keys.extend(tone_key);
+    }
+    keys
+}
+
+/// Whether Telex can type `word`: a second o always makes ô, so a plain oo (moóc) is typed in VNI.
+fn telex_types(word: &str) -> bool {
+    let bases: Vec<BaseLetter> = word.chars().map(|c| Letter::from_char(c).unwrap().base()).collect();
+    !bases.windows(2).any(|pair| pair == [BaseLetter::O, BaseLetter::O])
+}
+
+/// What typing `word` on `keyboard`, its tone key `at` that place, shows when it is not the word.
+fn typed_wrong(keyboard: &Keyboard, (word, new_style): (&str, OnOff), at: ToneKeyAt) -> Option<String> {
+    let settings = vietnamese()
+        .with(SettingChange::InputMethod(keyboard.method))
+        .with(SettingChange::NewToneStyle(new_style));
+    let keys = keys_for(word, keyboard, at);
+    let shown = type_text(&mut composer_with(&settings), &format!("{keys} "));
+    (shown != format!("{word} ")).then(|| format!("{:?} {keys:?} shows {shown:?}, not {word:?}", keyboard.method))
+}
+
+#[test]
+fn real_words_type_with_the_tone_key_before_or_after_the_last_consonant() {
+    let wrong: Vec<String> = [&TELEX_KEYBOARD, &VNI_KEYBOARD]
+        .into_iter()
+        .flat_map(|keyboard| REAL_WORDS.iter().map(move |entry| (keyboard, *entry)))
+        .filter(|(keyboard, (word, _))| keyboard.method != InputMethod::Telex || telex_types(word))
+        .flat_map(|(keyboard, entry)| {
+            [ToneKeyAt::AfterVowel, ToneKeyAt::End].map(|at| typed_wrong(keyboard, entry, at))
+        })
+        .flatten()
+        .collect();
+
+    assert_eq!(
+        wrong,
+        Vec::<String>::new(),
+        "every real word types as Vietnamese writes it"
+    );
 }

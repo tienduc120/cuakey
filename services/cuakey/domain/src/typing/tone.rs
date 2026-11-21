@@ -173,10 +173,12 @@ impl<'a> Syllable<'a> {
         tone_vowel(self.vowels(), self.ending(), style).map(|at| self.vowels.start + at)
     }
 
-    /// Whether a tone key may mark the syllable. A lone y never comes before a last consonant, and no vowel is written
-    /// twice but oo (moóc) and uu (as ưu), so those take no tone.
+    /// Whether a tone key may mark the syllable. A y that is the whole vowel group never comes before a last consonant
+    /// (the y of quỳnh follows the glide of qu, as uy), and no vowel is written twice but oo (moóc) and uu (as ưu), so
+    /// those take no tone.
     pub(super) fn takes_tone(&self) -> bool {
-        let lone_y_closed = self.vowels() == [BaseLetter::Y] && self.ending() == Ending::Closed;
+        let after_qu = self.first_consonants().ends_with(&[BaseLetter::Q, BaseLetter::U]);
+        let lone_y_closed = self.vowels() == [BaseLetter::Y] && self.ending() == Ending::Closed && !after_qu;
         let doubled = match self.vowels() {
             [first, second] => {
                 let plain = plain_vowel(*first);
