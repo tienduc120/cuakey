@@ -253,3 +253,11 @@ fn a_pair_that_only_ends_a_syllable_carries_the_tone_on_its_second_vowel_before_
         "an open ii keeps it on the first i, new style too"
     );
 }
+
+#[test]
+fn a_doubled_o_carries_the_tone_on_its_second_o() {
+    for style in [ToneStyle::Old, ToneStyle::New] {
+        assert_eq!(tone_on("mooc", style), Some(2), "moóc");
+        assert_eq!(tone_on("goong", style), Some(2), "goòng");
+    }
+}

@@ -855,3 +855,14 @@ fn an_exclamation_mark_ends_the_sentence_too() {
         "VNI: Shift with 1 types ! and ends the sentence"
     );
 }
+
+#[test]
+fn a_closed_oo_takes_the_tone_on_its_second_o() {
+    assert_eq!(type_text(&mut vni(), "mooc1"), "moóc", "moóc");
+    assert_eq!(
+        type_text(&mut vni(), "soo1c"),
+        "soóc",
+        "a tone typed early moves onto the second o"
+    );
+    assert_eq!(type_text(&mut vni(), "goo2ng"), "goòng", "goòng");
+}

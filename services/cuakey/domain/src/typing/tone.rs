@@ -236,10 +236,10 @@ fn tone_vowel(vowels: &[BaseLetter], ending: Ending, style: ToneStyle) -> Option
 }
 
 /// Which vowel of a pair carries the tone: the second of oa, oe, uy before a consonant or in the new style, a vowel
-/// with a mark of its own after another, and the second of uo written without its marks. The other Vietnamese pairs
-/// end a syllable and carry it on their first vowel, which keeps it before a consonant only when it has a mark of its
-/// own (ưi, but uac). Pairs Vietnamese lacks carry it on the first vowel old style, and new style on the second, but
-/// for the open ie, ii, ou, and uu.
+/// with a mark of its own after another, the second of oo (moóc), and the second of uo written without its marks. The
+/// other Vietnamese pairs end a syllable and carry it on their first vowel, which keeps it before a consonant only
+/// when it has a mark of its own (ưi, but uac). Pairs Vietnamese lacks carry it on the first vowel old style, and new
+/// style on the second, but for the open ie, ii, ou, and uu.
 fn pair_tone_vowel(first: BaseLetter, second: BaseLetter, ending: Ending, style: ToneStyle) -> usize {
     let second_in_new_style = usize::from(style == ToneStyle::New);
     if is_glide_pair(first, second) {
@@ -249,7 +249,7 @@ fn pair_tone_vowel(first: BaseLetter, second: BaseLetter, ending: Ending, style:
             second_in_new_style
         };
     }
-    if has_mark(second) || (first, second) == (BaseLetter::U, BaseLetter::O) {
+    if has_mark(second) || matches!((first, second), (BaseLetter::U | BaseLetter::O, BaseLetter::O)) {
         return 1;
     }
     let open = ending == Ending::Open;
