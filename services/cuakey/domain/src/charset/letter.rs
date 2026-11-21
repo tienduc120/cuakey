@@ -175,6 +175,11 @@ impl Letter {
         self.case
     }
 
+    /// The letter made of these parts, or `None` for a consonant with a tone.
+    pub fn from_parts(base: BaseLetter, tone: Tone, case: LetterCase) -> Option<Self> {
+        Self::all().find(|letter| letter.base == base && letter.tone == tone && letter.case == case)
+    }
+
     /// The same letter carrying `tone` instead, or `None` when it is a consonant, which carries no tone.
     pub fn with_tone(self, tone: Tone) -> Option<Self> {
         Self::all().find(|letter| letter.base == self.base && letter.case == self.case && letter.tone == tone)

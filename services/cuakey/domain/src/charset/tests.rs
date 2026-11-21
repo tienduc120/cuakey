@@ -94,6 +94,25 @@ fn a_letter_knows_its_base_tone_and_case() {
 }
 
 #[test]
+fn a_letter_is_built_from_its_parts() {
+    assert_eq!(
+        Letter::from_parts(BaseLetter::UHorn, Tone::Nga, LetterCase::Upper),
+        Some(letter('Ữ')),
+        "Ữ"
+    );
+    assert_eq!(
+        Letter::from_parts(BaseLetter::DStroke, Tone::Ngang, LetterCase::Lower),
+        Some(letter('đ')),
+        "đ"
+    );
+    assert_eq!(
+        Letter::from_parts(BaseLetter::B, Tone::Sac, LetterCase::Lower),
+        None,
+        "a consonant takes no tone"
+    );
+}
+
+#[test]
 fn a_vowel_takes_any_tone_and_a_consonant_none() {
     assert_eq!(letter('ê').with_tone(Tone::Sac), Some(letter('ế')), "ê with sắc");
     assert_eq!(

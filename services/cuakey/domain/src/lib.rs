@@ -15,6 +15,7 @@ mod preferences;
 mod profile_id;
 mod setting_change;
 mod settings;
+mod typing;
 
 pub use app_name::AppName;
 pub use charset::{BaseLetter, Letter, LetterCase, Tone, decode, encode, units_in};
@@ -30,3 +31,4 @@ pub use settings::{
     BehaviourSettings, CompatibilitySettings, ConvertSettings, MacroSettings, Settings, SwitchSettings, SystemSettings,
     TypingSettings,
 };
+pub use typing::{Composer, ComposerSettings, Edit, KeyMods, KeyPress};
