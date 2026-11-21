@@ -186,7 +186,7 @@ impl Word {
             Some(Outcome::Stroked(at)) => self.typed_at(at),
             Some(Outcome::NotHere) | None => self.glyphs.push(key.typed),
         }
-        self.join_horns();
+        self.join_horns(rules.consonants);
         self.place_tone(rules.style);
     }
 
@@ -374,15 +374,17 @@ impl Word {
         self.keys.retain(|key| key.at < len);
     }
 
-    /// Puts the horn on the u of uơ once a consonant closes the syllable: uơ ends a syllable, ươ goes before a
-    /// consonant.
-    fn join_horns(&mut self) {
+    /// Puts the horn on the u of uơ once a consonant that can end the syllable follows: uơ ends a syllable, ươ goes
+    /// before a consonant.
+    fn join_horns(&mut self, consonants: Consonants) {
         let Some(letters) = letters_of(&self.glyphs) else {
             return;
         };
         let syllable = Syllable::last(&letters);
         let horn_on_o_alone = syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn];
-        if horn_on_o_alone && syllable.ending() == Ending::Closed {
+        let closed =
+            syllable.ending() == Ending::Closed && spelling::may_end_syllable(syllable.last_consonants(), consonants);
+        if horn_on_o_alone && closed {
             self.set_base(syllable.vowels_start(), BaseLetter::UHorn);
         }
     }

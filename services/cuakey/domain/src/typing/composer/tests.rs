@@ -786,3 +786,8 @@ fn without_spell_check_d_strokes_a_d_typed_after_a_vowel() {
         "with spell check, đ only starts a syllable"
     );
 }
+
+#[test]
+fn a_consonant_that_ends_no_syllable_leaves_uo_as_it_is() {
+    assert_eq!(type_text(&mut telex(), "thuowg"), "thuơg", "g ends no syllable");
+}
