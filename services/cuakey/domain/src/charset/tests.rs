@@ -187,6 +187,34 @@ fn cp1258_spot_checks() {
 }
 
 #[test]
+fn cp1258_writes_every_tone_as_a_combining_byte() {
+    // Row `0xE1 0x00E1 ... A WITH ACUTE` holds á whole, yet Windows writes it as a, then the acute byte.
+    assert_eq!(encode("á", CodeTable::Cp1258), [0x61, 0xec], "á");
+    assert_eq!(encode("È", CodeTable::Cp1258), [0x45, 0xcc], "È");
+    assert_eq!(
+        encode("ằ", CodeTable::Cp1258),
+        [0xe3, 0xcc],
+        "ằ: ă whole, then the grave byte"
+    );
+
+    let toned: Vec<char> = vietnamese_letters()
+        .into_iter()
+        .filter(|c| letter(*c).tone() != Tone::Ngang)
+        .collect();
+    let not_two: Vec<char> = toned
+        .iter()
+        .copied()
+        .filter(|c| units_in(*c, CodeTable::Cp1258) != 2)
+        .collect();
+
+    assert_eq!(
+        not_two,
+        Vec::<char>::new(),
+        "every toned letter is its letter, then a tone byte"
+    );
+}
+
+#[test]
 fn cp1258_reads_a_letter_whole_or_with_a_tone_byte() {
     assert_eq!(decode(&[0xe1], CodeTable::Cp1258), "á", "á whole");
     assert_eq!(decode(&[0x61, 0xec], CodeTable::Cp1258), "á", "a, then the acute byte");

@@ -1,5 +1,6 @@
-//! Windows code page 1258, from Unicode's CP1258.TXT mapping. The code page holds 30 Vietnamese letters whole; every
-//! other toned letter is its letter without the tone, then one of five combining tone bytes, as Windows composes them.
+//! Windows code page 1258, from Unicode's CP1258.TXT mapping. A toned letter is written as Windows composes it: its
+//! letter without the tone (ă â ê ô ơ ư đ have a byte of their own), then one of five combining tone bytes. The code
+//! page also holds 16 toned letters whole; reading takes those too.
 
 use alloc::string::String;
 
@@ -50,17 +51,14 @@ const TONE_BYTES: [(Tone, u16); 5] = [
 ];
 
 pub(super) fn units_of(c: char) -> Option<Units> {
-    if let Some(byte) = whole_byte(c) {
-        return Some(Units::One(byte));
-    }
     let letter = Letter::from_char(c)?;
+    let base = letter.with_tone(Tone::Ngang)?.to_char();
+    let base_byte = whole_byte(base).or_else(|| single_unit(base))?;
     let tone_byte = TONE_BYTES
         .iter()
         .find(|(tone, _)| *tone == letter.tone())
-        .map(|(_, byte)| *byte)?;
-    let base = letter.with_tone(Tone::Ngang)?.to_char();
-    let base_byte = whole_byte(base).or_else(|| single_unit(base))?;
-    Some(Units::Two(base_byte, tone_byte))
+        .map(|(_, byte)| *byte);
+    Some(tone_byte.map_or(Units::One(base_byte), |tone_byte| Units::Two(base_byte, tone_byte)))
 }
 
 /// Reads code page bytes back to Unicode text, taking a letter written whole and one written with a tone byte alike.
