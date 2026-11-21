@@ -766,3 +766,23 @@ fn a_consonant_after_uo_with_a_horn_on_the_o_puts_one_on_the_u() {
     assert_eq!(type_text(&mut telex(), "thuowng"), "thương", "ươ before a consonant");
     assert_eq!(type_text(&mut telex(), "thuowrng"), "thưởng", "with its tone");
 }
+
+#[test]
+fn d_strokes_the_d_that_starts_the_last_syllable() {
+    assert_eq!(
+        type_text(&mut telex(), "download"),
+        "dơnload",
+        "the last syllable starts with l"
+    );
+    assert_eq!(type_text(&mut telex(), "dongd"), "đong", "the d that starts the word");
+}
+
+#[test]
+fn without_spell_check_d_strokes_a_d_typed_after_a_vowel() {
+    assert_eq!(type_text(&mut telex(), "add"), "ađ", "a d after a");
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "add"),
+        "add",
+        "with spell check, đ only starts a syllable"
+    );
+}

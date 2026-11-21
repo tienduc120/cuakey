@@ -225,7 +225,7 @@ impl Word {
         match effect {
             Effect::Mark(mark) if reaches_vowels => self.put_mark(&syllable, mark),
             Effect::Tone(tone) if reaches_vowels => self.put_tone(&syllable, tone, rules.style),
-            Effect::Stroke => self.stroke(),
+            Effect::Stroke => self.stroke(&syllable, rules),
             Effect::Vowel(vowel) => self.type_vowel(&syllable, vowel, case),
             Effect::Mark(_) | Effect::Tone(_) => Outcome::NotHere,
         }
@@ -273,18 +273,22 @@ impl Word {
         }
     }
 
-    /// Turns the d that starts the word into đ, or back.
-    fn stroke(&mut self) -> Outcome {
-        match self.base_at(0) {
-            Some(BaseLetter::D) => {
-                self.set_base(0, BaseLetter::DStroke);
-                Outcome::Stroked(0)
-            }
-            Some(BaseLetter::DStroke) => {
-                self.set_base(0, BaseLetter::D);
-                Outcome::TakenBack
-            }
-            _ => Outcome::NotHere,
+    /// Turns the d that starts the syllable into đ, or back. Without spell check, a d just typed after a vowel takes the
+    /// stroke too.
+    fn stroke(&mut self, syllable: &Syllable<'_>, rules: Rules) -> Outcome {
+        let first = syllable.start();
+        let last = self.glyphs.len().saturating_sub(1);
+        let at = match self.base_at(first) {
+            Some(BaseLetter::D | BaseLetter::DStroke) => first,
+            _ if rules.spell_check == OnOff::Off && self.base_at(last) == Some(BaseLetter::D) => last,
+            _ => return Outcome::NotHere,
+        };
+        if self.base_at(at) == Some(BaseLetter::D) {
+            self.set_base(at, BaseLetter::DStroke);
+            Outcome::Stroked(at)
+        } else {
+            self.set_base(at, BaseLetter::D);
+            Outcome::TakenBack
         }
     }
 
