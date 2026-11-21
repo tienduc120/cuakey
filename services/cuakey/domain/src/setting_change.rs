@@ -1,0 +1,37 @@
+use crate::{CodeTable, Hotkey, InputMethod, OnOff};
+
+/// One change to one setting. `Preferences::update` applies it only if the result is still valid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingChange {
+    InputMethod(InputMethod),
+    CodeTable(CodeTable),
+    NewToneStyle(OnOff),
+    SpellCheck(OnOff),
+    RestoreInvalidWord(OnOff),
+    AllowZwjfConsonants(OnOff),
+    CapitalizeSentences(OnOff),
+    QuickTelex(OnOff),
+    QuickFirstConsonant(OnOff),
+    QuickLastConsonant(OnOff),
+    UseMacros(OnOff),
+    MacrosInEnglish(OnOff),
+    MacroMatchCase(OnOff),
+    SwitchHotkey(Hotkey),
+    BeepOnSwitch(OnOff),
+    SmartSwitch(OnOff),
+    RememberCodeTable(OnOff),
+    WorkInOtherLanguages(OnOff),
+    FixAutocomplete(OnOff),
+    ChromiumFix(OnOff),
+    ClipboardInput(OnOff),
+    StoreAppSupport(OnOff),
+    StartWithWindows(OnOff),
+    ShowSettingsAtStartup(OnOff),
+    RunAsAdministrator(OnOff),
+    DesktopShortcut(OnOff),
+    SettingsHotkey(Hotkey),
+    KeepW(OnOff),
+    OnlyTextBoxes(OnOff),
+    QuickConvertHotkey(Option<Hotkey>),
+    NotifyWhenConvertDone(OnOff),
+}

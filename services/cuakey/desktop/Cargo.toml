@@ -1,0 +1,11 @@
+[package]
+name = "cuakey-desktop"
+description = "The composition root: wires adapters to use cases and starts the app."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,11 @@
+[package]
+name = "cuakey-interfaces"
+description = "What this service shows the user: the only place an outcome becomes a message on screen."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
