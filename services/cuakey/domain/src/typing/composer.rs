@@ -186,8 +186,9 @@ enum State {
     Composing,
     /// The last key typed a vowel by itself; the same key again takes the vowel back.
     TypedVowel(KeyCode),
-    /// A key typed again took its change back, so the rest of the word is typed as it is.
-    AsTyped,
+    /// A key typed again took its change back, so the rest of the word is typed as it is, until Backspace deletes
+    /// back to the `from` characters there were before that key.
+    AsTyped { from: usize },
 }
 
 /// What one of a key's effects did to the word.
@@ -212,7 +213,7 @@ struct Word {
 impl Word {
     fn type_key(&mut self, key: Keystroke, style: ToneStyle) {
         match self.state {
-            State::AsTyped => self.glyphs.push(key.typed),
+            State::AsTyped { .. } => self.glyphs.push(key.typed),
             State::TypedVowel(code) if code == key.code => self.take_back_vowel(key.typed),
             State::TypedVowel(_) | State::Composing => self.compose(key, style),
         }
@@ -227,8 +228,7 @@ impl Word {
             .find(|outcome| *outcome != Outcome::NotHere);
         match outcome {
             Some(Outcome::TakenBack) => {
-                self.glyphs.push(key.typed);
-                self.state = State::AsTyped;
+                self.type_as_typed(key.typed);
                 return;
             }
             Some(Outcome::TypedVowel) => self.state = State::TypedVowel(key.code),
@@ -319,12 +319,19 @@ impl Word {
     /// The key that typed the last vowel by itself, typed again: the vowel goes, and the key types itself.
     fn take_back_vowel(&mut self, typed: Glyph) {
         self.delete_last();
+        self.type_as_typed(typed);
+    }
+
+    /// Types the key that took a change back as it is, and the rest of the word after it.
+    fn type_as_typed(&mut self, typed: Glyph) {
+        self.state = State::AsTyped {
+            from: self.glyphs.len(),
+        };
         self.glyphs.push(typed);
-        self.state = State::AsTyped;
     }
 
     /// Backspace: the last character goes, and the tone with it when it was drawn there. Nothing else moves, so the
-    /// word stays what the screen shows.
+    /// word stays what the screen shows. Deleting the key that took a change back lets the word change again.
     fn delete_last(&mut self) {
         self.glyphs.pop();
         let len = self.glyphs.len();
@@ -333,8 +340,12 @@ impl Word {
         }
         if self.glyphs.is_empty() {
             *self = Self::default();
-        } else if let State::TypedVowel(_) = self.state {
-            self.state = State::Composing;
+            return;
+        }
+        match self.state {
+            State::TypedVowel(_) => self.state = State::Composing,
+            State::AsTyped { from } if len <= from => self.state = State::Composing,
+            State::AsTyped { .. } | State::Composing => {}
         }
     }
 

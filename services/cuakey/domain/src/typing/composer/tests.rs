@@ -331,6 +331,38 @@ fn after_a_change_is_taken_back_the_word_is_typed_as_it_is() {
 }
 
 #[test]
+fn deleting_the_key_that_took_a_change_back_lets_the_word_change_again() {
+    let cases = [
+        ("vieee\u{8}ej", "việ", "the circumflex comes back"),
+        (
+            "vieee\u{8}\u{8}eej",
+            "việ",
+            "deleting further, the circumflex comes back",
+        ),
+        ("ddd\u{8}di", "đi", "the stroke comes back"),
+        ("vieejj\u{8}j", "việ", "the tone comes back"),
+        ("ass\u{8}s", "á", "the acute comes back"),
+        ("nhww\u{8}w", "như", "a lone w types ư again"),
+    ];
+
+    for (keys, shown, why) in cases {
+        let mut composer = telex();
+        let mut screen = String::new();
+
+        for c in keys.chars() {
+            type_key(&mut composer, &mut screen, c, OnOff::Off);
+            assert_eq!(
+                screen,
+                composer.word(),
+                "{keys:?}: after {c:?} the word is what the screen shows"
+            );
+        }
+
+        assert_eq!(screen, shown, "{keys:?}: {why}");
+    }
+}
+
+#[test]
 fn w_again_takes_back_the_vowel_it_typed() {
     assert_eq!(type_text(&mut telex(), "nhww"), "nhw", "the second w takes ư back");
     assert_eq!(type_text(&mut telex(), "uww"), "uw", "the second w takes the horn back");
