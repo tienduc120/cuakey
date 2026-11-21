@@ -625,15 +625,34 @@ fn capitalise_sentence() {
 #[test]
 fn restore_before_tab_resends_key() {
     let mut composer = composer_with(&vietnamese());
-    type_text(&mut composer, "ass");
+    let shown = type_text(&mut composer, "asd");
 
     let edit = composer.press(KeyPress::new(KeyCode::Tab, KeyMods::none()));
 
-    let Edit::Replace { insert, resend_key, .. } = edit else {
+    let Edit::Replace {
+        delete,
+        insert,
+        resend_key,
+    } = edit
+    else {
         panic!("the word is typed again before the Tab, got {edit:?}");
     };
-    assert_eq!(insert, "as", "the keys as typed");
+    assert_eq!(shown, "ád", "d is no last consonant, so the word is not Vietnamese");
+    assert_eq!(delete, 2, "the word on screen goes");
+    assert_eq!(insert, "asd", "the keys as typed");
     assert!(resend_key, "the Tab itself follows");
+}
+
+#[test]
+fn a_restore_that_changes_nothing_lets_the_key_through() {
+    let mut composer = composer_with(&vietnamese());
+    type_text(&mut composer, "ass");
+
+    assert_eq!(
+        composer.press(KeyPress::new(KeyCode::Tab, KeyMods::none())),
+        Edit::PassThrough,
+        "the screen already shows the keys as typed, as"
+    );
 }
 
 #[test]

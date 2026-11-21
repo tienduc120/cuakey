@@ -460,7 +460,8 @@ impl Word {
         let taken_back = matches!(self.state, State::AsTyped { .. });
         let checked = rules.spell_check.is_on() || (taken_back && self.shows_a_mark());
         if rules.restore.is_on() && self.changed && checked && self.spelling(rules) != Spelling::Syllable {
-            return Some(self.keys.iter().map(|key| key.typed.to_char()).collect());
+            let typed: String = self.keys.iter().map(|key| key.typed.to_char()).collect();
+            return (typed != self.render()).then_some(typed);
         }
         let quick = self.with_quick_consonants(rules.consonants)?;
         let allowed = rules.spell_check == OnOff::Off
