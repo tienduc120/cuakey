@@ -184,6 +184,39 @@ impl Combo {
     }
 }
 
+impl Combo {
+    /// The settings as tokens an accepted entry's filter is matched against: the method, the table, and each toggle,
+    /// `!` in front when it is off.
+    pub fn tokens(self) -> Vec<String> {
+        let mut tokens = vec![method_token(self.method).to_owned(), table_token(self.table).to_owned()];
+        tokens.extend(
+            Toggle::ALL
+                .into_iter()
+                .map(|toggle| toggle_token(toggle, self.is_on(toggle))),
+        );
+        tokens
+    }
+
+    /// Every token a filter may name.
+    pub fn known_tokens() -> Vec<String> {
+        let methods = [InputMethod::Telex, InputMethod::Vni, InputMethod::SimpleTelex].map(method_token);
+        let mut known: Vec<String> = methods.into_iter().map(str::to_owned).collect();
+        known.extend(CODE_TABLES.map(table_token).into_iter().map(str::to_owned));
+        for toggle in Toggle::ALL {
+            known.extend([toggle_token(toggle, true), toggle_token(toggle, false)]);
+        }
+        known
+    }
+}
+
+fn toggle_token(toggle: Toggle, on: bool) -> String {
+    if on {
+        toggle.token().to_owned()
+    } else {
+        format!("!{}", toggle.token())
+    }
+}
+
 /// The label a report and `accepted-differences.toml` name a combination by: the input method, the code table, then
 /// each toggle that is on.
 impl fmt::Display for Combo {
@@ -218,7 +251,7 @@ pub const fn table_name(table: CodeTable) -> &'static str {
     }
 }
 
-const fn method_token(method: InputMethod) -> &'static str {
+pub const fn method_token(method: InputMethod) -> &'static str {
     match method {
         InputMethod::Telex => "telex",
         InputMethod::Vni => "vni",
@@ -226,7 +259,7 @@ const fn method_token(method: InputMethod) -> &'static str {
     }
 }
 
-const fn table_token(table: CodeTable) -> &'static str {
+pub const fn table_token(table: CodeTable) -> &'static str {
     match table {
         CodeTable::Unicode => "unicode",
         CodeTable::Tcvn3 => "tcvn3",

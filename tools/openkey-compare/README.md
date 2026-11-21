@@ -10,7 +10,9 @@ cargo xtask compare-openkey --filter vni          # one corpus file
 cargo xtask compare-openkey --random 5000 --seed 7
 ```
 
-The command fetches OpenKey's sources at a pinned commit into `target/openkey/`, builds them with this tool (MSVC, C++17), and writes `target/openkey-compare/report.md`. It exits 0 only when the corpus matches exactly, or, with `--random`, when every difference is listed in `accepted-differences.toml`. The tool's own tests run with `cargo nextest run --manifest-path tools/openkey-compare/Cargo.toml` once the command has fetched the sources.
+The command fetches OpenKey's sources at a pinned commit into `target/openkey/` (again when the pin moves), builds them with this tool (MSVC, C++17), and writes `target/openkey-compare/report.md`. It exits 0 only when every difference it finds is accepted in `accepted-differences.toml` and no entry there has gone stale. The tool's own tests run with `cargo nextest run --manifest-path tools/openkey-compare/Cargo.toml` once the command has fetched the sources.
+
+An accepted entry pins one divergence: the corpus file (or `random`), the keys, the setting tokens it occurs under, the key number, and both texts, with the reason. The header of `accepted-differences.toml` describes the fields, and each report entry prints what an entry needs. An entry that matches nothing in a run that typed what it names is reported as stale.
 
 ## What it compares
 
@@ -24,7 +26,7 @@ Each line of `corpus/` is typed into an empty text box, then a Space that ends i
 | `english.txt` | all three |
 | `sentences.txt` | Telex, Simple Telex |
 
-A full run takes about five seconds, so no combination is left out. Random mode types seeded sequences of letters, mark and tone keys, Space, Backspace, punctuation, clicks, and Ctrl shortcuts, each under random settings.
+A full run takes about seven seconds, so no combination is left out. Random mode types seeded sequences of letters, mark and tone keys, Space, Backspace, punctuation, clicks, and Ctrl shortcuts, each ended by a Space and typed under random settings.
 
 Corpus notation: a printable character is the key that types it on a US layout, an upper-case letter or shifted symbol being that key with Shift. `<bs>` is Backspace, `<enter>`, `<tab>`, and `<esc>` those keys, `<click>` a mouse click (the caret stays at the end), `<caps>` turns Caps Lock on or off for the keys after it (the press itself is not sent), `<ctrl-x>` the letter x with Ctrl held, and `<lt>` the `<` key. A line starting with `#` is a comment.
 
@@ -34,7 +36,7 @@ CuaKey's typing engine is written from scratch. Only the author of this tool rea
 
 ## Contributing
 
-Add corpus lines, inputs only, to the file for their input method. A difference found by `--random` that no person would type goes in `accepted-differences.toml` with a one-line reason; the corpus has no such list.
+Add corpus lines, inputs only, to the file for their input method. A difference CuaKey should not reproduce, such as one that comes from how OpenKey's host applies its output, or a random sequence no person would type, goes in `accepted-differences.toml` with its reason in terms of behaviour.
 
 ## License
 

@@ -18,6 +18,7 @@ use std::time::Instant;
 
 use cuakey_domain::ComposerSettings;
 
+use crate::accepted::{Acceptance, Found, RANDOM};
 use crate::combo::Combo;
 use crate::corpus::{CORPUS_FILES, CorpusFile, Line, Notation, Stroke, notation};
 use crate::cuakey_screen::CuaKeyScreen;
@@ -25,6 +26,7 @@ use crate::openkey_screen::{OpenKeyScreen, Unmodelled};
 use crate::oracle::OpenKey;
 use crate::random::Rng;
 use crate::report::{CorpusTally, Divergence, RandomFinding};
+use crate::screen::exact;
 
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 /// In the repository's `target/`, which is never committed.
@@ -120,53 +122,120 @@ fn run(mode: Mode) -> Result<bool, String> {
 
 fn compare_corpus(engine: &mut OpenKey, filter: Option<CorpusFile>, started: Instant) -> Result<Outcome, String> {
     let dir = Path::new(MANIFEST_DIR).join("corpus");
+    let mut acceptance = load_acceptance()?;
     let mut tally = CorpusTally::default();
     for file in CORPUS_FILES
         .into_iter()
         .filter(|file| filter.is_none_or(|only| only == *file))
     {
         let lines = corpus::read_file(&dir, file)?;
-        let typed: Vec<Vec<Stroke>> = lines.iter().map(Line::ended).collect();
-        tally.begin_file(file, lines);
+        let typed = TypedFile {
+            name: file.name,
+            strokes: lines.iter().map(Line::ended).collect(),
+            lines,
+        };
+        acceptance.judge_source(file.name);
+        tally.begin_file(file, typed.lines.clone());
         for &method in file.methods {
             for combo in Combo::all_for(method) {
-                compare_lines(engine, combo, &typed, &mut tally);
+                compare_lines(engine, combo, &typed, &mut tally, &mut acceptance);
             }
         }
         println!("{}: done after {:.1} s", file.name, started.elapsed().as_secs_f64());
     }
     let total = tally.total();
+    let stale = acceptance.stale().count();
     Ok(Outcome {
-        report: tally.render(started.elapsed()),
-        passed: total.differ == 0,
-        summary: format!("{} of {} corpus runs differ.", total.differ, total.runs),
+        report: tally.render(started.elapsed(), &acceptance),
+        passed: tally.passed(&acceptance),
+        summary: format!(
+            "{} of {} corpus runs differ, {} of them not accepted; {stale} accepted entries are stale.",
+            total.differ,
+            total.runs,
+            total.not_accepted()
+        ),
     })
 }
 
-fn compare_lines(engine: &mut OpenKey, combo: Combo, lines: &[Vec<Stroke>], tally: &mut CorpusTally) {
+/// A corpus file's lines, and the strokes the comparison types for each.
+#[derive(Debug)]
+struct TypedFile {
+    name: &'static str,
+    lines: Vec<Line>,
+    strokes: Vec<Vec<Stroke>>,
+}
+
+fn compare_lines(
+    engine: &mut OpenKey,
+    combo: Combo,
+    file: &TypedFile,
+    tally: &mut CorpusTally,
+    acceptance: &mut Acceptance,
+) {
     engine.configure(combo);
     let settings = combo.cuakey_settings();
-    for (at, strokes) in lines.iter().enumerate() {
+    let tokens = combo.tokens();
+    for (at, (line, strokes)) in file.lines.iter().zip(&file.strokes).enumerate() {
         let divergence = first_divergence(engine, combo, &settings, strokes);
-        tally.record(at, combo, divergence);
+        let accepted = divergence.as_ref().and_then(|divergence| {
+            let (expected, cuakey) = (
+                exact(&divergence.expected, combo.table),
+                exact(&divergence.actual, combo.table),
+            );
+            acceptance.accept(&Found {
+                source: file.name,
+                sequence: &line.text,
+                tokens: &tokens,
+                step: divergence.step + 1,
+                expected: &expected,
+                cuakey: &cuakey,
+            })
+        });
+        tally.record(at, combo, divergence, accepted);
     }
 }
 
-fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instant) -> Result<Outcome, String> {
+/// The entries of `accepted-differences.toml`.
+fn load_acceptance() -> Result<Acceptance, String> {
     let path = Path::new(MANIFEST_DIR).join(ACCEPTED);
     let text = fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
-    let accepted = accepted::parse(&text)?;
+    let sources: Vec<&str> = CORPUS_FILES.iter().map(|file| file.name).chain([RANDOM]).collect();
+    Ok(Acceptance::new(accepted::parse(
+        &text,
+        &sources,
+        &Combo::known_tokens(),
+    )?))
+}
+
+fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instant) -> Result<Outcome, String> {
+    let mut acceptance = load_acceptance()?;
     let mut rng = Rng::new(seed);
     let mut findings = Vec::new();
     for _ in 0..count {
         let combo = random::combo(&mut rng);
         let strokes = random::sequence(&mut rng, combo.method);
+        let sequence = notation(&strokes);
+        let tokens = combo.tokens();
+        acceptance.judge_sequence(RANDOM, &sequence, &tokens);
         engine.configure(combo);
         let Some(divergence) = first_divergence(engine, combo, &combo.cuakey_settings(), &strokes) else {
             continue;
         };
-        let sequence = notation(&strokes);
-        let reason = accepted::find(&accepted, &sequence, &combo.to_string()).map(|entry| entry.reason.clone());
+        let (expected, cuakey) = (
+            exact(&divergence.expected, combo.table),
+            exact(&divergence.actual, combo.table),
+        );
+        let reason = acceptance
+            .accept(&Found {
+                source: RANDOM,
+                sequence: &sequence,
+                tokens: &tokens,
+                step: divergence.step + 1,
+                expected: &expected,
+                cuakey: &cuakey,
+            })
+            .and_then(|at| acceptance.entry(at))
+            .map(|entry| entry.reason.clone());
         findings.push(RandomFinding {
             step_key: strokes
                 .get(divergence.step)
@@ -178,11 +247,13 @@ fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instan
         });
     }
     let unaccepted = findings.iter().filter(|f| f.accepted.is_none()).count();
+    let stale = acceptance.stale().count();
     Ok(Outcome {
-        report: report::render_random(seed, count, &findings, started.elapsed()),
-        passed: unaccepted == 0,
+        report: report::render_random(seed, count, &findings, started.elapsed(), &acceptance),
+        passed: unaccepted == 0 && stale == 0,
         summary: format!(
-            "{} of {count} random sequences differ; {unaccepted} not accepted.",
+            "{} of {count} random sequences differ, {unaccepted} of them not accepted; {stale} accepted entries \
+             are stale.",
             findings.len()
         ),
     })

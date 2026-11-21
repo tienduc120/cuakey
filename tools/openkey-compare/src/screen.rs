@@ -68,15 +68,31 @@ pub fn show(units: &[u16], table: CodeTable) -> String {
     if table == CodeTable::Unicode {
         return format!("`{}`", escape(&text));
     }
+    let hex = if units.is_empty() {
+        "(empty)".to_owned()
+    } else {
+        hex(units)
+    };
+    format!("{hex} (`{}`)", escape(&text))
+}
+
+/// `units` as an accepted entry writes them: the text for Unicode, the code units in hex for any other table.
+pub fn exact(units: &[u16], table: CodeTable) -> String {
+    if table == CodeTable::Unicode {
+        String::from_utf16_lossy(units)
+    } else {
+        hex(units)
+    }
+}
+
+/// "0061 00ec".
+fn hex(units: &[u16]) -> String {
     let mut hex = String::new();
     for unit in units {
         // Writing to a String cannot fail.
         write!(hex, "{}{unit:04x}", if hex.is_empty() { "" } else { " " }).unwrap_or_default();
     }
-    if hex.is_empty() {
-        hex.push_str("(empty)");
-    }
-    format!("{hex} (`{}`)", escape(&text))
+    hex
 }
 
 fn escape(text: &str) -> String {

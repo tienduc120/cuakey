@@ -31,3 +31,25 @@ fn the_label_names_the_method_the_table_and_each_toggle_that_is_on() {
         ["Simple Telex", "VNI Windows", "restore off", "quick-telex on"]
     );
 }
+
+#[test]
+fn tokens_name_the_method_the_table_and_every_toggle_on_or_off() {
+    let tokens = Combo::default_for(InputMethod::Telex).tokens();
+
+    assert_eq!(
+        tokens,
+        [
+            "telex",
+            "unicode",
+            "spell-check",
+            "restore",
+            "!modern-tones",
+            "!quick-telex",
+            "!quick-first",
+            "!quick-last",
+            "!capitals"
+        ]
+    );
+    let known = Combo::known_tokens();
+    assert!(known.iter().any(|t| t == "vni-windows") && known.iter().any(|t| t == "!restore"));
+}

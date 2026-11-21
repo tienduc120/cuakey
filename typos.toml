@@ -3,5 +3,9 @@
 # The comparison corpus is raw key sequences (Telex, VNI), not words.
 extend-exclude = ["target/", "*.lock", "LICENSES/", ".xtask/", "tools/openkey-compare/corpus/"]
 
+[default]
+# An accepted comparison difference names keys and texts the same way; its reason is prose and is still checked.
+extend-ignore-re = ['(?m)^(sequence|expected|cuakey) = ".*"$']
+
 [default.extend-words]
 Nam = "Nam"

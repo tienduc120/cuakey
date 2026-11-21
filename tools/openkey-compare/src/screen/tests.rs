@@ -1,6 +1,6 @@
 use cuakey_domain::{CodeTable, KeyCode, KeyMods, KeyPress, OnOff};
 
-use super::{Screen, show};
+use super::{Screen, exact, show};
 
 #[test]
 fn caps_lock_turns_letters_around_and_shift_turns_them_back() {
@@ -30,4 +30,11 @@ fn other_tables_show_their_units_in_hex() {
     assert_eq!(show(&[0xe2], CodeTable::Unicode), "`â`");
     assert_eq!(show(&[0x61, 0xe2], CodeTable::VniWindows), "0061 00e2 (`â`)");
     assert_eq!(show(&[], CodeTable::Tcvn3), "(empty) (``)");
+}
+
+#[test]
+fn exact_text_is_the_text_for_unicode_and_hex_units_for_any_other_table() {
+    assert_eq!(exact(&[0xe1], CodeTable::Unicode), "á");
+    assert_eq!(exact(&[0x61, 0xec], CodeTable::Cp1258), "0061 00ec");
+    assert_eq!(exact(&[], CodeTable::Tcvn3), "");
 }
