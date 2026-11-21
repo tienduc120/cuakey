@@ -2,7 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::{Delimiter, Span, TokenStream, TokenTree};
+use syn::ext::IdentExt as _;
 use syn::spanned::Spanned as _;
 use syn::visit::{self, Visit};
 use syn::{AttrStyle, Attribute, Expr, Fields, ImplItem, Lit, Meta, Type};
@@ -16,33 +17,35 @@ const AGGREGATE_MARKER: &str = "agent:aggregate";
 /// The one crate that may lower `unsafe_code` from the workspace's deny, for Win32 and COM calls (ADR-0014).
 const UNSAFE_CRATE: &str = "platform-windows";
 
-/// Lint levels below the workspace's `deny`.
-const LOWERING: [&str; 3] = ["allow", "expect", "warn"];
+/// Lint levels that keep `unsafe_code` an error; named under any other level, it is lowered.
+const RAISING: [&str; 2] = ["deny", "forbid"];
 
 /// `files` are (path relative to the repository, source) pairs of one crate.
 pub(crate) fn check(c: &Crate, files: &[(String, String)]) -> Vec<Finding> {
     let check_restore =
         matches!(c.location(), Location::Layer { layer, .. } if layer != "domain" && layer != "infrastructure");
-    let unsafe_code = if c.name == UNSAFE_CRATE {
-        UnsafeCode::MayLower
-    } else {
-        UnsafeCode::Denied
-    };
     let mut v = Visitor {
         no_std: c.no_std,
         check_restore,
-        unsafe_code,
         ..Visitor::default()
     };
+    let mut lowered = Vec::new();
     for (path, src) in files {
         v.file.clone_from(path);
         v.test_file = path.ends_with("/tests.rs") || path.contains("/tests/");
         match syn::parse_file(src) {
-            Ok(file) => v.visit_file(&file),
+            Ok(file) => {
+                v.visit_file(&file);
+                if c.name != UNSAFE_CRATE {
+                    lowered.extend(unsafe_code_lowered(path, &file));
+                }
+            }
             Err(e) => v.push(e.span().start().line, "source-parse", format!("does not parse: {e}")),
         }
     }
-    v.finish()
+    let mut found = v.finish();
+    found.extend(lowered);
+    found
 }
 
 struct Aggregate {
@@ -51,19 +54,10 @@ struct Aggregate {
     id_type: Option<String>,
 }
 
-/// Whether a crate may lower `unsafe_code` below the workspace's deny.
-#[derive(Default, PartialEq, Eq)]
-enum UnsafeCode {
-    #[default]
-    Denied,
-    MayLower,
-}
-
 #[derive(Default)]
 struct Visitor {
     no_std: bool,
     check_restore: bool,
-    unsafe_code: UnsafeCode,
     file: String,
     test_file: bool,
     found: Vec<Finding>,
@@ -124,13 +118,6 @@ impl<'ast> Visit<'ast> for Visitor {
                            #[expect(lint, reason = \"...\")] on the one item that needs it"
                 .to_owned();
             self.push(i.span().start().line, "source-inner-allow", message);
-        }
-        if self.unsafe_code == UnsafeCode::Denied && lowers_unsafe_code(i) {
-            let message = format!(
-                "only {UNSAFE_CRATE} may hold unsafe code (ADR-0014): elsewhere `unsafe_code` stays denied; put the \
-                 unsafe call behind a safe function in {UNSAFE_CRATE}"
-            );
-            self.push(i.span().start().line, "unsafe-outside-platform-windows", message);
         }
     }
 
@@ -228,47 +215,93 @@ impl<'ast> Visit<'ast> for Visitor {
     }
 }
 
-/// `#[allow(unsafe_code)]`, `#[expect(..)]`, or `#[warn(..)]`, inner or outer, also behind any `cfg_attr`.
-fn lowers_unsafe_code(a: &Attribute) -> bool {
-    let Meta::List(list) = &a.meta else { return false };
-    let Some(name) = list.path.get_ident().map(ToString::to_string) else {
-        return false;
+/// Every place in `file` that lowers `unsafe_code` (ADR-0014).
+fn unsafe_code_lowered(path: &str, file: &syn::File) -> Vec<Finding> {
+    let mut v = UnsafeLowering {
+        file: path,
+        found: Vec::new(),
     };
-    if LOWERING.contains(&name.as_str()) {
-        names_unsafe_code(list.tokens.clone())
-    } else {
-        name == "cfg_attr" && lowers_inside(list.tokens.clone())
+    v.visit_file(file);
+    v.found
+}
+
+/// Walks every item, test code included, since `#[cfg(test)]` code compiles under the same lint levels. A lint
+/// attribute is judged by its tokens, and a macro by its body and its arguments, which syn leaves unparsed, so a level
+/// or a lint name handed through a macro is caught too. Code a build script generates or a dependency's procedural
+/// macro emits is not seen.
+struct UnsafeLowering<'a> {
+    file: &'a str,
+    found: Vec<Finding>,
+}
+
+impl UnsafeLowering<'_> {
+    fn push(&mut self, at: Span) {
+        let message = format!(
+            "only {UNSAFE_CRATE} may hold unsafe code (ADR-0014): elsewhere `unsafe_code` is named only inside \
+             deny(..) or forbid(..), test code and macros included; put the unsafe call behind a safe function in \
+             {UNSAFE_CRATE}"
+        );
+        self.found.push(Finding {
+            path: format!("{}:{}", self.file, at.start().line),
+            rule: "unsafe-outside-platform-windows",
+            message,
+        });
     }
 }
 
-/// Whether the attributes a `cfg_attr` applies lower `unsafe_code`, through any depth of nested `cfg_attr`.
-fn lowers_inside(tokens: TokenStream) -> bool {
+impl<'ast> Visit<'ast> for UnsafeLowering<'_> {
+    fn visit_attribute(&mut self, i: &'ast Attribute) {
+        if let Meta::List(list) = &i.meta
+            && let Some(at) = lowered_at(list.tokens.clone(), is_raising(&list.path))
+        {
+            self.push(at);
+        }
+        // Goes on into a macro written as an attribute's value.
+        visit::visit_attribute(self, i);
+    }
+
+    fn visit_macro(&mut self, i: &'ast syn::Macro) {
+        if let Some(at) = lowered_at(i.tokens.clone(), false) {
+            self.push(at);
+        }
+        visit::visit_macro(self, i);
+    }
+}
+
+fn is_raising(path: &syn::Path) -> bool {
+    path.get_ident()
+        .is_some_and(|level| RAISING.contains(&level.unraw().to_string().as_str()))
+}
+
+/// Where `unsafe_code` is named in `tokens` other than directly inside `deny(..)` or `forbid(..)`, at any depth;
+/// `raising` says whether `tokens` are the inside of one. A raw `r#` does not hide a name, and a `reason` string that
+/// mentions the lint is a literal, not a name.
+fn lowered_at(tokens: TokenStream, raising: bool) -> Option<Span> {
     let mut previous: Option<String> = None;
     for token in tokens {
-        match token {
-            TokenTree::Ident(ident) => previous = Some(ident.to_string()),
-            TokenTree::Group(group) => {
-                let found = match previous.as_deref() {
-                    Some("cfg_attr") => lowers_inside(group.stream()),
-                    Some(lint) if LOWERING.contains(&lint) => names_unsafe_code(group.stream()),
-                    Some(_) | None => false,
-                };
-                if found {
-                    return true;
-                }
-                previous = None;
+        let found = match token {
+            TokenTree::Ident(ident) => {
+                let word = ident.unraw().to_string();
+                let found = (word == "unsafe_code" && !raising).then(|| ident.span());
+                previous = Some(word);
+                found
             }
-            TokenTree::Punct(_) | TokenTree::Literal(_) => previous = None,
+            TokenTree::Group(group) => {
+                let raises = group.delimiter() == Delimiter::Parenthesis
+                    && previous.as_deref().is_some_and(|level| RAISING.contains(&level));
+                previous = None;
+                lowered_at(group.stream(), raises)
+            }
+            TokenTree::Punct(_) | TokenTree::Literal(_) => {
+                previous = None;
+                None
+            }
+        };
+        if found.is_some() {
+            return found;
         }
     }
-    false
-}
-
-/// A lint list names `unsafe_code` as a word; a `reason` string that mentions it does not count.
-fn names_unsafe_code(tokens: TokenStream) -> bool {
-    tokens
-        .into_iter()
-        .any(|t| matches!(t, TokenTree::Ident(ident) if ident == "unsafe_code"))
+    None
 }
 
 fn fn_name(item: &ImplItem) -> Option<String> {

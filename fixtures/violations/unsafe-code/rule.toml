@@ -1,3 +1,3 @@
 enforcer = "clippy"
 contains = "unsafe_code"
-doc = "no unsafe code"
+doc = "no unsafe code outside `platform-windows`"

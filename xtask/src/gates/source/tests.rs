@@ -241,13 +241,70 @@ fn every_way_of_lowering_unsafe_code_is_caught() {
 }
 
 #[test]
+fn test_code_may_not_lower_unsafe_code_either() {
+    let service = named("billing-infrastructure", "services/billing/infrastructure");
+    let lowered = [
+        "#[cfg(test)]\n#[expect(unsafe_code, reason = \"x\")]\nmod tests;\n",
+        "#[cfg(test)]\n#[expect(unsafe_code, reason = \"x\")]\nfn helper() {}\n",
+        "struct S;\nimpl S {\n    #[cfg(test)]\n    #[expect(unsafe_code, reason = \"x\")]\n    fn helper() {}\n}\n",
+    ];
+
+    for src in lowered {
+        assert_eq!(
+            rules(&service, &[("services/billing/infrastructure/src/lib.rs", src)]),
+            vec!["unsafe-outside-platform-windows"],
+            "{src}"
+        );
+    }
+}
+
+#[test]
+fn a_raw_identifier_does_not_hide_the_lint_or_the_level() {
+    let service = named("billing-domain", "services/billing/domain");
+    let lowered = [
+        "#[expect(r#unsafe_code, reason = \"x\")]\nfn f() {}\n",
+        "#[r#expect(unsafe_code, reason = \"x\")]\nfn f() {}\n",
+    ];
+
+    for src in lowered {
+        assert_eq!(
+            rules(&service, &[("services/billing/domain/src/a.rs", src)]),
+            vec!["unsafe-outside-platform-windows"],
+            "{src}"
+        );
+    }
+}
+
+#[test]
+fn a_macro_may_not_lower_unsafe_code_in_its_body_or_its_arguments() {
+    let service = named("billing-domain", "services/billing/domain");
+    let lowered = [
+        "macro_rules! m { () => { #[expect(unsafe_code, reason = \"x\")] fn f() {} }; }\nm!();\n",
+        "macro_rules! m { ($lint:ident) => { #[expect($lint, reason = \"x\")] fn f() {} }; }\nm!(unsafe_code);\n",
+        "macro_rules! m { ($level:ident) => { #[$level(unsafe_code)] fn f() {} }; }\nm!(expect);\n",
+    ];
+
+    for src in lowered {
+        assert_eq!(
+            rules(&service, &[("services/billing/domain/src/a.rs", src)]),
+            vec!["unsafe-outside-platform-windows"],
+            "{src}"
+        );
+    }
+}
+
+#[test]
 fn raising_unsafe_code_or_lowering_another_lint_is_fine() {
     let service = named("billing-domain", "services/billing/domain");
     let fine = [
         "#[deny(unsafe_code)]\nfn f() {}\n",
         "#[forbid(unsafe_code)]\nfn f() {}\n",
+        "#[r#deny(unsafe_code)]\nfn f() {}\n",
+        "#[cfg_attr(test, forbid(unsafe_code))]\nfn f() {}\n",
         "#[expect(clippy::indexing_slicing, reason = \"x\")]\nfn f() {}\n",
         "#[cfg_attr(windows, expect(dead_code, reason = \"unsafe_code is not lowered here\"))]\nfn f() {}\n",
+        "macro_rules! m { () => { #[deny(unsafe_code)] fn f() {} }; }\nm!();\n",
+        "fn f() { tracing::info!(reason = \"unsafe_code\", \"logged\"); }\n",
     ];
 
     for src in fine {
