@@ -1,6 +1,6 @@
 use cuakey_domain::{CodeTable, InputMethod, Language, OnOff, encode};
 
-use super::{Family, OpenKeyScreens};
+use super::{Family, Host, Mode, OpenKeyScreens};
 use crate::combo::{Combo, Toggle};
 use crate::corpus::parse;
 use crate::oracle::OpenKey;
@@ -120,4 +120,88 @@ fn in_english_mode_without_macros_in_english_every_key_passes_through() {
 
     assert_eq!(corrected, encode("btw ", CodeTable::Unicode));
     assert_eq!(faithful, corrected);
+}
+
+#[test]
+fn after_a_resync_a_backspace_deletes_by_the_letters_of_the_new_text() {
+    let mut engine = OpenKey::take().unwrap();
+    let combo = telex_in(CodeTable::VniWindows);
+    engine.set_macros(&[]);
+    engine.configure(combo);
+    let mut screens = OpenKeyScreens::start(&mut engine, combo);
+    for stroke in parse("tas").unwrap() {
+        screens.stroke(stroke).unwrap();
+    }
+
+    // CuaKey's text after an accepted divergence: `tá b`, its last letter one unit where the host had typed á.
+    screens.resync(&[0x74, 0x61, 0xf9, 0x20, 0x62]);
+    screens.stroke(parse("<bs>").unwrap()[0]).unwrap();
+
+    assert_eq!(
+        screens.corrected(),
+        [0x74, 0x61, 0xf9, 0x20],
+        "one Backspace deletes the one-unit b"
+    );
+}
+
+#[test]
+fn a_space_after_a_backspace_that_deletes_nothing_more_shows_no_host_defect() {
+    let (corrected, faithful, defect) = typed(telex_in(CodeTable::VniWindows), "ta <bs> ");
+
+    assert_eq!(faithful, corrected);
+    assert_eq!(defect, None, "the host's text did not change, so no defect is recorded");
+}
+
+#[test]
+fn the_first_host_defect_a_host_shows_is_the_one_it_keeps() {
+    let mut host = Host::new(Mode::Faithful, CodeTable::VniWindows);
+
+    host.show_defect(Family::SpaceAfterBackspace);
+    host.show_defect(Family::EnglishMacroKey);
+
+    assert_eq!(host.defect, Some(Family::SpaceAfterBackspace));
+}
+
+#[test]
+fn a_record_left_wrong_by_a_space_after_a_backspace_is_blamed_when_it_changes_the_text_later() {
+    let (corrected, faithful, defect) = typed(telex_in(CodeTable::VniWindows), "tas b <bs> <bs><bs>");
+
+    assert_ne!(
+        faithful, corrected,
+        "a later Backspace deletes more than b under OpenKey's host"
+    );
+    assert_eq!(defect, Some(Family::SpaceAfterBackspace));
+}
+
+fn quick_first() -> Combo {
+    let defaults = Combo::default_for(InputMethod::Telex);
+    Combo {
+        toggles: defaults
+            .toggles
+            .with(Toggle::QuickFirst, OnOff::On)
+            .with(Toggle::SpellCheck, OnOff::Off),
+        ..defaults
+    }
+}
+
+#[test]
+fn the_corrected_host_retypes_the_quote_key_that_ends_a_quick_consonant_as_a_quote() {
+    let (corrected, faithful, defect) = typed(quick_first(), "jk'");
+
+    assert_eq!(corrected, encode("gik'", CodeTable::Unicode));
+    assert_eq!(
+        faithful,
+        encode("gik\\", CodeTable::Unicode),
+        "OpenKey's host types the quote key as a backslash"
+    );
+    assert_eq!(defect, Some(Family::RetypedKey));
+}
+
+#[test]
+fn with_caps_lock_on_only_the_faithful_host_retypes_a_full_stop_as_its_shifted_character() {
+    let (corrected, faithful, defect) = typed(quick_first(), "<caps>fa.");
+
+    assert_eq!(corrected, encode("PHA.", CodeTable::Unicode));
+    assert_eq!(faithful, encode("PHA>", CodeTable::Unicode));
+    assert_eq!(defect, Some(Family::RetypedKey));
 }

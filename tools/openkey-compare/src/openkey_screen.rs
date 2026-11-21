@@ -4,17 +4,17 @@
 //! - the corrected host, which `CuaKey` is held to: each deletion sends the backspaces the letter's code units need;
 //! - the faithful host, which applies the answer the way `OpenKey`'s Windows host does, defects included.
 //!
-//! The two differ in three behaviours of `OpenKey`'s host, the [`Family`] values. In VNI Windows and Unicode compound a
+//! The two differ in the behaviours of `OpenKey`'s host the [`Family`] values name. In VNI Windows and Unicode compound a
 //! letter can take two code units and a text box's Backspace deletes one; both hosts delete the whole of a two-unit
 //! letter typed since the last click or key that ended a word, and a letter typed before that loses one unit per
 //! Backspace. While typing English, the hosts ask the engine about a key only when macros are on in English.
 
-use cuakey_domain::{CodeTable, KeyCode, KeyPress, Language};
+use cuakey_domain::{CodeTable, KeyCode, KeyPress, Language, decode, units_in};
 
 use crate::combo::{Combo, Toggle};
 use crate::corpus::Stroke;
 use crate::oracle::{Action, After, OpenKey, Reply, Send};
-use crate::screen::Screen;
+use crate::screen::{Screen, text_of};
 
 /// The longest reply the host applies; it ignores a longer one.
 const MAX_REPLY: usize = 32;
@@ -32,16 +32,26 @@ pub enum Family {
     SpaceAfterBackspace,
     /// In English with macros, the key that ends a shortcut reaches the text box before the expansion.
     EnglishMacroKey,
+    /// The key the host types itself after restoring a word or expanding comes out as another character.
+    RetypedKey,
 }
 
 impl Family {
-    pub const ALL: [Self; 3] = [Self::WholeLetter, Self::SpaceAfterBackspace, Self::EnglishMacroKey];
+    pub const ALL: [Self; 4] = [
+        Self::WholeLetter,
+        Self::SpaceAfterBackspace,
+        Self::EnglishMacroKey,
+        Self::RetypedKey,
+    ];
+    /// How many families there are: what counts per family are sized by.
+    pub const COUNT: usize = Self::ALL.len();
 
     pub const fn token(self) -> &'static str {
         match self {
             Self::WholeLetter => "cp1258-whole-letter",
             Self::SpaceAfterBackspace => "space-after-backspace",
             Self::EnglishMacroKey => "english-macro-key",
+            Self::RetypedKey => "retyped-key",
         }
     }
 
@@ -63,6 +73,12 @@ impl Family {
                  the text box before it deletes the shortcut and types the expansion, so the shortcut's first letter \
                  stays; a corrected host holds the key back until the expansion is typed"
             }
+            Self::RetypedKey => {
+                "after restoring a word or expanding a quick consonant or a shortcut, OpenKey's host types the key \
+                 that ended the word itself, and for some keys types another character: the quote key as a \
+                 backslash, the backslash key as a backquote, the backquote key as a quote, and, with Caps Lock on, a \
+                 punctuation or digit key as its shifted character; a corrected host types what the key types"
+            }
         }
     }
 }
@@ -82,6 +98,7 @@ enum English {
 #[derive(Debug)]
 pub struct OpenKeyScreens<'engine> {
     engine: &'engine mut OpenKey,
+    table: CodeTable,
     english: English,
     corrected: Host,
     faithful: Host,
@@ -98,6 +115,7 @@ impl<'engine> OpenKeyScreens<'engine> {
         };
         Self {
             engine,
+            table: combo.table,
             english,
             corrected: Host::new(Mode::Corrected, combo.table),
             faithful: Host::new(Mode::Faithful, combo.table),
@@ -134,15 +152,31 @@ impl<'engine> OpenKeyScreens<'engine> {
         self.faithful.screen.units()
     }
 
-    /// The last host defect the faithful host showed.
-    pub const fn defect(&self) -> Option<Family> {
-        self.faithful.defect
+    /// The host defect behind the faithful host's text differing from the corrected host's, when it does: the first
+    /// that changed its text, or else the last that left its record wrong.
+    pub fn defect(&self) -> Option<Family> {
+        if self.faithful.screen == self.corrected.screen {
+            return None;
+        }
+        self.faithful.defect.or(self.faithful.damage)
     }
 
-    /// The corrected host's text box takes `units`, after a divergence an entry accepts.
+    /// The corrected host's text box takes `units`, after a divergence an entry accepts. Its record of letter
+    /// lengths is rebuilt from them, over as many units at the end as the record covered before.
     pub fn resync(&mut self, units: &[u16]) {
+        let covered: usize = self.corrected.lengths.iter().flatten().sum();
+        let start = self
+            .corrected
+            .screen
+            .units()
+            .len()
+            .saturating_sub(covered)
+            .min(units.len());
         self.corrected.screen = Screen::default();
         self.corrected.screen.push(units);
+        if let Some(lengths) = &mut self.corrected.lengths {
+            *lengths = letter_lengths(units.get(start..).unwrap_or_default(), self.table);
+        }
     }
 
     fn vietnamese_key(&mut self, key: KeyPress) -> Result<(), Unmodelled> {
@@ -188,6 +222,16 @@ impl<'engine> OpenKeyScreens<'engine> {
     }
 }
 
+/// The units each letter of `units` takes in `table`, one unit each when the text does not read back as written.
+fn letter_lengths(units: &[u16], table: CodeTable) -> Vec<usize> {
+    let lengths: Vec<usize> = decode(units, table).chars().map(|c| units_in(c, table)).collect();
+    if lengths.iter().sum::<usize>() == units.len() {
+        lengths
+    } else {
+        vec![1; units.len()]
+    }
+}
+
 /// Which host a [`Host`] is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -204,8 +248,10 @@ struct Host {
     lengths: Option<Vec<usize>>,
     /// A deletion takes every unit of the letter, as `OpenKey`'s host does in VNI Windows and Unicode compound.
     whole_letters: bool,
-    /// The last host defect this host showed.
+    /// The first host defect that changed this host's text.
     defect: Option<Family>,
+    /// The last host defect that left this host's record of letter lengths wrong without changing its text yet.
+    damage: Option<Family>,
 }
 
 impl Host {
@@ -220,6 +266,7 @@ impl Host {
             lengths: two_unit_letters.then(Vec::new),
             whole_letters: mode == Mode::Corrected || table != CodeTable::Cp1258,
             defect: None,
+            damage: None,
         }
     }
 
@@ -238,7 +285,7 @@ impl Host {
     fn english_expansion(&mut self, key: KeyPress, reply: &Reply, key_send: Send) {
         if self.mode == Mode::Faithful {
             self.screen.key(key);
-            self.defect = Some(Family::EnglishMacroKey);
+            self.show_defect(Family::EnglishMacroKey);
         }
         self.expand(key, reply, Some(key_send));
     }
@@ -246,14 +293,7 @@ impl Host {
     /// The key goes on to the text box, and the host notes what it did.
     fn pass_through(&mut self, key: KeyPress, after: After) {
         let after = if after == After::Delete && key.code() != KeyCode::Backspace {
-            // The engine reports a key typed right after a Backspace as a deletion too. `OpenKey`'s host takes it as
-            // one where it keeps a record; a corrected host knows the key types a character.
-            if self.mode == Mode::Faithful && self.whole_letters {
-                self.defect = Some(Family::SpaceAfterBackspace);
-                After::Delete
-            } else {
-                After::Typed
-            }
+            self.key_reported_as_deletion()
         } else {
             after
         };
@@ -265,6 +305,26 @@ impl Host {
             After::Other => {}
         }
         self.screen.key(key);
+    }
+
+    /// The engine reports a key typed right after a Backspace as a deletion too. `OpenKey`'s host takes it as one where
+    /// it keeps a record; a corrected host knows the key types a character.
+    fn key_reported_as_deletion(&mut self) -> After {
+        if self.mode == Mode::Corrected || !self.whole_letters {
+            return After::Typed;
+        }
+        // It shows now when the letter it takes for deleted has two units; else it shows, if ever, later.
+        let two_units = self
+            .lengths
+            .as_ref()
+            .and_then(|lengths| lengths.last())
+            .is_some_and(|length| *length > 1);
+        if two_units {
+            self.show_defect(Family::SpaceAfterBackspace);
+        } else {
+            self.damage = Some(Family::SpaceAfterBackspace);
+        }
+        After::Delete
     }
 
     /// The key is swallowed: the host deletes, types the reply, and for a restored word types the key after it.
@@ -280,7 +340,7 @@ impl Host {
             }
         }
         if let Some(send) = key_send {
-            self.send(send, key);
+            self.retype(key, send);
         }
     }
 
@@ -293,7 +353,7 @@ impl Host {
             self.send(*send, key);
         }
         if let Some(send) = key_send {
-            self.send(send, key);
+            self.retype(key, send);
         }
     }
 
@@ -312,9 +372,34 @@ impl Host {
             if self.whole_letters {
                 self.screen.backspace();
             } else {
-                self.defect = Some(Family::WholeLetter);
+                self.show_defect(Family::WholeLetter);
             }
         }
+    }
+
+    /// The key that ended the word, typed by the host after a restore or an expansion: a corrected host types what the
+    /// key types; `OpenKey`'s host types `send`.
+    fn retype(&mut self, key: KeyPress, send: Send) {
+        if self.mode == Mode::Corrected {
+            let before = self.screen.units().len();
+            self.screen.key(key);
+            let typed = self.screen.units().len().saturating_sub(before);
+            if typed > 0 {
+                self.note(typed);
+            }
+            return;
+        }
+        let mut buffer = [0; 2];
+        let differs = match send {
+            Send::Units { .. } => {
+                text_of(key).map(|c| c.encode_utf16(&mut buffer).to_vec()) != Some(send.units().to_vec())
+            }
+            Send::Key(code) => code != key.code(),
+        };
+        if differs {
+            self.show_defect(Family::RetypedKey);
+        }
+        self.send(send, key);
     }
 
     /// One character from the host; a key it sends as a key is typed with the modifiers the person is holding.
@@ -330,6 +415,11 @@ impl Host {
             }
         };
         self.note(length);
+    }
+
+    /// The host's text just changed because of `family`; the first such change is the one that counts.
+    fn show_defect(&mut self, family: Family) {
+        self.defect.get_or_insert(family);
     }
 
     fn note(&mut self, length: usize) {

@@ -1,8 +1,8 @@
-use cuakey_domain::{CodeTable, InputMethod, MacroTable};
+use cuakey_domain::{CodeTable, InputMethod, MacroTable, OnOff};
 
 use super::{Flow, RunCheck, Texts, compare_line, compare_sequences};
 use crate::accepted::Acceptance;
-use crate::combo::Combo;
+use crate::combo::{Combo, Toggle};
 use crate::corpus::parse;
 use crate::openkey_screen::Family;
 use crate::oracle::OpenKey;
@@ -108,4 +108,35 @@ fn a_random_run_whose_only_divergences_are_host_defects_passes() {
     assert!(outcome.findings.is_empty(), "{:?}", outcome.findings);
     assert_eq!(outcome.host_defects.count(Family::WholeLetter), 1);
     assert!(outcome.passed(&acceptance));
+}
+
+#[test]
+fn an_accepted_divergence_in_vni_windows_leaves_no_stale_letter_lengths_for_a_later_backspace() {
+    let mut engine = OpenKey::take().unwrap();
+    let combo = Combo {
+        table: CodeTable::VniWindows,
+        ..Combo::default_for(InputMethod::Telex)
+    };
+    engine.set_macros(&[]);
+    engine.configure(combo);
+    // CuaKey puts the tone of `hoaf` on the a (modern tones), OpenKey on the o: a divergence at key 4, accepted here.
+    let modern = Combo {
+        toggles: combo.toggles.with(Toggle::ModernTones, OnOff::On),
+        ..combo
+    };
+
+    let result = compare_line(
+        &mut engine,
+        combo,
+        (&modern.cuakey_settings(), &MacroTable::default()),
+        &parse("hoaf<bs>").unwrap(),
+        &mut |_| Some(0),
+    );
+
+    let accepted: Vec<usize> = result.accepted.iter().map(|(divergence, _)| divergence.step).collect();
+    assert_eq!(accepted, [3]);
+    assert_eq!(
+        result.open, None,
+        "the Backspace deletes the whole of à from CuaKey's text"
+    );
 }

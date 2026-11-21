@@ -61,8 +61,8 @@ const EXAMPLES: usize = 3;
 /// The runs whose only difference came from `OpenKey`'s host, counted per family, with a few examples of each.
 #[derive(Debug, Default)]
 pub struct HostDefects {
-    counts: [usize; 3],
-    examples: [Vec<HostExample>; 3],
+    counts: [usize; Family::COUNT],
+    examples: [Vec<HostExample>; Family::COUNT],
 }
 
 impl HostDefects {
@@ -83,7 +83,7 @@ impl HostDefects {
         }
     }
 
-    pub const fn counts(&self) -> [usize; 3] {
+    pub const fn counts(&self) -> [usize; Family::COUNT] {
         self.counts
     }
 
@@ -92,7 +92,7 @@ impl HostDefects {
     }
 
     /// The section of the report, with `per_source` the counts of each source when there is more than one.
-    fn render(&self, out: &mut String, per_source: &[(&str, [usize; 3])]) {
+    fn render(&self, out: &mut String, per_source: &[(&str, [usize; Family::COUNT])]) {
         out.push_str("## OpenKey host defects (not reproduced)\n\n");
         out.push_str(HOST_DEFECTS);
         for family in Family::ALL {
@@ -104,9 +104,11 @@ impl HostDefects {
             for family in Family::ALL {
                 let _ = write!(out, " {} |", family.token());
             }
-            out.push_str("\n| --- | ---: | ---: | ---: |\n");
+            out.push_str("\n| --- |");
+            out.push_str(&" ---: |".repeat(Family::COUNT));
+            out.push('\n');
             for (source, counts) in per_source {
-                let _ = writeln!(out, "| {source} | {} | {} | {} |", counts[0], counts[1], counts[2]);
+                let _ = writeln!(out, "{}", table_row(source, counts));
             }
             out.push('\n');
         }
@@ -135,6 +137,15 @@ impl HostDefects {
 const HOST_DEFECTS: &str = "CuaKey is compared with OpenKey's engine applied by a corrected host. A second pass \
     applies the same answers the way OpenKey's own Windows host does; a run whose only difference comes from that \
     host is counted here, by what the host did, and never fails the run. CuaKey does not reproduce these:\n\n";
+
+/// "| telex | 3 | 0 | 1 |".
+fn table_row(source: &str, counts: &[usize]) -> String {
+    let mut row = format!("| {source} |");
+    for count in counts {
+        let _ = write!(row, " {count} |");
+    }
+    row
+}
 
 fn family_index(family: Family) -> usize {
     Family::ALL.iter().position(|f| *f == family).unwrap_or(0)
@@ -221,7 +232,7 @@ struct FileTally {
     count: Count,
     groups: HashMap<GroupKey, Group>,
     /// The runs whose only difference came from `OpenKey`'s host, per family.
-    host: [usize; 3],
+    host: [usize; Family::COUNT],
 }
 
 impl FileTally {
@@ -276,7 +287,7 @@ impl CorpusTally {
             lines,
             count: Count::default(),
             groups: HashMap::new(),
-            host: [0; 3],
+            host: [0; Family::COUNT],
         });
     }
 
@@ -370,7 +381,8 @@ impl CorpusTally {
         if let Some(conversion) = conversion {
             conversion.render_differences(&mut out);
         }
-        let per_file: Vec<(&str, [usize; 3])> = self.files.iter().map(|file| (file.file.name, file.host)).collect();
+        let per_file: Vec<(&str, [usize; Family::COUNT])> =
+            self.files.iter().map(|file| (file.file.name, file.host)).collect();
         self.host_defects.render(&mut out, &per_file);
         self.render_accepted(&mut out, acceptance, conversion);
         render_stale(&mut out, acceptance.stale());
