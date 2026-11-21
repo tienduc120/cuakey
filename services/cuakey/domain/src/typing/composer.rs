@@ -52,6 +52,9 @@ pub struct Composer {
     /// The word a Space just ended, as the screen shows it: a Backspace right after deletes the Space and takes the
     /// word up again.
     ended: Option<(Word, String)>,
+    /// What the screen shows before the word since the last key that ended a word other than a digit: Telex ends the
+    /// word at a digit, yet a shortcut such as vn1 is looked up whole.
+    run: String,
     sentence: Sentence,
     macros: MacroTable,
     /// The engine capitalised the first letter of the word being typed, which the user typed in lower case.
@@ -65,6 +68,7 @@ impl Composer {
             word: Word::default(),
             shown: String::new(),
             ended: None,
+            run: String::new(),
             sentence: Sentence::default(),
             macros: MacroTable::default(),
             raised: OnOff::Off,
@@ -95,6 +99,7 @@ impl Composer {
         self.word = Word::default();
         self.shown.clear();
         self.ended = None;
+        self.run.clear();
         self.sentence = Sentence::default();
     }
 
@@ -119,6 +124,7 @@ impl Composer {
         self.raised = OnOff::Off;
         self.word = Word::default();
         self.shown.clear();
+        self.run.clear();
         Edit::PassThrough
     }
 
@@ -126,6 +132,7 @@ impl Composer {
     /// takes up the word the Space ended.
     fn delete_back(&mut self, ended: Option<(Word, String)>) -> Edit {
         if self.word.is_empty() {
+            self.run.pop();
             if let Some((word, shown)) = ended {
                 self.word = word;
                 self.shown = shown;
@@ -172,16 +179,28 @@ impl Composer {
         edit_between(&before, &self.shown, typed)
     }
 
-    /// A key that types no letter ends the word: the word may change once more, then the key follows.
+    /// A key that types no letter ends the word: the word may change once more, then the key follows. A digit carries
+    /// what the screen shows on into the shortcut being typed.
     fn end_word(&mut self, key: KeyPress) -> Edit {
         let word = mem::take(&mut self.word);
         let raised = mem::replace(&mut self.raised, OnOff::Off);
         let shown = mem::take(&mut self.shown);
-        if let Some(c) = text_of(key) {
+        let text = text_of(key);
+        if let Some(c) = text {
             self.sentence = self.sentence.after(c);
         }
-        if let Some(edit) = self.macro_edit(&shown, &word.typed_keys(), raised, key) {
-            return edit;
+        let digit = text.filter(char::is_ascii_digit);
+        if digit.is_none() {
+            let run = mem::take(&mut self.run);
+            let typed_keys = word.typed_keys();
+            let forms = MacroForms {
+                shown: &[run.as_str(), &shown].concat(),
+                typed_keys: &[run.as_str(), &typed_keys].concat(),
+                raised: if run.is_empty() { raised } else { OnOff::Off },
+            };
+            if let Some(edit) = self.macro_edit(&forms, key) {
+                return edit;
+            }
         }
         let ending = word.ending(self.rules());
         let edit = ending.as_ref().map_or(Edit::PassThrough, |text| Edit::Replace {
@@ -189,6 +208,10 @@ impl Composer {
             insert: text.clone(),
             resend_key: true,
         });
+        if let Some(digit) = digit {
+            self.run.push_str(ending.as_deref().unwrap_or(&shown));
+            self.run.push(digit);
+        }
         if key.code() == KeyCode::Space {
             self.ended = Some(match ending {
                 Some(text) => (Word::as_typed(&text), text),
@@ -214,8 +237,12 @@ impl Composer {
             return Edit::PassThrough;
         }
         let shown = mem::take(&mut self.shown);
-        self.macro_edit(&shown, &shown, OnOff::Off, key)
-            .unwrap_or(Edit::PassThrough)
+        let forms = MacroForms {
+            shown: &shown,
+            typed_keys: &shown,
+            raised: OnOff::Off,
+        };
+        self.macro_edit(&forms, key).unwrap_or(Edit::PassThrough)
     }
 
     /// Whether macros expand in the language being typed.
@@ -228,29 +255,30 @@ impl Composer {
     /// The edit that swaps the word on screen for its macro's expansion, found by the word as shown or else by the keys
     /// as typed, followed by the key that ended the word. The key goes into the edit when it types text, and is sent
     /// after it when it types none. Tab moves on, often out of the text box, and leaves the word as it is.
-    fn macro_edit(&self, shown: &str, typed_keys: &str, raised: OnOff, key: KeyPress) -> Option<Edit> {
+    fn macro_edit(&self, forms: &MacroForms<'_>, key: KeyPress) -> Option<Edit> {
         if !self.macros_apply() || key.code() == KeyCode::Tab {
             return None;
         }
         let match_case = self.settings.macros().match_case();
         let mut insert = self
             .macros
-            .lookup(shown, match_case)
-            .or_else(|| self.macros.lookup(typed_keys, match_case))
+            .lookup(forms.shown, match_case)
+            .or_else(|| self.macros.lookup(forms.typed_keys, match_case))
             .or_else(|| {
-                raised
+                forms
+                    .raised
                     .is_on()
                     .then(|| {
                         self.macros
-                            .lookup_raised(shown)
-                            .or_else(|| self.macros.lookup_raised(typed_keys))
+                            .lookup_raised(forms.shown)
+                            .or_else(|| self.macros.lookup_raised(forms.typed_keys))
                     })
                     .flatten()
             })?;
         let typed = text_of(key).filter(|c| !c.is_control());
         insert.extend(typed);
         Some(Edit::Replace {
-            delete: shown.chars().count(),
+            delete: forms.shown.chars().count(),
             insert,
             resend_key: typed.is_none(),
         })
@@ -292,6 +320,17 @@ impl Composer {
             },
         }
     }
+}
+
+/// The ways a typed shortcut can match a macro.
+#[derive(Debug)]
+struct MacroForms<'a> {
+    /// As the screen shows it.
+    shown: &'a str,
+    /// As its keys were typed.
+    typed_keys: &'a str,
+    /// The engine raised its first letter, which the user typed in lower case.
+    raised: OnOff,
 }
 
 /// What `key` types by itself, when it is a key that can type into a word.

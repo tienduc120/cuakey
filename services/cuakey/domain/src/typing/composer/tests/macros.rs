@@ -385,6 +385,40 @@ fn a_tab_ends_the_word_without_expanding_a_macro() {
     }
 }
 
+#[test]
+fn a_shortcut_with_a_digit_expands_in_telex() {
+    for settings in [settings(), Settings::default()] {
+        let mut composer = composer_for(&settings, Language::Vietnamese, &[("vn1", "Việt Nam")]);
+
+        assert_eq!(
+            type_text(&mut composer, "vn1 "),
+            "Việt Nam ",
+            "a digit ends the Telex word, but the shortcut is the whole of vn1"
+        );
+    }
+}
+
+#[test]
+fn backspace_takes_a_digit_back_out_of_the_shortcut() {
+    let mut composer = telex_with(&[("vn1", "Việt Nam")]);
+    let mut text = String::from("vn2");
+    text.push(BACKSPACE);
+    text.push_str("1 ");
+
+    assert_eq!(type_text(&mut composer, &text), "Việt Nam ", "the 2 was deleted");
+}
+
+#[test]
+fn a_digit_inside_a_shortcut_expands_nothing_yet() {
+    let mut composer = telex_with(&[("vn", "Việt Nam"), ("vn1", "Việt Nam 1")]);
+
+    assert_eq!(
+        type_text(&mut composer, "vn1 "),
+        "Việt Nam 1 ",
+        "the digit goes on the shortcut, so vn alone does not fire"
+    );
+}
+
 fn capitalising(match_caps: OnOff) -> Settings {
     settings()
         .with(SettingChange::CapitalizeSentences(OnOff::On))
