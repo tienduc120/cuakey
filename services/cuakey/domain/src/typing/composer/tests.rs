@@ -885,3 +885,21 @@ fn a_closed_oo_takes_the_tone_on_its_second_o() {
     );
     assert_eq!(type_text(&mut vni(), "goo2ng"), "goòng", "goòng");
 }
+
+#[test]
+fn a_lone_y_before_a_consonant_takes_no_tone() {
+    for composer in [telex(), composer_with(&vietnamese())] {
+        let mut composer = composer;
+        assert_eq!(
+            type_text(&mut composer, "cyns"),
+            "cyns",
+            "y never comes before a last consonant"
+        );
+    }
+    assert_eq!(type_text(&mut telex(), "kyf"), "kỳ", "an open y takes it");
+    assert_eq!(
+        type_text(&mut telex(), "huyts"),
+        "huýt",
+        "as does the y of uy before a consonant"
+    );
+}

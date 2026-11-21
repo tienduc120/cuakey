@@ -173,6 +173,11 @@ impl<'a> Syllable<'a> {
         tone_vowel(self.vowels(), self.ending(), style).map(|at| self.vowels.start + at)
     }
 
+    /// Whether a tone key may mark the syllable: a lone y never comes before a last consonant, so it takes no tone there.
+    pub(super) fn takes_tone(&self) -> bool {
+        !(self.vowels() == [BaseLetter::Y] && self.ending() == Ending::Closed)
+    }
+
     /// The vowels `mark` goes on, or `None` when no vowel takes it.
     pub(super) fn mark_target(&self, mark: Mark) -> Option<MarkTarget> {
         let vowels = self.vowels();
