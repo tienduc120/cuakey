@@ -1,11 +1,13 @@
-//! The word being typed: its characters, its tone, and what each key's effects do to them.
+//! The word being typed: its characters, the keys that typed them, and what each key's effects do to them.
 
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use super::tone::{Ending, MarkTarget, Syllable, ToneStyle};
+use super::quick;
+use super::spelling::{self, Consonants, Spelling};
+use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, is_vowel};
 use super::{Effect, Mark};
-use crate::{BaseLetter, KeyCode, Letter, LetterCase, Tone};
+use crate::{BaseLetter, KeyCode, Letter, LetterCase, OnOff, Tone};
 
 /// A key that types into the word, as the word sees it.
 #[derive(Debug, Clone, Copy)]
@@ -21,7 +23,7 @@ pub(super) struct Keystroke {
 /// One character of the word.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Glyph {
-    /// A letter without its tone: the word draws its tone on one of its vowels.
+    /// A letter with its tone.
     Letter(Letter),
     /// A character that is no letter, such as a digit, kept as typed.
     Other(char),
@@ -29,8 +31,12 @@ pub(super) enum Glyph {
 
 impl Glyph {
     fn base(self) -> Option<BaseLetter> {
+        self.letter().map(Letter::base)
+    }
+
+    const fn letter(self) -> Option<Letter> {
         match self {
-            Self::Letter(letter) => Some(letter.base()),
+            Self::Letter(letter) => Some(letter),
             Self::Other(_) => None,
         }
     }
@@ -41,12 +47,36 @@ impl Glyph {
             Self::Other(c) => c,
         }
     }
+
+    /// The glyph as a capital, when it is a letter.
+    #[must_use]
+    pub(super) fn in_capitals(self) -> Self {
+        match self {
+            Self::Letter(letter) => {
+                Letter::from_parts(letter.base(), letter.tone(), LetterCase::Upper).map_or(self, Self::Letter)
+            }
+            Self::Other(_) => self,
+        }
+    }
 }
 
-/// The word's tone, and the place of the vowel it is drawn on.
+/// What the word reads of the settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct PlacedTone {
-    tone: Tone,
+pub(super) struct Rules {
+    pub(super) style: ToneStyle,
+    pub(super) spell_check: OnOff,
+    pub(super) restore: OnOff,
+    pub(super) quick_telex: OnOff,
+    pub(super) consonants: Consonants,
+}
+
+/// A key the word keeps, to type it again when the word is restored.
+#[derive(Debug, Clone, Copy)]
+struct TypedKey {
+    code: KeyCode,
+    /// What the key types by itself.
+    typed: Glyph,
+    /// The place of the character the key typed or changed.
     at: usize,
 }
 
@@ -64,52 +94,105 @@ enum State {
 /// What one of a key's effects did to the word.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Outcome {
-    Done,
-    TypedVowel,
+    /// Changed the character at this place.
+    Done(usize),
+    /// Turned the d at this place into đ, which alone does not make the word one to restore.
+    Stroked(usize),
+    /// Typed a vowel by itself at this place.
+    TypedVowel(usize),
     /// The key asked for what the word already had, so the change is taken back.
     TakenBack,
     /// The word gives the effect nothing to work on.
     NotHere,
 }
 
-/// The word being typed: its characters, and its tone kept apart so it can move as the word grows.
+/// The word being typed: its characters, each letter with its tone, and the keys that typed them.
 #[derive(Debug, Default)]
 pub(super) struct Word {
     glyphs: Vec<Glyph>,
-    tone: Option<PlacedTone>,
+    keys: Vec<TypedKey>,
     state: State,
+    /// A mark, tone, or vowel key changed the word rather than only typing itself, so it may show other than the keys
+    /// typed.
+    changed: bool,
 }
 
 impl Word {
-    pub(super) fn type_key(&mut self, key: Keystroke, style: ToneStyle) {
+    pub(super) fn is_empty(&self) -> bool {
+        self.glyphs.is_empty()
+    }
+
+    pub(super) fn type_key(&mut self, key: Keystroke, rules: Rules) {
+        self.keys.push(TypedKey {
+            code: key.code,
+            typed: key.typed,
+            at: self.glyphs.len(),
+        });
         match self.state {
             State::AsTyped { .. } => self.glyphs.push(key.typed),
-            State::TypedVowel(code) if code == key.code => self.take_back_vowel(key.typed),
-            State::TypedVowel(_) | State::Composing => self.compose(key, style),
+            State::TypedVowel(code) if code == key.code => self.take_back_vowel(key),
+            State::TypedVowel(_) | State::Composing => self.compose(key, rules),
         }
     }
 
-    fn compose(&mut self, key: Keystroke, style: ToneStyle) {
+    fn compose(&mut self, key: Keystroke, rules: Rules) {
         self.state = State::Composing;
-        let outcome = key
-            .effects
-            .iter()
-            .map(|effect| self.apply(*effect, key.case, style))
-            .find(|outcome| *outcome != Outcome::NotHere);
+        if rules.quick_telex.is_on() && self.type_doubled_consonant(key) {
+            return;
+        }
+        let outcome = if self.takes_changes(rules) {
+            key.effects
+                .iter()
+                .map(|effect| self.apply(*effect, key.case, rules))
+                .find(|outcome| *outcome != Outcome::NotHere)
+        } else {
+            None
+        };
         match outcome {
             Some(Outcome::TakenBack) => {
+                self.forget_key_taken_back(key.code);
                 self.type_as_typed(key.typed);
                 return;
             }
-            Some(Outcome::TypedVowel) => self.state = State::TypedVowel(key.code),
-            Some(Outcome::Done) => {}
+            Some(Outcome::TypedVowel(at)) => {
+                self.state = State::TypedVowel(key.code);
+                self.changed_at(at);
+            }
+            Some(Outcome::Done(at)) => self.changed_at(at),
+            Some(Outcome::Stroked(at)) => self.typed_at(at),
             Some(Outcome::NotHere) | None => self.glyphs.push(key.typed),
         }
-        self.place_tone(style);
+        self.place_tone(rules.style);
     }
 
-    fn apply(&mut self, effect: Effect, case: LetterCase, style: ToneStyle) -> Outcome {
-        let Some(letters) = self.letters() else {
+    /// Quick Telex: a consonant typed right after itself types the second letter of the pair it starts.
+    fn type_doubled_consonant(&mut self, key: Keystroke) -> bool {
+        let Some(letter) = key.typed.letter() else {
+            return false;
+        };
+        let after_itself = self.glyphs.last().and_then(|glyph| glyph.base()) == Some(letter.base());
+        let second = quick::second_of_doubled(letter.base())
+            .filter(|_| after_itself)
+            .and_then(|second| Letter::from_parts(second, Tone::Ngang, letter.case()));
+        let Some(second) = second else {
+            return false;
+        };
+        self.glyphs.push(Glyph::Letter(second));
+        true
+    }
+
+    /// Whether keys may still change the word: always without spell check, and with it while the word can still be
+    /// Vietnamese.
+    fn takes_changes(&self, rules: Rules) -> bool {
+        rules.spell_check == OnOff::Off || self.spelling(rules) != Spelling::Foreign
+    }
+
+    fn spelling(&self, rules: Rules) -> Spelling {
+        spelling::spelling(letters_of(&self.glyphs).as_deref(), rules.consonants)
+    }
+
+    fn apply(&mut self, effect: Effect, case: LetterCase, rules: Rules) -> Outcome {
+        let Some(letters) = letters_of(&self.glyphs) else {
             return Outcome::NotHere;
         };
         let Some(syllable) = Syllable::read(&letters) else {
@@ -117,7 +200,7 @@ impl Word {
         };
         match effect {
             Effect::Mark(mark) => self.put_mark(&syllable, mark),
-            Effect::Tone(tone) => self.put_tone(&syllable, tone, style),
+            Effect::Tone(tone) => self.put_tone(&syllable, tone, rules.style),
             Effect::Stroke => self.stroke(),
             Effect::Vowel(vowel) => self.type_vowel(&syllable, vowel, case),
         }
@@ -129,14 +212,14 @@ impl Word {
             Some(MarkTarget::One { at, plain, marked }) => {
                 let had_it = self.base_at(at) == Some(marked);
                 self.set_base(at, if had_it { plain } else { marked });
-                if had_it { Outcome::TakenBack } else { Outcome::Done }
+                if had_it { Outcome::TakenBack } else { Outcome::Done(at) }
             }
             Some(MarkTarget::HornPair { u, o }) => {
                 let had_it = self.base_at(u) == Some(BaseLetter::UHorn) && self.base_at(o) == Some(BaseLetter::OHorn);
                 let (new_u, new_o, outcome) = if had_it {
                     (BaseLetter::U, BaseLetter::O, Outcome::TakenBack)
                 } else {
-                    (BaseLetter::UHorn, BaseLetter::OHorn, Outcome::Done)
+                    (BaseLetter::UHorn, BaseLetter::OHorn, Outcome::Done(o))
                 };
                 self.set_base(u, new_u);
                 self.set_base(o, new_o);
@@ -149,47 +232,57 @@ impl Word {
         let Some(at) = syllable.tone_position(style) else {
             return Outcome::NotHere;
         };
-        if tone == Tone::Ngang {
+        let current = self.tone_in(syllable);
+        if let Some((place, _)) = current {
+            self.set_tone(place, Tone::Ngang);
+        }
+        match current {
             // With no tone to take off, the key types itself.
-            return self.tone.take().map_or(Outcome::NotHere, |_| Outcome::Done);
+            None if tone == Tone::Ngang => Outcome::NotHere,
+            Some((place, _)) if tone == Tone::Ngang => Outcome::Done(place),
+            Some((_, had)) if had == tone => Outcome::TakenBack,
+            _ => {
+                self.set_tone(at, tone);
+                Outcome::Done(at)
+            }
         }
-        if self.tone.is_some_and(|placed| placed.tone == tone) {
-            self.tone = None;
-            return Outcome::TakenBack;
-        }
-        self.tone = Some(PlacedTone { tone, at });
-        Outcome::Done
     }
 
+    /// Turns the d that starts the word into đ, or back.
     fn stroke(&mut self) -> Outcome {
-        let first = self.base_at(0);
-        if first == Some(BaseLetter::D) {
-            self.set_base(0, BaseLetter::DStroke);
-            Outcome::Done
-        } else if first == Some(BaseLetter::DStroke) {
-            self.set_base(0, BaseLetter::D);
-            Outcome::TakenBack
-        } else {
-            Outcome::NotHere
+        match self.base_at(0) {
+            Some(BaseLetter::D) => {
+                self.set_base(0, BaseLetter::DStroke);
+                Outcome::Stroked(0)
+            }
+            Some(BaseLetter::DStroke) => {
+                self.set_base(0, BaseLetter::D);
+                Outcome::TakenBack
+            }
+            _ => Outcome::NotHere,
         }
     }
 
     /// Types `vowel` at the end of the word, unless a final consonant is already there.
     fn type_vowel(&mut self, syllable: &Syllable<'_>, vowel: BaseLetter, case: LetterCase) -> Outcome {
-        let letter = Letter::from_parts(vowel, Tone::Ngang, case);
-        match (syllable.ending(), letter) {
+        match (syllable.ending(), Letter::from_parts(vowel, Tone::Ngang, case)) {
             (Ending::Open, Some(letter)) => {
                 self.glyphs.push(Glyph::Letter(letter));
-                Outcome::TypedVowel
+                Outcome::TypedVowel(self.glyphs.len() - 1)
             }
             (Ending::Open, None) | (Ending::Closed, _) => Outcome::NotHere,
         }
     }
 
-    /// The key that typed the last vowel by itself, typed again: the vowel goes, and the key types itself.
-    fn take_back_vowel(&mut self, typed: Glyph) {
-        self.delete_last();
-        self.type_as_typed(typed);
+    /// The key that typed the last vowel by itself, typed again: the vowel goes, and the key types itself, once.
+    fn take_back_vowel(&mut self, key: Keystroke) {
+        self.pop_glyph();
+        self.keys.push(TypedKey {
+            code: key.code,
+            typed: key.typed,
+            at: self.glyphs.len(),
+        });
+        self.type_as_typed(key.typed);
     }
 
     /// Types the key that took a change back as it is, and the rest of the word after it.
@@ -200,18 +293,37 @@ impl Word {
         self.glyphs.push(typed);
     }
 
-    /// Backspace: the last character goes, and the tone with it when it was drawn there. Nothing else moves, so the
-    /// word stays what the screen shows. Deleting the key that took a change back lets the word change again.
-    pub(super) fn delete_last(&mut self) {
-        self.glyphs.pop();
-        let len = self.glyphs.len();
-        if self.tone.is_some_and(|placed| placed.at >= len) {
-            self.tone = None;
+    /// Forgets the key before the last one that `code` typed: the last key took its change back, so typing the word
+    /// again types that key once.
+    fn forget_key_taken_back(&mut self, code: KeyCode) {
+        let before_last = self.keys.len().saturating_sub(1);
+        if let Some(at) = self.keys.iter().take(before_last).rposition(|key| key.code == code) {
+            self.keys.remove(at);
         }
+    }
+
+    fn changed_at(&mut self, at: usize) {
+        self.changed = true;
+        self.typed_at(at);
+    }
+
+    /// Records that the last key changed the character at `at`.
+    fn typed_at(&mut self, at: usize) {
+        if let Some(last) = self.keys.last_mut() {
+            last.at = at;
+        }
+    }
+
+    /// Backspace: the last character goes, and the tone with it when it was drawn there, and the keys that typed it.
+    /// Nothing else moves, so the word stays what the screen shows. Deleting the key that took a change back lets the
+    /// word change again.
+    pub(super) fn delete_last(&mut self) {
+        self.pop_glyph();
         if self.glyphs.is_empty() {
             *self = Self::default();
             return;
         }
+        let len = self.glyphs.len();
         match self.state {
             State::TypedVowel(_) => self.state = State::Composing,
             State::AsTyped { from } if len <= from => self.state = State::Composing,
@@ -219,29 +331,48 @@ impl Word {
         }
     }
 
+    fn pop_glyph(&mut self) {
+        self.glyphs.pop();
+        let len = self.glyphs.len();
+        self.keys.retain(|key| key.at < len);
+    }
+
     /// Moves the tone onto the vowel that carries it now. A word that is no syllable keeps it where it is.
     fn place_tone(&mut self, style: ToneStyle) {
-        let Some(placed) = self.tone else {
+        let Some(letters) = letters_of(&self.glyphs) else {
             return;
         };
-        let at = self
-            .letters()
-            .and_then(|letters| Syllable::read(&letters)?.tone_position(style));
-        if let Some(at) = at {
-            self.tone = Some(PlacedTone { at, ..placed });
+        let Some(syllable) = Syllable::read(&letters) else {
+            return;
+        };
+        let (Some((from, tone)), Some(to)) = (self.tone_in(&syllable), syllable.tone_position(style)) else {
+            return;
+        };
+        if from != to {
+            self.set_tone(from, Tone::Ngang);
+            self.set_tone(to, tone);
         }
     }
 
-    /// The word's letters without their case, or `None` when it holds something that is no letter.
-    fn letters(&self) -> Option<Vec<BaseLetter>> {
-        self.glyphs.iter().map(|glyph| glyph.base()).collect()
+    /// Where the tone of `syllable` is drawn, and which tone it is.
+    fn tone_in(&self, syllable: &Syllable<'_>) -> Option<(usize, Tone)> {
+        self.glyphs
+            .iter()
+            .enumerate()
+            .skip(syllable.start())
+            .find_map(|(at, glyph)| {
+                glyph
+                    .letter()
+                    .map(|l| (at, l.tone()))
+                    .filter(|(_, t)| *t != Tone::Ngang)
+            })
     }
 
     fn base_at(&self, at: usize) -> Option<BaseLetter> {
         self.glyphs.get(at).and_then(|glyph| glyph.base())
     }
 
-    /// Writes the letter at `at` on `base` instead, keeping its case.
+    /// Writes the letter at `at` on `base` instead, keeping its tone and case.
     fn set_base(&mut self, at: usize, base: BaseLetter) {
         if let Some(Glyph::Letter(letter)) = self.glyphs.get_mut(at)
             && let Some(changed) = Letter::from_parts(base, letter.tone(), letter.case())
@@ -250,20 +381,96 @@ impl Word {
         }
     }
 
-    pub(super) fn render(&self) -> String {
-        self.glyphs
-            .iter()
-            .enumerate()
-            .map(|(at, glyph)| self.shown_at(at, *glyph))
-            .collect()
+    fn set_tone(&mut self, at: usize, tone: Tone) {
+        if let Some(Glyph::Letter(letter)) = self.glyphs.get_mut(at)
+            && let Some(toned) = letter.with_tone(tone)
+        {
+            *letter = toned;
+        }
     }
 
-    /// The character `glyph` shows as, carrying the tone when it is drawn there.
-    fn shown_at(&self, at: usize, glyph: Glyph) -> char {
-        let toned = match (glyph, self.tone) {
-            (Glyph::Letter(letter), Some(placed)) if placed.at == at => letter.with_tone(placed.tone),
-            _ => None,
-        };
-        toned.map_or_else(|| glyph.to_char(), Letter::to_char)
+    pub(super) fn render(&self) -> String {
+        render(&self.glyphs)
     }
+
+    /// What the word shows once it ends, when that differs from what it shows now: the keys as they were typed, when
+    /// restoring is on and keys changed a word that is not Vietnamese (without spell check, only once a key took its
+    /// change back); otherwise the quick consonants written out, which spell check allows only when they make a
+    /// Vietnamese word. A word with no vowel stays as it is.
+    pub(super) fn ending(&self, rules: Rules) -> Option<String> {
+        let has_vowel = self.glyphs.iter().any(|glyph| glyph.base().is_some_and(is_vowel));
+        if !has_vowel {
+            return None;
+        }
+        let checked = rules.spell_check.is_on() || matches!(self.state, State::AsTyped { .. });
+        if rules.restore.is_on() && self.changed && checked && self.spelling(rules) != Spelling::Syllable {
+            return Some(self.keys.iter().map(|key| key.typed.to_char()).collect());
+        }
+        let quick = self.with_quick_consonants(rules.consonants)?;
+        let allowed = rules.spell_check == OnOff::Off
+            || spelling::spelling(letters_of(&quick).as_deref(), rules.consonants) == Spelling::Syllable;
+        allowed.then(|| render(&quick))
+    }
+
+    /// The word with an f, j, or w that starts it, and a g, h, or k that ends it after a vowel, written as the pair
+    /// each stands for, when the settings ask for it and the word has one.
+    fn with_quick_consonants(&self, consonants: Consonants) -> Option<Vec<Glyph>> {
+        let mut glyphs = self.glyphs.clone();
+        let mut changed = false;
+        if consonants.quick_last.is_on() {
+            changed |= write_last_pair(&mut glyphs);
+        }
+        if consonants.quick_first.is_on() {
+            changed |= write_first_pair(&mut glyphs);
+        }
+        changed.then_some(glyphs)
+    }
+}
+
+/// Writes out a g, h, or k that ends `glyphs` after a vowel.
+fn write_last_pair(glyphs: &mut Vec<Glyph>) -> bool {
+    let (Some(last), Some(before)) = (
+        glyphs.last().and_then(|g| g.letter()),
+        glyphs.iter().rev().nth(1).and_then(|g| g.base()),
+    ) else {
+        return false;
+    };
+    let Some(pair) = quick::last_pair(last.base()).filter(|_| is_vowel(before)) else {
+        return false;
+    };
+    glyphs.pop();
+    glyphs.extend(pair.iter().filter_map(|base| letter_glyph(*base, last.case())));
+    true
+}
+
+/// Writes out an f, j, or w that starts `glyphs`, the pair's second letter in capitals only when the word goes on in
+/// capitals.
+fn write_first_pair(glyphs: &mut Vec<Glyph>) -> bool {
+    let Some(first) = glyphs.first().and_then(|g| g.letter()) else {
+        return false;
+    };
+    let Some([one, two]) = quick::first_pair(first.base()) else {
+        return false;
+    };
+    let next_case = glyphs.get(1).and_then(|g| g.letter()).map(Letter::case);
+    let second_case = match (first.case(), next_case) {
+        (LetterCase::Upper, Some(LetterCase::Upper)) => LetterCase::Upper,
+        _ => LetterCase::Lower,
+    };
+    let pair = [letter_glyph(one, first.case()), letter_glyph(two, second_case)];
+    glyphs.splice(0..1, pair.into_iter().flatten());
+    true
+}
+
+fn letter_glyph(base: BaseLetter, case: LetterCase) -> Option<Glyph> {
+    Letter::from_parts(base, Tone::Ngang, case).map(Glyph::Letter)
+}
+
+/// The letters of `glyphs` without tone or case, or `None` when one is no letter.
+fn letters_of(glyphs: &[Glyph]) -> Option<Vec<BaseLetter>> {
+    glyphs.iter().map(|glyph| glyph.base()).collect()
+}
+
+fn render(glyphs: &[Glyph]) -> String {
+    glyphs.iter().map(|glyph| glyph.to_char()).collect()
 }

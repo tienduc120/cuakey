@@ -33,12 +33,13 @@ pub(super) enum MarkTarget {
     HornPair { u: usize, o: usize },
 }
 
-/// A word read as one syllable: first consonant, vowels, final consonant.
+/// One syllable of a word: first consonants, vowels, last consonants.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Syllable<'a> {
     letters: &'a [BaseLetter],
+    /// Where the syllable starts in the word.
+    start: usize,
     vowels: Range<usize>,
-    ending: Ending,
 }
 
 /// Every vowel with the plain vowel it is written on.
@@ -58,39 +59,78 @@ const VOWELS: [(BaseLetter, BaseLetter); 12] = [
 ];
 
 impl<'a> Syllable<'a> {
-    /// `letters` read as a syllable, or `None` when a vowel follows the final consonant.
-    pub(super) fn read(letters: &'a [BaseLetter]) -> Option<Self> {
-        let first_vowel = letters.iter().position(|l| is_vowel(*l)).unwrap_or(letters.len());
-        let start = first_vowel + usize::from(glide_belongs_to_first_consonant(letters, first_vowel));
-        let end = start + letters.iter().skip(start).take_while(|l| is_vowel(**l)).count();
-        if letters.iter().skip(end).any(|l| is_vowel(*l)) {
-            return None;
-        }
-        let ending = if end < letters.len() {
-            Ending::Closed
-        } else {
-            Ending::Open
+    /// The last syllable of `letters`: their last vowels, the consonants after them, and the consonants before them
+    /// back to the vowel before. With no vowel, every letter is a first consonant.
+    pub(super) fn last(letters: &'a [BaseLetter]) -> Self {
+        let Some(last_vowel) = letters.iter().rposition(|l| is_vowel(*l)) else {
+            return Self {
+                letters,
+                start: 0,
+                vowels: letters.len()..letters.len(),
+            };
         };
-        Some(Self {
+        let before = letters.get(..last_vowel).unwrap_or_default();
+        let first_vowel = before.iter().rposition(|l| !is_vowel(*l)).map_or(0, |at| at + 1);
+        let start = before
+            .get(..first_vowel)
+            .unwrap_or_default()
+            .iter()
+            .rposition(|l| is_vowel(*l))
+            .map_or(0, |at| at + 1);
+        let first_consonants = letters.get(start..first_vowel).unwrap_or_default();
+        let vowels = letters.get(first_vowel..=last_vowel).unwrap_or_default();
+        let glide = usize::from(glide_belongs_to_first_consonants(first_consonants, vowels));
+        Self {
             letters,
-            vowels: start..end,
-            ending,
-        })
+            start,
+            vowels: first_vowel + glide..last_vowel + 1,
+        }
     }
 
-    pub(super) const fn ending(&self) -> Ending {
-        self.ending
+    /// The word read as one syllable, or `None` when a vowel follows its last consonants.
+    pub(super) fn read(letters: &'a [BaseLetter]) -> Option<Self> {
+        Some(Self::last(letters)).filter(Self::starts_word)
+    }
+
+    /// Whether the syllable is the whole word.
+    pub(super) const fn starts_word(&self) -> bool {
+        self.start == 0
+    }
+
+    /// Where the syllable starts in the word.
+    pub(super) const fn start(&self) -> usize {
+        self.start
+    }
+
+    /// The consonants before the vowels, with the glide of qu or gi.
+    pub(super) fn first_consonants(&self) -> &'a [BaseLetter] {
+        self.letters.get(self.start..self.vowels.start).unwrap_or_default()
+    }
+
+    pub(super) fn vowels(&self) -> &'a [BaseLetter] {
+        self.letters.get(self.vowels.clone()).unwrap_or_default()
+    }
+
+    pub(super) fn last_consonants(&self) -> &'a [BaseLetter] {
+        self.letters.get(self.vowels.end..).unwrap_or_default()
+    }
+
+    pub(super) fn ending(&self) -> Ending {
+        if self.vowels.is_empty() || self.last_consonants().is_empty() {
+            Ending::Open
+        } else {
+            Ending::Closed
+        }
     }
 
     /// The place in the word of the vowel that carries the tone, or `None` when there is no vowel.
     pub(super) fn tone_position(&self, style: ToneStyle) -> Option<usize> {
-        let vowels = self.letters.get(self.vowels.clone())?;
-        tone_vowel(vowels, self.ending, style).map(|at| self.vowels.start + at)
+        tone_vowel(self.vowels(), self.ending(), style).map(|at| self.vowels.start + at)
     }
 
     /// The vowels `mark` goes on, or `None` when no vowel takes it.
     pub(super) fn mark_target(&self, mark: Mark) -> Option<MarkTarget> {
-        let vowels = self.letters.get(self.vowels.clone())?;
+        let vowels = self.vowels();
         let start = self.vowels.start;
         let pair = horn_pair(vowels, mark).map(|u| MarkTarget::HornPair {
             u: start + u,
@@ -122,7 +162,7 @@ fn plain_vowel(letter: BaseLetter) -> Option<BaseLetter> {
         .map(|(_, plain)| *plain)
 }
 
-fn is_vowel(letter: BaseLetter) -> bool {
+pub(super) fn is_vowel(letter: BaseLetter) -> bool {
     plain_vowel(letter).is_some()
 }
 
@@ -131,15 +171,13 @@ fn has_mark(letter: BaseLetter) -> bool {
     plain_vowel(letter).is_some_and(|plain| plain != letter)
 }
 
-/// Whether the i of gi or the u of qu belongs to the first consonant, as it does when another vowel follows: gia, qua.
-fn glide_belongs_to_first_consonant(letters: &[BaseLetter], first_vowel: usize) -> bool {
-    let consonant_and_glide = (letters.get(..first_vowel), letters.get(first_vowel));
-    let vowel_follows = letters.get(first_vowel + 1).is_some_and(|l| is_vowel(*l));
-    vowel_follows
-        && matches!(
-            consonant_and_glide,
-            (Some([BaseLetter::G]), Some(BaseLetter::I)) | (Some([BaseLetter::Q]), Some(BaseLetter::U))
-        )
+/// Whether the first of `vowels` belongs to the `first_consonants` before them, as the i of gi and the u of qu do
+/// when another vowel follows: gia, qua.
+fn glide_belongs_to_first_consonants(first_consonants: &[BaseLetter], vowels: &[BaseLetter]) -> bool {
+    matches!(
+        (first_consonants, vowels),
+        ([BaseLetter::G], [BaseLetter::I, _, ..]) | ([BaseLetter::Q], [BaseLetter::U, _, ..])
+    )
 }
 
 /// Which of `vowels` carries the tone.

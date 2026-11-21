@@ -191,3 +191,13 @@ fn a_marked_vowel_is_found_under_its_plain_one() {
         "o turns ơ into ô"
     );
 }
+
+#[test]
+fn the_last_syllable_of_a_longer_word_starts_after_the_vowel_before() {
+    let word = letters("hello");
+    let last = Syllable::last(&word);
+
+    assert_eq!(last.start(), 2, "the l after e starts it");
+    assert_eq!(last.first_consonants(), [BaseLetter::L, BaseLetter::L], "llo");
+    assert_eq!(last.vowels(), [BaseLetter::O], "o");
+}

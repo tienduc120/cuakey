@@ -1,6 +1,9 @@
 //! The typing engine: it turns keys into a Vietnamese word as the word is typed, in Telex, Simple Telex, or VNI.
 
+mod capitalise;
 mod composer;
+mod quick;
+mod spelling;
 mod telex;
 mod tone;
 mod vni;

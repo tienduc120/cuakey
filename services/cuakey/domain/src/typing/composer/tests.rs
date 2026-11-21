@@ -111,13 +111,14 @@ fn typed_by_key(c: char, caps_lock: OnOff) -> char {
 
 /// Applies an edit to the screen as the app being typed into would.
 fn apply(edit: Edit, screen: &mut String, typed: Option<char>) {
+    let let_through = |screen: &mut String| match typed {
+        Some(c) => screen.push(c),
+        None => {
+            screen.pop();
+        }
+    };
     match edit {
-        Edit::PassThrough => match typed {
-            Some(c) => screen.push(c),
-            None => {
-                screen.pop();
-            }
-        },
+        Edit::PassThrough => let_through(screen),
         Edit::Replace {
             delete,
             insert,
@@ -127,7 +128,9 @@ fn apply(edit: Edit, screen: &mut String, typed: Option<char>) {
                 screen.pop();
             }
             screen.push_str(&insert);
-            assert!(!resend_key, "no key typed in these tests is sent again");
+            if resend_key {
+                let_through(screen);
+            }
         }
     }
 }
@@ -481,4 +484,143 @@ fn backspace_with_no_word_goes_through() {
         Edit::PassThrough,
         "it deletes text before the word"
     );
+}
+
+/// The settings as they ship: spell check, restoring an invalid word, and keeping `w` at the start of a word on.
+fn vietnamese() -> Settings {
+    Settings::default()
+}
+
+#[test]
+fn ass_restores() {
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "ass"),
+        "as",
+        "the second s takes the acute back and types itself"
+    );
+}
+
+#[test]
+fn hello_stays_english() {
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "hello "),
+        "hello ",
+        "a word that cannot be Vietnamese is left as typed"
+    );
+}
+
+#[test]
+fn windows_with_keep_w() {
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "windows"),
+        "windows",
+        "the w that starts the word stays w, and spell check leaves the rest alone"
+    );
+}
+
+#[test]
+fn keep_w_types_w_only_at_the_start_of_a_word() {
+    let cases = [
+        ("w", "w", "a lone w"),
+        ("W", "W", "a capital W"),
+        ("ww", "ww", "a second w after it"),
+        ("nhw", "như", "a w after consonants still types ư"),
+        ("uw", "ư", "a w after u puts the horn on it"),
+        ("aw ow", "ă ơ", "a w after a or o marks it"),
+        ("tooi w", "tôi w", "a w after a space starts a new word"),
+    ];
+
+    for (keys, shown, why) in cases {
+        assert_eq!(
+            type_text(&mut composer_with(&vietnamese()), keys),
+            shown,
+            "{keys:?}: {why}"
+        );
+    }
+}
+
+#[test]
+fn keep_w_after_a_click() {
+    let mut composer = composer_with(&vietnamese());
+    type_text(&mut composer, "tooi");
+
+    composer.break_word();
+
+    assert_eq!(type_text(&mut composer, "w"), "w", "a click starts a new word");
+}
+
+#[test]
+fn keep_w_leaves_simple_telex_alone_and_can_be_turned_off() {
+    let simple = vietnamese().with(SettingChange::InputMethod(InputMethod::SimpleTelex));
+    let off = vietnamese().with(SettingChange::KeepW(OnOff::Off));
+
+    assert_eq!(
+        type_text(&mut composer_with(&simple), "w"),
+        "w",
+        "Simple Telex keeps a lone w"
+    );
+    assert_eq!(
+        type_text(&mut composer_with(&simple), "uw"),
+        "ư",
+        "Simple Telex still marks u"
+    );
+    assert_eq!(
+        type_text(&mut composer_with(&off), "w"),
+        "ư",
+        "with the option off, a lone w types ư"
+    );
+}
+
+#[test]
+fn quick_telex() {
+    let mut composer = composer_with(&vietnamese().with(SettingChange::QuickTelex(OnOff::On)));
+
+    assert_eq!(type_text(&mut composer, "ccaof"), "chào", "cc types ch");
+}
+
+#[test]
+fn quick_first_consonant() {
+    let mut composer = composer_with(&vietnamese().with(SettingChange::QuickFirstConsonant(OnOff::On)));
+
+    assert_eq!(
+        type_text(&mut composer, "fanh "),
+        "phanh ",
+        "an f that starts the word becomes ph when the word ends"
+    );
+}
+
+#[test]
+fn quick_last_consonant() {
+    let mut composer = composer_with(&vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On)));
+
+    assert_eq!(
+        type_text(&mut composer, "hag "),
+        "hang ",
+        "a g that ends the word becomes ng when the word ends"
+    );
+}
+
+#[test]
+fn capitalise_sentence() {
+    let mut composer = composer_with(&vietnamese().with(SettingChange::CapitalizeSentences(OnOff::On)));
+
+    assert_eq!(
+        type_text(&mut composer, "tooi. ban"),
+        "tôi. Ban",
+        "the first letter after a full stop is a capital"
+    );
+}
+
+#[test]
+fn restore_before_tab_resends_key() {
+    let mut composer = composer_with(&vietnamese());
+    type_text(&mut composer, "ass");
+
+    let edit = composer.press(KeyPress::new(KeyCode::Tab, KeyMods::none()));
+
+    let Edit::Replace { insert, resend_key, .. } = edit else {
+        panic!("the word is typed again before the Tab, got {edit:?}");
+    };
+    assert_eq!(insert, "as", "the keys as typed");
+    assert!(resend_key, "the Tab itself follows");
 }
