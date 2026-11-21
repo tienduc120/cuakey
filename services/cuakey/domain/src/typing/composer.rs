@@ -216,7 +216,7 @@ impl Composer {
             .macros
             .lookup(shown, match_case)
             .or_else(|| self.macros.lookup(typed_keys, match_case))?;
-        let typed = text_of(key);
+        let typed = text_of(key).filter(|c| !c.is_control());
         insert.extend(typed);
         Some(Edit::Replace {
             delete: shown.chars().count(),

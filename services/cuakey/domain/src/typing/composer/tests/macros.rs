@@ -345,3 +345,23 @@ fn the_edit_deletes_the_word_as_shown_when_the_keys_matched() {
         "the screen shows btư, three characters"
     );
 }
+
+#[test]
+fn enter_and_tab_are_sent_after_the_expansion_not_typed_into_it() {
+    for code in [KeyCode::Enter, KeyCode::Tab] {
+        let mut composer = telex_with(&[("ko", "không")]);
+        type_text(&mut composer, "ko");
+
+        let edit = press(&mut composer, code);
+
+        assert_eq!(
+            edit,
+            Edit::Replace {
+                delete: 2,
+                insert: "không".into(),
+                resend_key: true,
+            },
+            "{code:?} must still act as the key"
+        );
+    }
+}
