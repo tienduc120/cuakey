@@ -1141,3 +1141,5 @@ fn real_words_type_with_the_tone_key_before_or_after_the_last_consonant() {
         "every real word types as Vietnamese writes it"
     );
 }
+
+mod macros;

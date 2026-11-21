@@ -8,7 +8,7 @@ use super::spelling::Consonants;
 use super::tone::ToneStyle;
 use super::word::{Glyph, Keystroke, Rules, Word};
 use super::{ComposerSettings, Edit, Effect, KeyPress, letter_char, telex, vni};
-use crate::{CodeTable, InputMethod, KeyCode, Language, Letter, LetterCase, OnOff, units_in};
+use crate::{CodeTable, InputMethod, KeyCode, Language, Letter, LetterCase, MacroTable, OnOff, units_in};
 
 /// The keys besides letters that can type into a word, with what each types without and with Shift.
 const SYMBOL_KEYS: [(KeyCode, char, char); 12] = [
@@ -53,6 +53,7 @@ pub struct Composer {
     /// word up again.
     ended: Option<(Word, String)>,
     sentence: Sentence,
+    macros: MacroTable,
 }
 
 impl Composer {
@@ -63,6 +64,7 @@ impl Composer {
             shown: String::new(),
             ended: None,
             sentence: Sentence::default(),
+            macros: MacroTable::default(),
         }
     }
 
@@ -70,8 +72,7 @@ impl Composer {
     pub fn press(&mut self, key: KeyPress) -> Edit {
         let ended = self.ended.take();
         if self.settings.language() == Language::English {
-            self.break_word();
-            return Edit::PassThrough;
+            return self.press_in_english(key);
         }
         if key.code() == KeyCode::Backspace && key.mods().ctrl_or_alt() == OnOff::Off {
             return self.delete_back(ended);
@@ -94,6 +95,11 @@ impl Composer {
     pub fn set_settings(&mut self, settings: ComposerSettings) {
         self.settings = settings;
         self.break_word();
+    }
+
+    /// Takes the macros to expand; the word being typed goes on.
+    pub fn set_macros(&mut self, macros: MacroTable) {
+        self.macros = macros;
     }
 
     /// The word being typed, as the screen shows it.
@@ -153,6 +159,9 @@ impl Composer {
         if let Some(c) = text_of(key) {
             self.sentence = self.sentence.after(c);
         }
+        if let Some(edit) = self.macro_edit(&shown, key) {
+            return edit;
+        }
         let ending = word.ending(self.rules());
         let edit = ending.as_ref().map_or(Edit::PassThrough, |text| Edit::Replace {
             delete: shown.chars().count(),
@@ -166,6 +175,49 @@ impl Composer {
             });
         }
         edit
+    }
+
+    /// English passes every key through. Only when macros work in English does the composer follow the typed word, to
+    /// look it up where it ends.
+    fn press_in_english(&mut self, key: KeyPress) -> Edit {
+        if !self.macros_apply() {
+            self.break_word();
+            return Edit::PassThrough;
+        }
+        let chord = key.mods().ctrl_or_alt().is_on();
+        if key.code() == KeyCode::Backspace && !chord {
+            self.shown.pop();
+            return Edit::PassThrough;
+        }
+        if let Some(glyph) = typed_by(key).filter(|_| !chord) {
+            self.shown.push(glyph.to_char());
+            return Edit::PassThrough;
+        }
+        let shown = mem::take(&mut self.shown);
+        self.macro_edit(&shown, key).unwrap_or(Edit::PassThrough)
+    }
+
+    /// Whether macros expand in the language being typed.
+    fn macros_apply(&self) -> bool {
+        let macros = self.settings.macros();
+        macros.use_macros().is_on()
+            && (self.settings.language() == Language::Vietnamese || macros.macros_in_english().is_on())
+    }
+
+    /// The edit that swaps the word on screen for its macro's expansion, followed by the key that ended the word. The
+    /// key goes into the edit when it types text, and is sent after it when it types none.
+    fn macro_edit(&self, shown: &str, key: KeyPress) -> Option<Edit> {
+        if !self.macros_apply() {
+            return None;
+        }
+        let mut insert = self.macros.lookup(shown, self.settings.macros().match_case())?;
+        let typed = text_of(key);
+        insert.extend(typed);
+        Some(Edit::Replace {
+            delete: shown.chars().count(),
+            insert,
+            resend_key: typed.is_none(),
+        })
     }
 
     fn effects_of(&self, key: KeyPress) -> Option<&'static [Effect]> {
