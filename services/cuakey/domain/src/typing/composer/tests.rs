@@ -331,7 +331,7 @@ fn after_a_change_is_taken_back_the_word_is_typed_as_it_is() {
 }
 
 #[test]
-fn deleting_the_key_that_took_a_change_back_lets_the_word_change_again() {
+fn with_spell_check_deleting_the_key_that_took_a_change_back_lets_the_word_change_again() {
     let cases = [
         ("vieee\u{8}ej", "việ", "the circumflex comes back"),
         (
@@ -346,7 +346,7 @@ fn deleting_the_key_that_took_a_change_back_lets_the_word_change_again() {
     ];
 
     for (keys, shown, why) in cases {
-        let mut composer = telex();
+        let mut composer = composer_with(&vietnamese());
         let mut screen = String::new();
 
         for c in keys.chars() {
@@ -702,4 +702,16 @@ fn a_restored_word_is_taken_up_as_it_was_typed() {
         "ass",
         "the word the Space restored takes more keys as they are"
     );
+}
+
+#[test]
+fn without_spell_check_a_word_typed_as_it_is_stays_so_after_backspace() {
+    let cases = [
+        ("vieee\u{8}ej", "vieej", "the e and the j are typed as they are"),
+        ("ass\u{8}s", "as", "the s is typed as it is"),
+    ];
+
+    for (keys, shown, why) in cases {
+        assert_eq!(type_text(&mut telex(), keys), shown, "{keys:?}: {why}");
+    }
 }

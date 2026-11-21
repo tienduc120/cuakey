@@ -111,7 +111,7 @@ impl Composer {
             }
             return Edit::PassThrough;
         }
-        self.word.delete_last(self.rules().style);
+        self.word.delete_last(self.rules());
         let before = mem::replace(&mut self.shown, self.word.render());
         backspace_edit(&before, &self.shown, self.settings.typing().code_table())
     }
