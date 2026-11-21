@@ -1,0 +1,3 @@
+enforcer = "clippy"
+contains = "clippy::as_underscore"
+doc = "a cast names the type it produces (Linux kernel, Rust Foundation)"

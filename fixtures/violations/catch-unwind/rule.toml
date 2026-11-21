@@ -1,0 +1,3 @@
+enforcer = "clippy"
+contains = "disallowed method `std::panic::catch_unwind`"
+doc = "a panic is a bug, never caught and carried on from (Google, Microsoft)"

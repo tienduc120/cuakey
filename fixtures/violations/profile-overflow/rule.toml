@@ -1,0 +1,3 @@
+enforcer = "gates"
+contains = "profile-overflow"
+doc = "no profile turns overflow checks off (Android; ANSSI DENV-CARGO-OPTS)"

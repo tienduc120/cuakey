@@ -1,0 +1,3 @@
+enforcer = "gates"
+contains = "domain-value"
+doc = "a domain value keeps its fields private (Microsoft M-STRONG-TYPES)"

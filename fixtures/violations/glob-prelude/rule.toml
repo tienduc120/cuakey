@@ -1,0 +1,3 @@
+enforcer = "clippy"
+contains = "clippy::wildcard_imports"
+doc = "no glob import, not even from a prelude (Microsoft M-NO-PRELUDE)"

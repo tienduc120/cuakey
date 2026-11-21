@@ -1,0 +1,3 @@
+enforcer = "clippy"
+contains = "trivial_numeric_casts"
+doc = "no cast to the type a value already has (Microsoft)"

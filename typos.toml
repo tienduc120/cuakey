@@ -1,0 +1,3 @@
+# Spelling check for code, comments, and docs (crate-ci/typos). Protected.
+[files]
+extend-exclude = ["target/", "*.lock", "LICENSES/", ".xtask/"]

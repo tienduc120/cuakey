@@ -1,0 +1,3 @@
+enforcer = "clippy"
+contains = "ManuallyDrop"
+doc = "every destructor runs (ANSSI MEM-MANUALLYDROP)"

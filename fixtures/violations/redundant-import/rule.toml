@@ -1,0 +1,3 @@
+enforcer = "clippy"
+contains = "redundant_imports"
+doc = "no import of what the prelude already brings (Microsoft)"

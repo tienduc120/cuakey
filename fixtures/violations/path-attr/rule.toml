@@ -1,0 +1,3 @@
+enforcer = "gates"
+contains = "path-attr"
+doc = "a module lives in the file named after it (Rust Style Guide)"

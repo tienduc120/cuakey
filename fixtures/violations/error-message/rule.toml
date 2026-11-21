@@ -1,0 +1,3 @@
+enforcer = "gates"
+contains = "error-message"
+doc = "an error message is lowercase with no trailing period (rust-lang C-GOOD-ERR)"
