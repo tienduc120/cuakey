@@ -1,0 +1,55 @@
+# Typed with the macro table of macro_table.txt; every line is followed by a Space, which ends its last word.
+# Shortcuts ended by that Space
+btw
+ko
+ddc
+ddk
+vn1
+tg
+hn
+# Shortcuts ended by punctuation, Enter, Tab, and a Ctrl shortcut
+btw.
+btw,
+btw;
+btw!
+btw?
+ko.
+ddc,
+btw<enter>
+btw<tab>
+btw<ctrl-c>
+ko<enter>
+# Shortcuts among other words
+noi ko ddi
+toi ddc ddi
+ok btw ok
+vieetj nam ko
+# Words that only start or end like a shortcut
+btwx
+xbtw
+koo
+kos
+# Capitals, for matching capitals
+Btw
+BTW
+bTw
+Ko
+KO
+Ddc
+DDC
+Hn
+HN
+# A sentence start, for capitalising sentences
+xin. btw
+xin. ko ddi
+xin! ko
+xin.<enter>btw
+<enter>ko
+chaof. ddc
+# Backspace and clicks around shortcuts
+btw<bs>w
+bt<click>w
+btww<bs>
+kos<bs>
+ko<bs>o
+b<click>tw

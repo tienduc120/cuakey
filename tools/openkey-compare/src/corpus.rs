@@ -9,7 +9,9 @@ use std::fmt::{self, Write as _};
 use std::fs;
 use std::path::Path;
 
-use cuakey_domain::{InputMethod, KeyCode, KeyMods, KeyPress, OnOff};
+use cuakey_domain::{InputMethod, KeyCode, KeyMods, KeyPress, Language, OnOff};
+
+use crate::combo::{Combo, Toggle};
 
 /// One thing the person does: press a key, or click.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,33 +20,56 @@ pub enum Stroke {
     Click,
 }
 
-/// A corpus file and the input methods its lines are typed in.
+/// A corpus file, the input methods and languages its lines are typed in, and the toggles each setting of which they
+/// are typed under; the other toggles stay at their defaults.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CorpusFile {
     pub name: &'static str,
     pub methods: &'static [InputMethod],
+    pub languages: &'static [Language],
+    pub toggles: &'static [Toggle],
+    /// Its lines are typed with the macro table of `macro_table.txt`; the others with no macros.
+    pub macros: bool,
 }
 
-pub const CORPUS_FILES: [CorpusFile; 5] = [
+impl CorpusFile {
+    /// Every combination its lines are typed under.
+    pub fn combos(self) -> impl Iterator<Item = Combo> {
+        self.methods
+            .iter()
+            .flat_map(move |method| Combo::all_for(*method, self.toggles, self.languages))
+    }
+
+    pub const fn combos_per_method(self) -> usize {
+        Combo::count_for(self.toggles, self.languages)
+    }
+}
+
+const fn typing_file(name: &'static str, methods: &'static [InputMethod]) -> CorpusFile {
     CorpusFile {
-        name: "telex",
+        name,
+        methods,
+        languages: &[Language::Vietnamese],
+        toggles: &Toggle::TYPING,
+        macros: false,
+    }
+}
+
+pub const CORPUS_FILES: [CorpusFile; 6] = [
+    typing_file("telex", &[InputMethod::Telex]),
+    typing_file("vni", &[InputMethod::Vni]),
+    typing_file("simple_telex", &[InputMethod::SimpleTelex]),
+    typing_file(
+        "english",
+        &[InputMethod::Telex, InputMethod::Vni, InputMethod::SimpleTelex],
+    ),
+    typing_file("sentences", &[InputMethod::Telex, InputMethod::SimpleTelex]),
+    CorpusFile {
+        name: "macros",
         methods: &[InputMethod::Telex],
-    },
-    CorpusFile {
-        name: "vni",
-        methods: &[InputMethod::Vni],
-    },
-    CorpusFile {
-        name: "simple_telex",
-        methods: &[InputMethod::SimpleTelex],
-    },
-    CorpusFile {
-        name: "english",
-        methods: &[InputMethod::Telex, InputMethod::Vni, InputMethod::SimpleTelex],
-    },
-    CorpusFile {
-        name: "sentences",
-        methods: &[InputMethod::Telex, InputMethod::SimpleTelex],
+        languages: &[Language::Vietnamese, Language::English],
+        toggles: &Toggle::MACROS,
+        macros: true,
     },
 ];
 
@@ -77,6 +102,26 @@ pub fn read_file(dir: &Path, file: CorpusFile) -> Result<Vec<Line>, String> {
                 text: line.to_owned(),
                 strokes,
             })
+        })
+        .collect()
+}
+
+/// The macro table in `dir/macro_table.txt`.
+pub fn read_macro_table(dir: &Path) -> Result<Vec<(String, String)>, String> {
+    let path = dir.join("macro_table.txt");
+    let text = fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
+    parse_macro_table(&text).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// The macros of a file in the macro file format: one `shortcut:expansion` per line, split at the first colon; a
+/// line starting with `;` is a comment.
+pub fn parse_macro_table(text: &str) -> Result<Vec<(String, String)>, String> {
+    text.lines()
+        .filter(|line| !line.is_empty() && !line.starts_with(';'))
+        .map(|line| {
+            line.split_once(':')
+                .map(|(shortcut, expansion)| (shortcut.to_owned(), expansion.to_owned()))
+                .ok_or_else(|| format!("`{line}` has no colon between the shortcut and its expansion"))
         })
         .collect()
 }

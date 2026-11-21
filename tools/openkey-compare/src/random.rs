@@ -1,6 +1,6 @@
 //! Seeded random key sequences over random settings: the keys a person types, and the slips they make.
 
-use cuakey_domain::{CodeTable, InputMethod, KeyCode, KeyMods, KeyPress, OnOff};
+use cuakey_domain::{CodeTable, InputMethod, KeyCode, KeyMods, KeyPress, Language, OnOff};
 
 use crate::combo::{CODE_TABLES, Combo, Toggle, Toggles};
 use crate::corpus::Stroke;
@@ -46,10 +46,15 @@ pub fn combo(rng: &mut Rng) -> Combo {
         .pick(&[InputMethod::Telex, InputMethod::Vni, InputMethod::SimpleTelex])
         .unwrap_or(InputMethod::Telex);
     let table = rng.pick(&CODE_TABLES).unwrap_or(CodeTable::Unicode);
-    let toggles = Toggle::ALL.into_iter().fold(Toggles::defaults(), |toggles, toggle| {
+    let toggles = Toggle::TYPING.into_iter().fold(Toggles::defaults(), |toggles, toggle| {
         toggles.with(toggle, if rng.chance(50) { OnOff::On } else { OnOff::Off })
     });
-    Combo { method, table, toggles }
+    Combo {
+        method,
+        table,
+        language: Language::Vietnamese,
+        toggles,
+    }
 }
 
 /// One random sequence for `method`: 1 to 12 strokes, then a Space.

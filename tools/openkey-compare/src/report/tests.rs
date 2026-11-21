@@ -63,7 +63,7 @@ fn tally() -> CorpusTally {
 
 #[test]
 fn runs_are_counted_per_file_and_per_setting_that_differs_from_the_default() {
-    let report = tally().render(Duration::from_secs(3), &no_entries());
+    let report = tally().render(Duration::from_secs(3), &no_entries(), None);
 
     assert_eq!(
         tally().total(),
@@ -84,13 +84,13 @@ fn runs_are_counted_per_file_and_per_setting_that_differs_from_the_default() {
 
 #[test]
 fn one_entry_stands_for_every_combination_that_ends_the_same_way_and_gives_the_settings_they_share() {
-    let report = tally().render(Duration::from_secs(3), &no_entries());
+    let report = tally().render(Duration::from_secs(3), &no_entries(), None);
 
     assert!(
         report.contains(
-            "- `ass`, after key 3 `s`: expected `as`, CuaKey `á`. Settings `telex unicode spell-check restore` and \
-             1 more of 640 combinations, all matching `spell-check restore !modern-tones !quick-telex !quick-first \
-             !quick-last !capitals`."
+            "- `ass`, after key 3 `s`: expected `as`, CuaKey `á`. Settings `telex unicode spell-check restore \
+             macros` and 1 more of 640 combinations, all matching `spell-check restore !modern-tones !quick-telex \
+             !quick-first !quick-last !capitals`."
         ),
         "{report}"
     );
@@ -108,7 +108,7 @@ fn a_difference_at_the_closing_space_says_so() {
         None,
     );
 
-    let report = tally.render(Duration::from_secs(1), &no_entries());
+    let report = tally.render(Duration::from_secs(1), &no_entries(), None);
     assert!(
         report.contains("- `hag`, after key 4, the Space that ends it: expected `hang `, CuaKey `hag `."),
         "{report}"
@@ -130,7 +130,7 @@ fn a_reply_the_tool_does_not_model_is_a_finding_and_not_the_end_of_the_run() {
         None,
     );
 
-    let report = tally.render(Duration::from_secs(1), &no_entries());
+    let report = tally.render(Duration::from_secs(1), &no_entries(), None);
     assert!(
         report.contains("CuaKey `ab`. OpenKey gave a reply this tool does not model (-1), so the run stopped there."),
         "{report}"
@@ -174,7 +174,7 @@ fn an_accepted_difference_is_listed_apart_with_its_reason_and_the_run_passes() {
     });
     let tally = cp1258_tally(accepted);
 
-    let report = tally.render(Duration::from_secs(1), &acceptance);
+    let report = tally.render(Duration::from_secs(1), &acceptance, None);
 
     assert!(
         report.contains("| telex | 1 | 1 | 1 (100.0%) | 1 | 0 | 0 |"),
@@ -203,7 +203,7 @@ fn an_entry_that_matched_nothing_is_reported_stale_and_fails_the_run() {
     let mut acceptance = cp1258_entry();
     acceptance.judge_source("telex");
 
-    let report = tally.render(Duration::from_secs(1), &acceptance);
+    let report = tally.render(Duration::from_secs(1), &acceptance, None);
 
     assert!(
         report.contains(

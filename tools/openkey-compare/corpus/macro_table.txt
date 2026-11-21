@@ -1,0 +1,9 @@
+; The macro table the macro corpus is typed with, in the macro file format: a shortcut, a colon, then the expansion.
+; A shortcut is written either as the word shows (đc) or as its keys are typed (ddk).
+btw:by the way
+ko:không
+đc:được
+ddk:đăng ký
+vn1:Việt Nam
+tg:thời gian: 8:30
+hn:Hà Nội

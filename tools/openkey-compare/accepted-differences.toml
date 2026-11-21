@@ -2,15 +2,18 @@
 # here has gone stale (it matches nothing in a run that typed what it names).
 #
 # Each entry pins one divergence:
-#   source    the corpus file (telex, vni, simple_telex, english, sentences), or random
-#   sequence  the line as the corpus file writes it, or the random sequence as the report writes it
+#   source    the corpus file (telex, vni, simple_telex, english, sentences, macros), convert, or random
+#   sequence  the line as the corpus file or convert.txt writes it, or the random sequence as the report writes it
 #   settings  setting tokens that must all hold: a method (telex, vni, simple-telex), a table (unicode, tcvn3,
-#             vni-windows, unicode-compound, cp1258), a toggle that is on (spell-check, restore, modern-tones,
-#             quick-telex, quick-first, quick-last, capitals), or ! and a toggle that is off; the report prints the
-#             tokens an entry's runs all match
-#   step      the key after which the texts differ, counting from 1 (the Space after a corpus line counts too)
+#             vni-windows, unicode-compound, cp1258), a language (vietnamese, english), a toggle that is on
+#             (spell-check, restore, modern-tones, quick-telex, quick-first, quick-last, capitals, macros,
+#             macros-in-english, match-caps), or ! and a toggle that is off; for convert, from- and to- a table
+#             (from-unicode, to-cp1258), a case (keep, upper, lower, sentence-start, each-word), and
+#             remove-accents or !remove-accents; the report prints the tokens an entry's runs all match
+#   step      the key after which the texts differ, counting from 1 (the Space after a corpus line counts too);
+#             1 for convert
 #   expected  OpenKey's text and CuaKey's, as the report writes them: the text for Unicode, the code units in hex
-#   cuakey    for any other table
+#   cuakey    for any other table, and (error) for a conversion that makes OpenKey stop with an error
 #   reason    why the difference is accepted, in terms of behaviour
 #
 # The entries below are differences that come from how OpenKey's Windows host applies its engine's output, which

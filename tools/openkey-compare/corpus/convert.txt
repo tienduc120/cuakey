@@ -1,0 +1,21 @@
+# Texts the conversion is compared on, written in Unicode, one per line. \n is a line break, \\ a backslash, and
+# \u{301} the character U+0301, for combining marks a line could not show.
+Tiếng Việt
+TIẾNG VIỆT
+tiếng việt có dấu
+Xin chào. Tôi tên là Nam! Bạn khỏe không?
+Đường đi khó, không khó vì ngăn sông cách núi.
+Hà Nội, Thành phố Hồ Chí Minh, Đà Nẵng
+ăn uống ở nhà hàng Ơn Trời
+quả, quý, giữa, gìn giữ
+ĐĂNG KÝ, Ừ, ỜM, ỦA
+mỗi Từ đều Viết hoa
+câu một.\ncâu hai\nCâu ba
+www.example.com
+Gửi thư tới nam@example.com nhé
+Giá 100.000 đồng (3 cái)
+Mai đi chơi 😀 nhé 🎉
+Hello World, This Is English
+a\\b và c/d
+tiê\u{301}ng Việ\u{323}t
+tie\u{302}\u{301}ng Vie\u{323}\u{302}t

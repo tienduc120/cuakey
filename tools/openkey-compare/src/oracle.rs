@@ -1,14 +1,15 @@
 //! `OpenKey`'s typing engine, compiled from its fetched sources with `shim/shim.cpp`, behind a safe interface. The
 //! engine keeps its state in globals, so one value of [`OpenKey`] stands for it, and only one exists at a time.
 
+use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use cuakey_domain::{CodeTable, InputMethod, KeyCode, KeyPress};
+use cuakey_domain::{CodeTable, ConvertCase, ConvertOptions, InputMethod, KeyCode, KeyPress, Language};
 
 use crate::combo::{Combo, Toggle};
 
 /// The most characters one reply carries; the shim's buffer has this size.
-const MAX_SENDS: usize = 32;
+const MAX_SENDS: usize = 64;
 
 #[repr(C)]
 struct ShimSettings {
@@ -21,6 +22,10 @@ struct ShimSettings {
     quick_first: i32,
     quick_last: i32,
     capitals: i32,
+    english: i32,
+    macros: i32,
+    macros_in_english: i32,
+    match_caps: i32,
 }
 
 #[repr(C)]
@@ -47,6 +52,22 @@ unsafe extern "C" {
     fn shim_click();
     fn shim_new_session();
     fn shim_key_send(vk: u16, caps: i32, send: *mut ShimSend);
+    fn shim_set_macros(
+        shortcuts: *const *const std::ffi::c_char,
+        expansions: *const *const std::ffi::c_char,
+        count: i32,
+    );
+    fn shim_english_key(vk: u16, upper: i32, control: i32, reply: *mut ShimReply);
+    fn shim_convert(
+        text: *const u16,
+        length: i32,
+        from: i32,
+        to: i32,
+        case_option: i32,
+        remove_accents: i32,
+        out: *mut u16,
+        capacity: i32,
+    ) -> i32;
 }
 
 /// Set while an [`OpenKey`] exists.
@@ -63,6 +84,8 @@ pub enum Action {
     ReplaceThenKey,
     /// As `ReplaceThenKey`, then the next key starts a new word.
     ReplaceThenKeyThenNewWord,
+    /// A shortcut expands: delete `backspaces` characters, send the expansion in `sends`, then type the key.
+    Macro,
     /// A reply this tool does not model, with the shim's number for it.
     Unmodelled(i32),
 }
@@ -134,6 +157,10 @@ impl OpenKey {
             quick_first: on(Toggle::QuickFirst),
             quick_last: on(Toggle::QuickLast),
             capitals: on(Toggle::Capitals),
+            english: i32::from(combo.language == Language::English),
+            macros: on(Toggle::Macros),
+            macros_in_english: on(Toggle::MacrosInEnglish),
+            match_caps: on(Toggle::MatchCase),
         };
         // SAFETY: `settings` is a live value of the layout the shim reads, and `self` is the only handle on the engine.
         unsafe { shim_configure(&raw const settings) };
@@ -156,14 +183,65 @@ impl OpenKey {
         unsafe { shim_new_session() };
     }
 
-    pub fn press(&mut self, key: KeyPress) -> Reply {
-        let mut reply = ShimReply {
-            action: 0,
-            backspaces: 0,
-            after: 0,
-            count: 0,
-            sends: [ShimSend::default(); MAX_SENDS],
+    /// Gives the engine `macros`, each a shortcut and its expansion; it keeps them through later configuring.
+    pub fn set_macros(&mut self, macros: &[(String, String)]) {
+        let text = |s: &str| CString::new(s).unwrap_or_default();
+        let shortcuts: Vec<CString> = macros.iter().map(|(shortcut, _)| text(shortcut)).collect();
+        let expansions: Vec<CString> = macros.iter().map(|(_, expansion)| text(expansion)).collect();
+        let shortcut_pointers: Vec<*const std::ffi::c_char> = shortcuts.iter().map(|s| s.as_ptr()).collect();
+        let expansion_pointers: Vec<*const std::ffi::c_char> = expansions.iter().map(|s| s.as_ptr()).collect();
+        let count = i32::try_from(macros.len()).unwrap_or(0);
+        // SAFETY: both arrays hold `count` pointers to NUL-terminated strings that outlive the call, which copies
+        // them; `self` is the only handle on the engine.
+        unsafe { shim_set_macros(shortcut_pointers.as_ptr(), expansion_pointers.as_ptr(), count) };
+    }
+
+    /// One key while typing English with macros on in English.
+    pub fn press_in_english(&mut self, key: KeyPress) -> Reply {
+        let mut reply = empty_reply();
+        let upper = i32::from(key.mods().shift().is_on() || key.mods().caps_lock().is_on());
+        let control = i32::from(key.mods().ctrl_or_alt().is_on());
+        // SAFETY: `reply` is a live, writable value of the layout the shim fills; `self` is the only handle.
+        unsafe { shim_english_key(virtual_key(key.code()), upper, control, &raw mut reply) };
+        reply_of(&reply)
+    }
+
+    /// `text` converted as `options` say, the way the host converts the clipboard; `None` when the conversion stops
+    /// with an error.
+    pub fn convert(&mut self, text: &[u16], options: ConvertOptions) -> Option<Vec<u16>> {
+        let case_option = match options.case() {
+            ConvertCase::Keep => 0,
+            ConvertCase::Upper => 1,
+            ConvertCase::Lower => 2,
+            ConvertCase::SentenceStart => 3,
+            ConvertCase::EachWord => 4,
         };
+        let (from, to) = (table_number(options.from()), table_number(options.to()));
+        let remove = i32::from(options.remove_accents().is_on());
+        let length = i32::try_from(text.len()).unwrap_or(i32::MAX);
+        // A conversion never writes more than two units for one.
+        let mut out = vec![0u16; text.len() * 2 + 16];
+        let capacity = i32::try_from(out.len()).unwrap_or(i32::MAX);
+        // SAFETY: `text` holds `length` units and `out` has room for `capacity`; the shim writes no more than that;
+        // `self` is the only handle on the engine.
+        let written = unsafe {
+            shim_convert(
+                text.as_ptr(),
+                length,
+                from,
+                to,
+                case_option,
+                remove,
+                out.as_mut_ptr(),
+                capacity,
+            )
+        };
+        out.truncate(usize::try_from(written).ok()?);
+        Some(out)
+    }
+
+    pub fn press(&mut self, key: KeyPress) -> Reply {
+        let mut reply = empty_reply();
         let (shift, caps) = (key.mods().shift().is_on(), key.mods().caps_lock().is_on());
         // The engine is told Shift or Caps Lock, and neither when both are on.
         let caps_status = match (shift, caps) {
@@ -174,13 +252,7 @@ impl OpenKey {
         let control = i32::from(key.mods().ctrl_or_alt().is_on());
         // SAFETY: `reply` is a live, writable value of the layout the shim fills; `self` is the only handle.
         unsafe { shim_key(virtual_key(key.code()), caps_status, control, &raw mut reply) };
-        let count = usize::try_from(reply.count).unwrap_or(0);
-        Reply {
-            action: action(reply.action),
-            backspaces: usize::try_from(reply.backspaces).unwrap_or(0),
-            after: after(reply.after),
-            sends: reply.sends.iter().take(count).map(|send| send_of(*send)).collect(),
-        }
+        reply_of(&reply)
     }
 
     /// How the host sends `key` itself after a reply; `upper` when Shift or Caps Lock is on.
@@ -198,12 +270,37 @@ impl Drop for OpenKey {
     }
 }
 
+const fn empty_reply() -> ShimReply {
+    ShimReply {
+        action: 0,
+        backspaces: 0,
+        after: 0,
+        count: 0,
+        sends: [ShimSend {
+            units: [0; 2],
+            count: 0,
+            key: 0,
+        }; MAX_SENDS],
+    }
+}
+
+fn reply_of(reply: &ShimReply) -> Reply {
+    let count = usize::try_from(reply.count).unwrap_or(0);
+    Reply {
+        action: action(reply.action),
+        backspaces: usize::try_from(reply.backspaces).unwrap_or(0),
+        after: after(reply.after),
+        sends: reply.sends.iter().take(count).map(|send| send_of(*send)).collect(),
+    }
+}
+
 fn action(number: i32) -> Action {
     match number {
         0 => Action::PassThrough,
         1 => Action::Replace,
         2 => Action::ReplaceThenKey,
         3 => Action::ReplaceThenKeyThenNewWord,
+        4 => Action::Macro,
         other => Action::Unmodelled(other),
     }
 }

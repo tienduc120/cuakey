@@ -6,16 +6,19 @@ use serde::Deserialize;
 
 /// The source a random sequence is accepted under.
 pub const RANDOM: &str = "random";
+/// The source a conversion is accepted under; its step is always 1.
+pub const CONVERT: &str = "convert";
 
 /// One accepted difference.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Accepted {
-    /// The corpus file, or `random`.
+    /// The corpus file, `convert` for the conversion texts, or `random`.
     pub source: String,
-    /// The line as the corpus file writes it, or the random sequence in the corpus notation.
+    /// The line as the corpus file or `convert.txt` writes it, or the random sequence in the corpus notation.
     pub sequence: String,
-    /// Setting tokens that must all hold: a method, a table, a toggle that is on, or `!` and a toggle that is off.
+    /// Setting tokens that must all hold: a method, a table, a language, a toggle that is on, or `!` and a toggle
+    /// that is off; for a conversion, `from-` and `to-` a table, a case option, and `remove-accents` or not.
     pub settings: String,
     /// The key after which the texts differ, counting from 1.
     pub step: usize,
@@ -133,7 +136,7 @@ fn check(entry: &Accepted, sources: &[&str], tokens: &[String]) -> Result<(), St
     let name = format!("`{}` in {}", entry.sequence, entry.source);
     if !sources.contains(&entry.source.as_str()) {
         return Err(format!(
-            "`{}` names `{}`, which is no corpus file and not random",
+            "`{}` names `{}`, which is no corpus file, not convert, and not random",
             entry.sequence, entry.source
         ));
     }

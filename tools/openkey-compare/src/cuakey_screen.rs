@@ -1,7 +1,7 @@
 //! `CuaKey`'s edits applied to a text box: each edit encoded in the code table, each deleted character taking as many
 //! backspaces as it has code units there.
 
-use cuakey_domain::{CodeTable, Composer, ComposerSettings, Edit, encode, units_in};
+use cuakey_domain::{CodeTable, Composer, ComposerSettings, Edit, MacroTable, encode, units_in};
 
 use crate::corpus::Stroke;
 use crate::screen::Screen;
@@ -15,10 +15,12 @@ pub struct CuaKeyScreen {
 }
 
 impl CuaKeyScreen {
-    pub fn new(settings: ComposerSettings) -> Self {
+    pub fn new(settings: ComposerSettings, macros: &MacroTable) -> Self {
         let table = settings.typing().code_table();
+        let mut composer = Composer::new(settings);
+        composer.set_macros(macros.clone());
         Self {
-            composer: Composer::new(settings),
+            composer,
             table,
             screen: Screen::default(),
         }

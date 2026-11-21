@@ -3,12 +3,15 @@
 
 mod accepted;
 mod combo;
+mod conversion;
+mod conversion_report;
 mod corpus;
 mod cuakey_screen;
 mod openkey_screen;
 mod oracle;
 mod random;
 mod report;
+mod runs;
 mod screen;
 
 use std::fs;
@@ -16,17 +19,12 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use cuakey_domain::ComposerSettings;
-
-use crate::accepted::{Acceptance, Found, RANDOM};
+use crate::accepted::{Acceptance, CONVERT, RANDOM};
 use crate::combo::Combo;
-use crate::corpus::{CORPUS_FILES, CorpusFile, Line, Notation, Stroke, notation};
-use crate::cuakey_screen::CuaKeyScreen;
-use crate::openkey_screen::{OpenKeyScreen, Unmodelled};
+use crate::conversion::ConvertCombo;
+use crate::conversion_report::ConversionTally;
+use crate::corpus::{CORPUS_FILES, CorpusFile};
 use crate::oracle::OpenKey;
-use crate::random::Rng;
-use crate::report::{CorpusTally, Divergence, RandomFinding};
-use crate::screen::exact;
 
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 /// In the repository's `target/`, which is never committed.
@@ -34,11 +32,18 @@ const REPORT: &str = "target/openkey-compare/report.md";
 const ACCEPTED: &str = "accepted-differences.toml";
 const DEFAULT_SEED: u64 = 1;
 
-/// What to compare: the corpus, or one file of it; or random sequences.
+/// What to compare: the corpus, or one part of it; or random sequences.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
-    Corpus(Option<CorpusFile>),
+    Corpus(Option<Only>),
     Random { count: usize, seed: u64 },
+}
+
+/// One part of the corpus: a file of typed lines, or the texts the conversion is compared on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Only {
+    File(CorpusFile),
+    Convert,
 }
 
 /// What a run leaves behind: the report, whether it passed, and a line for the terminal.
@@ -73,7 +78,7 @@ fn parse_mode(args: &[String]) -> Result<Mode, String> {
         match flag.as_str() {
             "--random" => random = Some(value.parse::<usize>().map_err(|_| number())?),
             "--seed" => seed = Some(value.parse::<u64>().map_err(|_| number())?),
-            _ => filter = Some(corpus_file(value)?),
+            _ => filter = Some(only(value)?),
         }
     }
     match (random, seed, filter) {
@@ -92,11 +97,15 @@ fn parse_mode(args: &[String]) -> Result<Mode, String> {
     }
 }
 
-fn corpus_file(name: &str) -> Result<CorpusFile, String> {
-    CORPUS_FILES.into_iter().find(|file| file.name == name).ok_or_else(|| {
-        let names: Vec<&str> = CORPUS_FILES.iter().map(|file| file.name).collect();
+fn only(name: &str) -> Result<Only, String> {
+    if name == CONVERT {
+        return Ok(Only::Convert);
+    }
+    let file = CORPUS_FILES.into_iter().find(|file| file.name == name).ok_or_else(|| {
+        let names: Vec<&str> = CORPUS_FILES.iter().map(|file| file.name).chain([CONVERT]).collect();
         format!("no corpus file is called `{name}`; there are {}", names.join(", "))
-    })
+    })?;
+    Ok(Only::File(file))
 }
 
 fn run(mode: Mode) -> Result<bool, String> {
@@ -120,132 +129,56 @@ fn run(mode: Mode) -> Result<bool, String> {
     Ok(outcome.passed)
 }
 
-fn compare_corpus(engine: &mut OpenKey, filter: Option<CorpusFile>, started: Instant) -> Result<Outcome, String> {
+fn compare_corpus(engine: &mut OpenKey, only: Option<Only>, started: Instant) -> Result<Outcome, String> {
     let dir = Path::new(MANIFEST_DIR).join("corpus");
     let mut acceptance = load_acceptance()?;
-    let mut tally = CorpusTally::default();
-    for file in CORPUS_FILES
-        .into_iter()
-        .filter(|file| filter.is_none_or(|only| only == *file))
-    {
-        let lines = corpus::read_file(&dir, file)?;
-        let typed = TypedFile {
-            name: file.name,
-            strokes: lines.iter().map(Line::ended).collect(),
-            lines,
-        };
-        acceptance.judge_source(file.name);
-        tally.begin_file(file, typed.lines.clone());
-        for &method in file.methods {
-            for combo in Combo::all_for(method) {
-                compare_lines(engine, combo, &typed, &mut tally, &mut acceptance);
-            }
-        }
-        println!("{}: done after {:.1} s", file.name, started.elapsed().as_secs_f64());
-    }
-    let total = tally.total();
+    let files: Vec<CorpusFile> = match only {
+        None => CORPUS_FILES.to_vec(),
+        Some(Only::File(file)) => vec![file],
+        Some(Only::Convert) => Vec::new(),
+    };
+    let tally = runs::compare_files(engine, &files, &dir, &mut acceptance, started)?;
+    let conversion = match only {
+        None | Some(Only::Convert) => Some(runs::compare_conversions(engine, &dir, &mut acceptance)?),
+        Some(Only::File(_)) => None,
+    };
+    let (typed, converted) = (
+        tally.total(),
+        conversion.as_ref().map(ConversionTally::total).unwrap_or_default(),
+    );
     let stale = acceptance.stale().count();
     Ok(Outcome {
-        report: tally.render(started.elapsed(), &acceptance),
-        passed: tally.passed(&acceptance),
+        report: tally.render(started.elapsed(), &acceptance, conversion.as_ref()),
+        passed: tally.passed(&acceptance) && converted.not_accepted() == 0,
         summary: format!(
-            "{} of {} corpus runs differ, {} of them not accepted; {stale} accepted entries are stale.",
-            total.differ,
-            total.runs,
-            total.not_accepted()
+            "{} of {} typing runs and {} of {} conversions differ, {} of them not accepted; {stale} accepted entries \
+             are stale.",
+            typed.differ,
+            typed.runs,
+            converted.differ,
+            converted.runs,
+            typed.not_accepted() + converted.not_accepted()
         ),
     })
-}
-
-/// A corpus file's lines, and the strokes the comparison types for each.
-#[derive(Debug)]
-struct TypedFile {
-    name: &'static str,
-    lines: Vec<Line>,
-    strokes: Vec<Vec<Stroke>>,
-}
-
-fn compare_lines(
-    engine: &mut OpenKey,
-    combo: Combo,
-    file: &TypedFile,
-    tally: &mut CorpusTally,
-    acceptance: &mut Acceptance,
-) {
-    engine.configure(combo);
-    let settings = combo.cuakey_settings();
-    let tokens = combo.tokens();
-    for (at, (line, strokes)) in file.lines.iter().zip(&file.strokes).enumerate() {
-        let divergence = first_divergence(engine, combo, &settings, strokes);
-        let accepted = divergence.as_ref().and_then(|divergence| {
-            let (expected, cuakey) = (
-                exact(&divergence.expected, combo.table),
-                exact(&divergence.actual, combo.table),
-            );
-            acceptance.accept(&Found {
-                source: file.name,
-                sequence: &line.text,
-                tokens: &tokens,
-                step: divergence.step + 1,
-                expected: &expected,
-                cuakey: &cuakey,
-            })
-        });
-        tally.record(at, combo, divergence, accepted);
-    }
 }
 
 /// The entries of `accepted-differences.toml`.
 fn load_acceptance() -> Result<Acceptance, String> {
     let path = Path::new(MANIFEST_DIR).join(ACCEPTED);
     let text = fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
-    let sources: Vec<&str> = CORPUS_FILES.iter().map(|file| file.name).chain([RANDOM]).collect();
-    Ok(Acceptance::new(accepted::parse(
-        &text,
-        &sources,
-        &Combo::known_tokens(),
-    )?))
+    let sources: Vec<&str> = CORPUS_FILES
+        .iter()
+        .map(|file| file.name)
+        .chain([CONVERT, RANDOM])
+        .collect();
+    let mut tokens = Combo::known_tokens();
+    tokens.extend(ConvertCombo::known_tokens());
+    Ok(Acceptance::new(accepted::parse(&text, &sources, &tokens)?))
 }
 
 fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instant) -> Result<Outcome, String> {
     let mut acceptance = load_acceptance()?;
-    let mut rng = Rng::new(seed);
-    let mut findings = Vec::new();
-    for _ in 0..count {
-        let combo = random::combo(&mut rng);
-        let strokes = random::sequence(&mut rng, combo.method);
-        let sequence = notation(&strokes);
-        let tokens = combo.tokens();
-        acceptance.judge_sequence(RANDOM, &sequence, &tokens);
-        engine.configure(combo);
-        let Some(divergence) = first_divergence(engine, combo, &combo.cuakey_settings(), &strokes) else {
-            continue;
-        };
-        let (expected, cuakey) = (
-            exact(&divergence.expected, combo.table),
-            exact(&divergence.actual, combo.table),
-        );
-        let reason = acceptance
-            .accept(&Found {
-                source: RANDOM,
-                sequence: &sequence,
-                tokens: &tokens,
-                step: divergence.step + 1,
-                expected: &expected,
-                cuakey: &cuakey,
-            })
-            .and_then(|at| acceptance.entry(at))
-            .map(|entry| entry.reason.clone());
-        findings.push(RandomFinding {
-            step_key: strokes
-                .get(divergence.step)
-                .map_or_else(String::new, |s| Notation(*s).to_string()),
-            sequence,
-            combo,
-            divergence,
-            accepted: reason,
-        });
-    }
+    let findings = runs::compare_random(engine, count, seed, &mut acceptance);
     let unaccepted = findings.iter().filter(|f| f.accepted.is_none()).count();
     let stale = acceptance.stale().count();
     Ok(Outcome {
@@ -257,30 +190,6 @@ fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instan
             findings.len()
         ),
     })
-}
-
-/// Types `strokes` into both engines, from an empty text box, and compares the text after every stroke.
-fn first_divergence(
-    engine: &mut OpenKey,
-    combo: Combo,
-    settings: &ComposerSettings,
-    strokes: &[Stroke],
-) -> Option<Divergence> {
-    let mut openkey = OpenKeyScreen::start(engine, combo.table);
-    let mut cuakey = CuaKeyScreen::new(settings.clone());
-    for (step, stroke) in strokes.iter().enumerate() {
-        let unmodelled = openkey.stroke(*stroke).err().map(|Unmodelled(number)| number);
-        cuakey.stroke(*stroke);
-        if unmodelled.is_some() || openkey.units() != cuakey.units() {
-            return Some(Divergence {
-                step,
-                expected: openkey.units().to_vec(),
-                actual: cuakey.units().to_vec(),
-                unmodelled,
-            });
-        }
-    }
-    None
 }
 
 #[cfg(test)]

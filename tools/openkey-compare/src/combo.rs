@@ -1,4 +1,5 @@
-//! The settings a comparison runs under: an input method, a code table, and the typing options both engines share.
+//! The settings a typing comparison runs under: an input method, a code table, the language, and the typing and macro
+//! options both engines share.
 
 use std::fmt;
 
@@ -13,7 +14,7 @@ pub const CODE_TABLES: [CodeTable; 5] = [
     CodeTable::Cp1258,
 ];
 
-/// A typing option that is on or off in both engines.
+/// An option that is on or off in both engines.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Toggle {
     SpellCheck,
@@ -23,10 +24,13 @@ pub enum Toggle {
     QuickFirst,
     QuickLast,
     Capitals,
+    Macros,
+    MacrosInEnglish,
+    MatchCase,
 }
 
 impl Toggle {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 10] = [
         Self::SpellCheck,
         Self::Restore,
         Self::ModernTones,
@@ -34,6 +38,30 @@ impl Toggle {
         Self::QuickFirst,
         Self::QuickLast,
         Self::Capitals,
+        Self::Macros,
+        Self::MacrosInEnglish,
+        Self::MatchCase,
+    ];
+
+    /// The options that change how a word is typed.
+    pub const TYPING: [Self; 7] = [
+        Self::SpellCheck,
+        Self::Restore,
+        Self::ModernTones,
+        Self::QuickTelex,
+        Self::QuickFirst,
+        Self::QuickLast,
+        Self::Capitals,
+    ];
+
+    /// The options that change whether and how a shortcut expands, with the typing options that meet them.
+    pub const MACROS: [Self; 6] = [
+        Self::SpellCheck,
+        Self::Restore,
+        Self::Capitals,
+        Self::Macros,
+        Self::MacrosInEnglish,
+        Self::MatchCase,
     ];
 
     /// The word for it in a settings label, present when it is on.
@@ -46,6 +74,9 @@ impl Toggle {
             Self::QuickFirst => "quick-first",
             Self::QuickLast => "quick-last",
             Self::Capitals => "capitals",
+            Self::Macros => "macros",
+            Self::MacrosInEnglish => "macros-in-english",
+            Self::MatchCase => "match-caps",
         }
     }
 
@@ -54,19 +85,19 @@ impl Toggle {
         format!("{} {}", self.token(), if on { "on" } else { "off" })
     }
 
-    /// Spell check and restoring an invalid word are on unless turned off; the rest are off.
+    /// Spell check, restoring an invalid word, and macros are on unless turned off; the rest are off.
     pub const fn on_by_default(self) -> bool {
-        matches!(self, Self::SpellCheck | Self::Restore)
+        matches!(self, Self::SpellCheck | Self::Restore | Self::Macros)
     }
 
-    const fn bit(self) -> u8 {
-        1 << self as u8
+    const fn bit(self) -> u16 {
+        1 << self as u16
     }
 }
 
 /// Which of the toggles are on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Toggles(u8);
+pub struct Toggles(u16);
 
 impl Toggles {
     pub fn defaults() -> Self {
@@ -85,9 +116,14 @@ impl Toggles {
         }
     }
 
-    /// Every setting of the toggles, `bits` read as one bit per toggle.
-    fn from_bits(bits: u8) -> Self {
-        Self(bits & ((1 << Toggle::ALL.len()) - 1))
+    /// The defaults, with `varied` set as `bits` says: bit `n` for `varied[n]`.
+    fn varying(varied: &[Toggle], bits: usize) -> Self {
+        varied
+            .iter()
+            .enumerate()
+            .fold(Self::defaults(), |toggles, (at, toggle)| {
+                toggles.with(*toggle, on_off(bits >> at & 1 == 1))
+            })
     }
 }
 
@@ -96,32 +132,43 @@ impl Toggles {
 pub struct Combo {
     pub method: InputMethod,
     pub table: CodeTable,
+    pub language: Language,
     pub toggles: Toggles,
 }
 
 impl Combo {
-    /// How many combinations there are for one input method.
-    pub const PER_METHOD: usize = CODE_TABLES.len() << Toggle::ALL.len();
-
     /// `method` with every other setting at its default.
     pub fn default_for(method: InputMethod) -> Self {
         Self {
             method,
             table: CodeTable::Unicode,
+            language: Language::Vietnamese,
             toggles: Toggles::defaults(),
         }
     }
 
-    /// Every combination for `method`.
-    pub fn all_for(method: InputMethod) -> impl Iterator<Item = Self> {
-        let toggle_settings = 1u8 << Toggle::ALL.len();
+    /// Every combination for `method` of the code tables, `languages`, and each setting of `varied`; the other
+    /// toggles stay at their defaults.
+    pub fn all_for(
+        method: InputMethod,
+        varied: &'static [Toggle],
+        languages: &'static [Language],
+    ) -> impl Iterator<Item = Self> {
         CODE_TABLES.into_iter().flat_map(move |table| {
-            (0..toggle_settings).map(move |bits| Self {
-                method,
-                table,
-                toggles: Toggles::from_bits(bits),
+            languages.iter().flat_map(move |language| {
+                (0..1usize << varied.len()).map(move |bits| Self {
+                    method,
+                    table,
+                    language: *language,
+                    toggles: Toggles::varying(varied, bits),
+                })
             })
         })
+    }
+
+    /// How many combinations `all_for` gives for one method.
+    pub const fn count_for(varied: &[Toggle], languages: &[Language]) -> usize {
+        (CODE_TABLES.len() * languages.len()) << varied.len()
     }
 
     pub const fn is_on(self, toggle: Toggle) -> bool {
@@ -137,6 +184,9 @@ impl Combo {
         }
         if self.table != defaults.table {
             differences.push(table_name(self.table).to_owned());
+        }
+        if self.language != defaults.language {
+            differences.push("English".to_owned());
         }
         differences.extend(
             Toggle::ALL
@@ -154,6 +204,7 @@ impl Combo {
             method_name(InputMethod::SimpleTelex).to_owned(),
         ];
         all.extend(CODE_TABLES.iter().skip(1).map(|table| table_name(*table).to_owned()));
+        all.push("English".to_owned());
         all.extend(
             Toggle::ALL
                 .into_iter()
@@ -176,19 +227,24 @@ impl Combo {
             SettingChange::QuickFirstConsonant(on_off(Toggle::QuickFirst)),
             SettingChange::QuickLastConsonant(on_off(Toggle::QuickLast)),
             SettingChange::CapitalizeSentences(on_off(Toggle::Capitals)),
+            SettingChange::UseMacros(on_off(Toggle::Macros)),
+            SettingChange::MacrosInEnglish(on_off(Toggle::MacrosInEnglish)),
+            SettingChange::MacroMatchCase(on_off(Toggle::MatchCase)),
             SettingChange::KeepW(OnOff::Off),
         ]
         .into_iter()
         .fold(Settings::default(), Settings::with);
-        ComposerSettings::from_settings(&settings, Language::Vietnamese)
+        ComposerSettings::from_settings(&settings, self.language)
     }
-}
 
-impl Combo {
-    /// The settings as tokens an accepted entry's filter is matched against: the method, the table, and each toggle,
-    /// `!` in front when it is off.
+    /// The settings as tokens an accepted entry's filter is matched against: the method, the table, the language,
+    /// and each toggle, `!` in front when it is off.
     pub fn tokens(self) -> Vec<String> {
-        let mut tokens = vec![method_token(self.method).to_owned(), table_token(self.table).to_owned()];
+        let mut tokens = vec![
+            method_token(self.method).to_owned(),
+            table_token(self.table).to_owned(),
+            language_token(self.language).to_owned(),
+        ];
         tokens.extend(
             Toggle::ALL
                 .into_iter()
@@ -200,7 +256,8 @@ impl Combo {
     /// Every token a filter may name.
     pub fn known_tokens() -> Vec<String> {
         let methods = [InputMethod::Telex, InputMethod::Vni, InputMethod::SimpleTelex].map(method_token);
-        let mut known: Vec<String> = methods.into_iter().map(str::to_owned).collect();
+        let languages = [Language::Vietnamese, Language::English].map(language_token);
+        let mut known: Vec<String> = methods.into_iter().chain(languages).map(str::to_owned).collect();
         known.extend(CODE_TABLES.map(table_token).into_iter().map(str::to_owned));
         for toggle in Toggle::ALL {
             known.extend([toggle_token(toggle, true), toggle_token(toggle, false)]);
@@ -209,7 +266,7 @@ impl Combo {
     }
 }
 
-fn toggle_token(toggle: Toggle, on: bool) -> String {
+pub fn toggle_token(toggle: Toggle, on: bool) -> String {
     if on {
         toggle.token().to_owned()
     } else {
@@ -217,11 +274,14 @@ fn toggle_token(toggle: Toggle, on: bool) -> String {
     }
 }
 
-/// The label a report and `accepted-differences.toml` name a combination by: the input method, the code table, then
-/// each toggle that is on.
+/// The label a report names a combination by: the input method, the code table, `english` when typing in English,
+/// then each toggle that is on.
 impl fmt::Display for Combo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", method_token(self.method), table_token(self.table))?;
+        if self.language == Language::English {
+            f.write_str(" english")?;
+        }
         for toggle in Toggle::ALL.into_iter().filter(|t| self.is_on(*t)) {
             write!(f, " {}", toggle.token())?;
         }
@@ -266,6 +326,13 @@ pub const fn table_token(table: CodeTable) -> &'static str {
         CodeTable::VniWindows => "vni-windows",
         CodeTable::UnicodeCompound => "unicode-compound",
         CodeTable::Cp1258 => "cp1258",
+    }
+}
+
+pub const fn language_token(language: Language) -> &'static str {
+    match language {
+        Language::Vietnamese => "vietnamese",
+        Language::English => "english",
     }
 }
 

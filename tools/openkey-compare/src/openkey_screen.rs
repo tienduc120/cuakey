@@ -3,9 +3,13 @@
 //! In VNI Windows and Unicode compound a letter can take two code units, and a text box's Backspace deletes one. Seen
 //! from the text box, `OpenKey` deletes the whole of a two-unit letter it typed since the last click or key that
 //! ended a word; a letter typed before that loses one unit per Backspace.
+//!
+//! While typing English, the host asks the engine about a key only when macros are on in English, and then sends an
+//! expansion without holding the key back: the key that ended the shortcut reaches the text box first.
 
-use cuakey_domain::{CodeTable, KeyPress};
+use cuakey_domain::{CodeTable, KeyPress, Language};
 
+use crate::combo::{Combo, Toggle};
 use crate::corpus::Stroke;
 use crate::oracle::{Action, After, OpenKey, Reply, Send};
 use crate::screen::Screen;
@@ -24,17 +28,36 @@ pub struct OpenKeyScreen<'engine> {
     screen: Screen,
     /// The units each character took, last typed last; kept only in the tables that need it.
     lengths: Option<Vec<usize>>,
+    english: English,
+}
+
+/// What the host does with a key while typing English.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum English {
+    /// Typing Vietnamese: every key goes to the engine.
+    No,
+    /// Every key goes to the text box untouched.
+    PassThrough,
+    /// The engine looks for a shortcut to expand.
+    Macros,
 }
 
 impl<'engine> OpenKeyScreen<'engine> {
-    /// An empty text box, with the engine (already configured for `table`) starting afresh.
-    pub fn start(engine: &'engine mut OpenKey, table: CodeTable) -> Self {
+    /// An empty text box, with the engine (already configured for `combo`) starting afresh.
+    pub fn start(engine: &'engine mut OpenKey, combo: Combo) -> Self {
         engine.start_line();
+        let table = combo.table;
         let two_unit_letters = matches!(table, CodeTable::VniWindows | CodeTable::UnicodeCompound);
+        let english = match combo.language {
+            Language::Vietnamese => English::No,
+            Language::English if combo.is_on(Toggle::Macros) && combo.is_on(Toggle::MacrosInEnglish) => English::Macros,
+            Language::English => English::PassThrough,
+        };
         Self {
             engine,
             screen: Screen::default(),
             lengths: two_unit_letters.then(Vec::new),
+            english,
         }
     }
 
@@ -47,13 +70,56 @@ impl<'engine> OpenKeyScreen<'engine> {
             }
             return Ok(());
         };
+        match self.english {
+            English::No => self.vietnamese_key(key),
+            English::PassThrough => {
+                self.screen.key(key);
+                Ok(())
+            }
+            English::Macros => self.english_key(key),
+        }
+    }
+
+    fn vietnamese_key(&mut self, key: KeyPress) -> Result<(), Unmodelled> {
         let reply = self.engine.press(key);
         match reply.action {
             Action::PassThrough => self.pass_through(key, reply.after),
             Action::Replace | Action::ReplaceThenKey | Action::ReplaceThenKeyThenNewWord => self.replace(key, &reply),
+            Action::Macro => self.expand(key, &reply),
             Action::Unmodelled(number) => return Err(Unmodelled(number)),
         }
         Ok(())
+    }
+
+    /// A key while typing English with macros on in English: the key goes to the text box either way, and an
+    /// expansion follows it.
+    fn english_key(&mut self, key: KeyPress) -> Result<(), Unmodelled> {
+        let reply = self.engine.press_in_english(key);
+        match reply.action {
+            Action::PassThrough => self.screen.key(key),
+            Action::Macro => {
+                self.screen.key(key);
+                self.expand(key, &reply);
+            }
+            Action::Replace | Action::ReplaceThenKey | Action::ReplaceThenKeyThenNewWord => {
+                return Err(Unmodelled(1));
+            }
+            Action::Unmodelled(number) => return Err(Unmodelled(number)),
+        }
+        Ok(())
+    }
+
+    /// A shortcut expands: the host deletes it, types the expansion, then the key that ended it, in upper case only
+    /// while Shift is held.
+    fn expand(&mut self, key: KeyPress, reply: &Reply) {
+        for _ in 0..reply.backspaces {
+            self.backspace();
+        }
+        for send in &reply.sends {
+            self.send(*send, key);
+        }
+        let send = self.engine.key_send(key.code(), key.mods().shift().is_on());
+        self.send(send, key);
     }
 
     pub fn units(&self) -> &[u16] {

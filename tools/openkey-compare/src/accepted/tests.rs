@@ -124,7 +124,7 @@ fn entries_that_cannot_match_are_refused() {
     );
     assert_eq!(
         refused("source = \"telex\"", "source = \"latin\""),
-        "accepted-differences.toml: `ass` names `latin`, which is no corpus file and not random"
+        "accepted-differences.toml: `ass` names `latin`, which is no corpus file, not convert, and not random"
     );
     assert_eq!(
         refused("step = 3", "step = 0"),

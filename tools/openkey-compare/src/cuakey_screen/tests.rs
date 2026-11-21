@@ -1,4 +1,4 @@
-use cuakey_domain::{CodeTable, InputMethod, encode};
+use cuakey_domain::{CodeTable, InputMethod, MacroEntry, MacroTable, encode};
 
 use super::CuaKeyScreen;
 use crate::combo::Combo;
@@ -9,7 +9,7 @@ fn screen_for(table: CodeTable) -> CuaKeyScreen {
         table,
         ..Combo::default_for(InputMethod::Telex)
     };
-    CuaKeyScreen::new(combo.cuakey_settings())
+    CuaKeyScreen::new(combo.cuakey_settings(), &MacroTable::default())
 }
 
 fn type_line(screen: &mut CuaKeyScreen, line: &str) {
@@ -42,4 +42,15 @@ fn screen_applies_vni_two_unit_backspaces() {
     type_line(&mut screen, "s");
 
     assert_eq!(screen.units(), encode("as", CodeTable::VniWindows));
+}
+
+#[test]
+fn cuakey_expands_a_macro() {
+    let mut macros = MacroTable::default();
+    macros.add(MacroEntry::new("btw", "by the way").unwrap());
+    let mut screen = CuaKeyScreen::new(Combo::default_for(InputMethod::Telex).cuakey_settings(), &macros);
+
+    type_line(&mut screen, "btw ");
+
+    assert_eq!(screen.units(), encode("by the way ", CodeTable::Unicode));
 }

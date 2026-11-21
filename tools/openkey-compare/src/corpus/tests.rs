@@ -62,3 +62,20 @@ fn the_comparison_ends_every_line_with_a_space() {
 
     assert_eq!(line.ended(), parse("hag ").unwrap());
 }
+
+#[test]
+fn the_macro_table_splits_each_line_at_its_first_colon_and_skips_comments() {
+    let table = super::parse_macro_table("; the table\nbtw:by the way\n\ntg:thời gian: 8:30\n").unwrap();
+
+    assert_eq!(
+        table,
+        [
+            ("btw".to_owned(), "by the way".to_owned()),
+            ("tg".to_owned(), "thời gian: 8:30".to_owned())
+        ]
+    );
+    assert_eq!(
+        super::parse_macro_table("btw by the way").unwrap_err(),
+        "`btw by the way` has no colon between the shortcut and its expansion"
+    );
+}

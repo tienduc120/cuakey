@@ -5,10 +5,11 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::time::Duration;
 
-use cuakey_domain::{InputMethod, decode};
+use cuakey_domain::decode;
 
 use crate::accepted::{Acceptance, Accepted};
-use crate::combo::{Combo, Toggle, method_name, method_token, table_token};
+use crate::combo::{Combo, language_token, method_name, method_token, table_token, toggle_token};
+use crate::conversion_report::ConversionTally;
 use crate::corpus::{CorpusFile, Line, Notation};
 use crate::screen::show;
 
@@ -190,38 +191,47 @@ impl CorpusTally {
         self.total().not_accepted() == 0 && acceptance.stale().next().is_none()
     }
 
-    pub fn render(&self, elapsed: Duration, acceptance: &Acceptance) -> String {
+    pub fn render(&self, elapsed: Duration, acceptance: &Acceptance, conversion: Option<&ConversionTally>) -> String {
         let total = self.total();
         let mut out = String::new();
         out.push_str("# OpenKey comparison: corpus\n\n");
-        out.push_str(
-            "Each line of a corpus file is typed into an empty text box, followed by a Space that ends its last word, \
-             under every combination of settings for its input methods: each code table, and spell check, restoring \
-             an invalid word, modern tones, quick Telex, quick first consonant, quick last consonant, and capitals \
-             each on and off. After every key the text OpenKey's Windows host would leave (expected) is compared \
-             with the text CuaKey's edits leave. A run stops at its first difference.\n\n",
-        );
+        out.push_str(INTRODUCTION);
         let _ = writeln!(
             out,
-            "{} runs in {:.1} s; {} differ, {} of them accepted in `accepted-differences.toml`.\n",
+            "{} typing runs in {:.1} s; {} differ, {} of them accepted in `accepted-differences.toml`.\n",
             total.runs,
             elapsed.as_secs_f64(),
             total.differ_with_share(),
             total.accepted
         );
+        if let Some(conversion) = conversion {
+            let count = conversion.total();
+            let _ = writeln!(
+                out,
+                "{} conversions; {} differ, {} of them accepted.\n",
+                count.runs,
+                count.differ_with_share(),
+                count.accepted
+            );
+        }
+        out.push_str("## Summary\n\n");
         self.render_summary(&mut out);
-        out.push_str(NOT_COMPARED);
+        if let Some(conversion) = conversion {
+            conversion.render_summary(&mut out);
+        }
         out.push_str(HOW_TO_READ);
         for file in &self.files {
             render_file(&mut out, file);
         }
-        self.render_accepted(&mut out, acceptance);
+        if let Some(conversion) = conversion {
+            conversion.render_differences(&mut out);
+        }
+        self.render_accepted(&mut out, acceptance, conversion);
         render_stale(&mut out, acceptance.stale());
         out
     }
 
     fn render_summary(&self, out: &mut String) {
-        out.push_str("## Summary\n\n");
         out.push_str("| Corpus file | Lines | Runs | Runs that differ | Accepted | Lines that differ | Entries |\n");
         out.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
         for file in &self.files {
@@ -257,13 +267,17 @@ impl CorpusTally {
         out.push('\n');
     }
 
-    fn render_accepted(&self, out: &mut String, acceptance: &Acceptance) {
-        if self.total().accepted == 0 {
+    fn render_accepted(&self, out: &mut String, acceptance: &Acceptance, conversion: Option<&ConversionTally>) {
+        let converted = conversion.map_or(0, |conversion| conversion.total().accepted);
+        if self.total().accepted + converted == 0 {
             return;
         }
         out.push_str("## Accepted differences\n\n");
         for file in &self.files {
             render_accepted_file(out, file, acceptance);
+        }
+        if let Some(conversion) = conversion {
+            conversion.render_accepted(out, acceptance);
         }
         out.push('\n');
     }
@@ -291,9 +305,14 @@ fn render_accepted_file(out: &mut String, file: &FileTally, acceptance: &Accepta
     }
 }
 
-const NOT_COMPARED: &str = "## Not compared yet\n\n\
-    - Macros: CuaKey has no macros yet, so the comparison runs with macros off.\n\
-    - The text conversion tool: CuaKey has no conversion tool yet.\n\n";
+const INTRODUCTION: &str = "Each line of a corpus file is typed into an empty text box, followed by a Space that \
+    ends its last word, under every combination of the settings that file varies: each code table, and for typing \
+    spell check, restoring an invalid word, modern tones, quick Telex, quick first consonant, quick last consonant, \
+    and capitals each on and off; the macro file is typed with its macro table, in Vietnamese and in English, with \
+    macros, macros in English, matching capitals, spell check, restore, and capitals each on and off. After every key \
+    the text OpenKey's Windows host would leave (expected) is compared with the text CuaKey's edits leave, and a run \
+    stops at its first difference. Each text of the conversion corpus is converted by both engines from every code \
+    table to every code table, with each case option, with and without accents, and the outputs are compared.\n\n";
 
 const HOW_TO_READ: &str = "## Differences\n\n\
     Keys are written in the corpus notation (see `tools/openkey-compare/README.md`). Each entry gives the line, the \
@@ -347,7 +366,7 @@ fn render_file(out: &mut String, file: &FileTally) {
         out.push_str("No differences that are not accepted.\n\n");
         return;
     }
-    let per_line = Combo::PER_METHOD * file.file.methods.len();
+    let per_line = file.file.combos_per_method() * file.file.methods.len();
     for (key, group) in groups {
         let Some(line) = file.lines.get(key.line) else {
             continue;
@@ -361,7 +380,7 @@ fn render_file(out: &mut String, file: &FileTally) {
             show(&group.actual, group.shown.table),
             unmodelled_note(key.unmodelled),
             group.shown,
-            spread(group, per_line, file.file.methods)
+            spread(group, per_line, file.file)
         );
     }
     out.push('\n');
@@ -375,12 +394,12 @@ fn unmodelled_note(unmodelled: Option<i32>) -> String {
 }
 
 /// How many combinations end the same way, and the setting tokens they all match.
-fn spread(group: &Group, per_line: usize, methods: &[InputMethod]) -> String {
+fn spread(group: &Group, per_line: usize, file: CorpusFile) -> String {
     let more = group.combos.len().saturating_sub(1);
     if group.combos.len() >= per_line {
         return format!(" and every other of the {per_line} combinations");
     }
-    let shared = shared_tokens(&group.combos, methods);
+    let shared = shared_tokens(&group.combos, file);
     let shared = if shared.is_empty() {
         String::new()
     } else {
@@ -389,26 +408,26 @@ fn spread(group: &Group, per_line: usize, methods: &[InputMethod]) -> String {
     format!(" and {more} more of {per_line} combinations{shared}")
 }
 
-/// The setting tokens every one of `combos` has; the input method only when the file is typed in more than one.
-fn shared_tokens(combos: &[Combo], methods: &[InputMethod]) -> Vec<String> {
+/// The setting tokens every one of `combos` has, of the settings `file` varies: the input method and the language
+/// only when it is typed in more than one, the table, and the toggles it is typed under each setting of.
+fn shared_tokens(combos: &[Combo], file: CorpusFile) -> Vec<String> {
     let Some(first) = combos.first() else {
         return Vec::new();
     };
     let mut shared = Vec::new();
-    if methods.len() > 1 && combos.iter().all(|c| c.method == first.method) {
+    if file.methods.len() > 1 && combos.iter().all(|c| c.method == first.method) {
         shared.push(method_token(first.method).to_owned());
     }
     if combos.iter().all(|c| c.table == first.table) {
         shared.push(table_token(first.table).to_owned());
     }
-    for toggle in Toggle::ALL {
-        let on = first.is_on(toggle);
-        if combos.iter().all(|c| c.is_on(toggle) == on) {
-            shared.push(if on {
-                toggle.token().to_owned()
-            } else {
-                format!("!{}", toggle.token())
-            });
+    if file.languages.len() > 1 && combos.iter().all(|c| c.language == first.language) {
+        shared.push(language_token(first.language).to_owned());
+    }
+    for toggle in file.toggles {
+        let on = first.is_on(*toggle);
+        if combos.iter().all(|c| c.is_on(*toggle) == on) {
+            shared.push(toggle_token(*toggle, on));
         }
     }
     shared
@@ -469,7 +488,6 @@ pub fn render_random(
         findings.len(),
         findings.len() - accepted
     );
-    out.push_str(NOT_COMPARED);
     out.push_str(
         "## Differences\n\nKeys are written in the corpus notation (see `tools/openkey-compare/README.md`); the \
          settings are written as the tokens an accepted entry names.\n\n",
