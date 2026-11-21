@@ -1,48 +1,83 @@
 use cuakey_domain::{CodeTable, InputMethod, Language, OnOff, encode};
 
-use super::OpenKeyScreen;
+use super::{Family, OpenKeyScreens};
 use crate::combo::{Combo, Toggle};
 use crate::corpus::parse;
 use crate::oracle::OpenKey;
 
-/// What the text box shows after `OpenKey` types `line` under `combo`.
-fn typed(combo: Combo, line: &str) -> Vec<u16> {
-    typed_with_macros(combo, line, &[])
-}
-
-/// The same, with `macros` as the macro table.
-fn typed_with_macros(combo: Combo, line: &str, macros: &[(String, String)]) -> Vec<u16> {
+/// What the two hosts leave after `OpenKey` types `line` under `combo` with `macros`: the corrected host's text, the
+/// faithful host's, and the last host defect the faithful host showed.
+fn typed_with_macros(combo: Combo, line: &str, macros: &[(String, String)]) -> (Vec<u16>, Vec<u16>, Option<Family>) {
     let mut engine = OpenKey::take().unwrap();
     engine.set_macros(macros);
     engine.configure(combo);
-    let mut screen = OpenKeyScreen::start(&mut engine, combo);
+    let mut screens = OpenKeyScreens::start(&mut engine, combo);
     for stroke in parse(line).unwrap() {
-        screen.stroke(stroke).unwrap();
+        screens.stroke(stroke).unwrap();
     }
-    screen.units().to_vec()
+    (
+        screens.corrected().to_vec(),
+        screens.faithful().to_vec(),
+        screens.defect(),
+    )
+}
+
+fn typed(combo: Combo, line: &str) -> (Vec<u16>, Vec<u16>, Option<Family>) {
+    typed_with_macros(combo, line, &[])
+}
+
+fn telex_in(table: CodeTable) -> Combo {
+    Combo {
+        table,
+        ..Combo::default_for(InputMethod::Telex)
+    }
 }
 
 #[test]
 fn openkey_aa_gives_a_circumflex() {
-    let units = typed(Combo::default_for(InputMethod::Telex), "aa");
+    let (corrected, faithful, defect) = typed(Combo::default_for(InputMethod::Telex), "aa");
 
-    assert_eq!(units, encode("â", CodeTable::Unicode), "Telex aa through OpenKey");
+    assert_eq!(corrected, encode("â", CodeTable::Unicode), "Telex aa through OpenKey");
+    assert_eq!(faithful, corrected);
+    assert_eq!(defect, None);
 }
 
 #[test]
-fn openkey_deletes_both_units_of_a_two_unit_letter_with_one_backspace_in_vni_windows() {
-    let combo = Combo {
-        table: CodeTable::VniWindows,
-        ..Combo::default_for(InputMethod::Telex)
-    };
-
-    let units = typed(combo, "tas<bs>");
+fn both_hosts_delete_both_units_of_a_two_unit_letter_with_one_backspace_in_vni_windows() {
+    let (corrected, faithful, _) = typed(telex_in(CodeTable::VniWindows), "tas<bs>");
 
     assert_eq!(
-        units,
+        corrected,
         encode("t", CodeTable::VniWindows),
         "the host deletes the whole of á"
     );
+    assert_eq!(faithful, corrected);
+}
+
+#[test]
+fn the_corrected_host_deletes_the_whole_of_a_cp1258_letter_and_the_faithful_host_one_unit() {
+    let (corrected, faithful, defect) = typed(telex_in(CodeTable::Cp1258), "ass");
+
+    assert_eq!(corrected, encode("as", CodeTable::Cp1258));
+    assert_eq!(
+        faithful,
+        [0x61, 0x61, 0x73],
+        "OpenKey's host leaves the first unit of á"
+    );
+    assert_eq!(defect, Some(Family::WholeLetter));
+}
+
+#[test]
+fn a_space_right_after_a_backspace_deletes_half_a_letter_only_under_the_faithful_host() {
+    let (corrected, faithful, defect) = typed(telex_in(CodeTable::VniWindows), "vieetj <bs><bs> ");
+
+    assert_eq!(corrected, encode("việ ", CodeTable::VniWindows));
+    assert_eq!(
+        faithful,
+        [0x76, 0x69, 0x65, 0x20],
+        "OpenKey's host deletes the second unit of ệ"
+    );
+    assert_eq!(defect, Some(Family::SpaceAfterBackspace));
 }
 
 fn btw() -> Vec<(String, String)> {
@@ -60,25 +95,29 @@ fn english(macros_in_english: OnOff) -> Combo {
 
 #[test]
 fn openkey_expands_a_macro_and_types_the_key_that_ended_it() {
-    let units = typed_with_macros(Combo::default_for(InputMethod::Telex), "btw ", &btw());
+    let (corrected, faithful, _) = typed_with_macros(Combo::default_for(InputMethod::Telex), "btw ", &btw());
 
-    assert_eq!(units, encode("by the way ", CodeTable::Unicode));
+    assert_eq!(corrected, encode("by the way ", CodeTable::Unicode));
+    assert_eq!(faithful, corrected);
 }
 
 #[test]
-fn in_english_mode_the_host_lets_the_ending_key_through_before_it_sends_the_expansion() {
-    let units = typed_with_macros(english(OnOff::On), "btw ", &btw());
+fn in_english_mode_only_the_faithful_host_lets_the_ending_key_through_before_the_expansion() {
+    let (corrected, faithful, defect) = typed_with_macros(english(OnOff::On), "btw ", &btw());
 
+    assert_eq!(corrected, encode("by the way ", CodeTable::Unicode));
     assert_eq!(
-        units,
+        faithful,
         encode("bby the way ", CodeTable::Unicode),
         "the Space reaches the text box, then three backspaces delete it and `tw`, then the expansion and a Space"
     );
+    assert_eq!(defect, Some(Family::EnglishMacroKey));
 }
 
 #[test]
 fn in_english_mode_without_macros_in_english_every_key_passes_through() {
-    let units = typed_with_macros(english(OnOff::Off), "btw ", &btw());
+    let (corrected, faithful, _) = typed_with_macros(english(OnOff::Off), "btw ", &btw());
 
-    assert_eq!(units, encode("btw ", CodeTable::Unicode));
+    assert_eq!(corrected, encode("btw ", CodeTable::Unicode));
+    assert_eq!(faithful, corrected);
 }

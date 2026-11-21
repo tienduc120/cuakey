@@ -2,10 +2,11 @@ use std::time::Duration;
 
 use cuakey_domain::{CodeTable, InputMethod, OnOff, encode};
 
-use super::{CorpusTally, Count, Divergence};
+use super::{CorpusTally, Count, Divergence, HostDefect, RunResult};
 use crate::accepted::{Acceptance, Accepted, Found};
 use crate::combo::{Combo, Toggle};
 use crate::corpus::{CORPUS_FILES, Line, parse};
+use crate::openkey_screen::Family;
 
 fn line(text: &str) -> Line {
     Line {
@@ -23,6 +24,14 @@ fn differs(step: usize, expected: &str, actual: &str, table: CodeTable) -> Diver
     }
 }
 
+/// A run whose first divergence no entry accepts.
+fn open(divergence: Divergence) -> RunResult {
+    RunResult {
+        open: Some(divergence),
+        ..RunResult::default()
+    }
+}
+
 fn no_entries() -> Acceptance {
     Acceptance::new(Vec::new())
 }
@@ -36,7 +45,7 @@ fn cp1258_entry() -> Acceptance {
         step: 3,
         expected: "0061 0061 006a".to_owned(),
         cuakey: "0061 006a".to_owned(),
-        reason: "the host deletes one unit of a two-unit letter".to_owned(),
+        reason: "an engine difference this test accepts".to_owned(),
     }])
 }
 
@@ -54,10 +63,10 @@ fn tally() -> CorpusTally {
     };
     let mut tally = CorpusTally::default();
     tally.begin_file(telex, vec![line("ass"), line("aa")]);
-    tally.record(0, vni_windows, Some(differs(2, "as", "á", CodeTable::VniWindows)), None);
-    tally.record(0, defaults, Some(differs(2, "as", "á", CodeTable::Unicode)), None);
-    tally.record(0, no_spelling, None, None);
-    tally.record(1, defaults, None, None);
+    tally.record(0, vni_windows, open(differs(2, "as", "á", CodeTable::VniWindows)));
+    tally.record(0, defaults, open(differs(2, "as", "á", CodeTable::Unicode)));
+    tally.record(0, no_spelling, RunResult::default());
+    tally.record(1, defaults, RunResult::default());
     tally
 }
 
@@ -73,7 +82,10 @@ fn runs_are_counted_per_file_and_per_setting_that_differs_from_the_default() {
             accepted: 0
         }
     );
-    assert!(report.contains("| telex | 2 | 4 | 2 (50.0%) | 0 | 1 | 1 |"), "{report}");
+    assert!(
+        report.contains("| telex | 2 | 4 | 2 (50.0%) | 0 | 0 | 1 | 1 |"),
+        "{report}"
+    );
     assert!(
         report.contains("| none (every setting at its default) | 2 | 1 (50.0%) | 1 |"),
         "{report}"
@@ -104,8 +116,7 @@ fn a_difference_at_the_closing_space_says_so() {
     tally.record(
         0,
         Combo::default_for(InputMethod::Telex),
-        Some(differs(3, "hang ", "hag ", CodeTable::Unicode)),
-        None,
+        open(differs(3, "hang ", "hag ", CodeTable::Unicode)),
     );
 
     let report = tally.render(Duration::from_secs(1), &no_entries(), None);
@@ -123,11 +134,10 @@ fn a_reply_the_tool_does_not_model_is_a_finding_and_not_the_end_of_the_run() {
     tally.record(
         0,
         Combo::default_for(InputMethod::Telex),
-        Some(Divergence {
+        open(Divergence {
             unmodelled: Some(-1),
             ..differs(1, "a", "ab", CodeTable::Unicode)
         }),
-        None,
     );
 
     let report = tally.render(Duration::from_secs(1), &no_entries(), None);
@@ -155,7 +165,14 @@ fn cp1258_tally(accepted: Option<usize>) -> CorpusTally {
     };
     let mut tally = CorpusTally::default();
     tally.begin_file(CORPUS_FILES[0], vec![line("ajj")]);
-    tally.record(0, combo, Some(divergence), accepted);
+    let result = match accepted {
+        Some(at) => RunResult {
+            accepted: vec![(divergence, at)],
+            ..RunResult::default()
+        },
+        None => open(divergence),
+    };
+    tally.record(0, combo, result);
     tally
 }
 
@@ -177,13 +194,13 @@ fn an_accepted_difference_is_listed_apart_with_its_reason_and_the_run_passes() {
     let report = tally.render(Duration::from_secs(1), &acceptance, None);
 
     assert!(
-        report.contains("| telex | 1 | 1 | 1 (100.0%) | 1 | 0 | 0 |"),
+        report.contains("| telex | 1 | 1 | 1 (100.0%) | 1 | 0 | 0 | 0 |"),
         "{report}"
     );
     assert!(
         report.contains(
             "- `ajj`, after key 3 `j`: expected 0061 0061 006a (`aaj`), CuaKey 0061 006a (`aj`), under 1 \
-             combination. Accepted: the host deletes one unit of a two-unit letter."
+             combination. Accepted: an engine difference this test accepts."
         ),
         "{report}"
     );
@@ -208,9 +225,46 @@ fn an_entry_that_matched_nothing_is_reported_stale_and_fails_the_run() {
     assert!(
         report.contains(
             "- `ajj` in telex, step 3, settings `cp1258`: expected `0061 0061 006a`, CuaKey `0061 006a`. Reason \
-             given: the host deletes one unit of a two-unit letter."
+             given: an engine difference this test accepts."
         ),
         "{report}"
     );
     assert!(!tally.passed(&acceptance));
+}
+
+#[test]
+fn host_defects_are_counted_apart_per_family_with_examples_and_never_fail_the_run() {
+    let mut tally = CorpusTally::default();
+    tally.begin_file(CORPUS_FILES[0], vec![line("ajj")]);
+    let defect = HostDefect {
+        family: Family::WholeLetter,
+        step: 2,
+        faithful: vec![0x61, 0x61, 0x6a],
+        corrected: vec![0x61, 0x6a],
+    };
+
+    tally.record(
+        0,
+        cp1258(),
+        RunResult {
+            host_defect: Some(defect),
+            ..RunResult::default()
+        },
+    );
+
+    let report = tally.render(Duration::from_secs(1), &no_entries(), None);
+    assert!(
+        report.contains("| telex | 1 | 1 | 0 (0.0%) | 0 | 1 | 0 | 0 |"),
+        "{report}"
+    );
+    assert!(report.contains("## OpenKey host defects (not reproduced)"), "{report}");
+    assert!(report.contains("| telex | 1 | 0 | 0 |"), "{report}");
+    assert!(
+        report.contains(
+            "- `ajj`, after key 3 `j`, settings `telex cp1258 spell-check restore macros`: OpenKey's host leaves \
+             0061 0061 006a (`aaj`), a corrected host 0061 006a (`aj`)."
+        ),
+        "{report}"
+    );
+    assert!(tally.passed(&no_entries()));
 }

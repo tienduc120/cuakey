@@ -11,11 +11,11 @@ use crate::conversion::{self, ConvertCombo};
 use crate::conversion_report::{self, ConversionTally, Expected};
 use crate::corpus::{self, CorpusFile, Line, Notation, Stroke, notation};
 use crate::cuakey_screen::CuaKeyScreen;
-use crate::openkey_screen::{OpenKeyScreen, Unmodelled};
+use crate::openkey_screen::{Family, OpenKeyScreens, Unmodelled};
 use crate::oracle::OpenKey;
 use crate::random::{self, Rng};
-use crate::report::{CorpusTally, Divergence, RandomFinding};
-use crate::screen::exact;
+use crate::report::{CorpusTally, Divergence, HostDefect, HostDefects, HostExample, RandomFinding, RunResult};
+use crate::screen::{exact, show};
 
 /// A macro table, as both engines take it.
 #[derive(Debug, Default)]
@@ -86,98 +86,216 @@ fn compare_lines(
     let settings = combo.cuakey_settings();
     let tokens = combo.tokens();
     for (at, (line, strokes)) in file.lines.iter().zip(&file.strokes).enumerate() {
-        let divergence = first_divergence(engine, combo, (&settings, &file.macros.table), strokes);
-        let accepted = divergence.as_ref().and_then(|divergence| {
-            let (expected, cuakey) = (
-                exact(&divergence.expected, combo.table),
-                exact(&divergence.actual, combo.table),
-            );
+        let mut accept = |divergence: &Divergence| {
             acceptance.accept(&Found {
                 source: file.name,
                 sequence: &line.text,
                 tokens: &tokens,
                 step: divergence.step + 1,
-                expected: &expected,
-                cuakey: &cuakey,
+                expected: &exact(&divergence.expected, combo.table),
+                cuakey: &exact(&divergence.actual, combo.table),
             })
-        });
-        tally.record(at, combo, divergence, accepted);
+        };
+        let result = compare_line(engine, combo, (&settings, &file.macros.table), strokes, &mut accept);
+        tally.record(at, combo, result);
+    }
+}
+
+/// What a random run found: the sequences with a divergence no entry accepts, how many had only accepted ones, and the
+/// host defects.
+#[derive(Debug, Default)]
+pub struct RandomOutcome {
+    pub findings: Vec<RandomFinding>,
+    pub accepted: usize,
+    pub host_defects: HostDefects,
+}
+
+impl RandomOutcome {
+    /// Every engine divergence is accepted and no entry the run could judge has gone stale; host defects never fail.
+    pub fn passed(&self, acceptance: &Acceptance) -> bool {
+        self.findings.is_empty() && acceptance.stale().next().is_none()
     }
 }
 
 /// `count` random sequences from `seed`, each under random settings and with no macros.
-pub fn compare_random(
-    engine: &mut OpenKey,
-    count: usize,
-    seed: u64,
-    acceptance: &mut Acceptance,
-) -> Vec<RandomFinding> {
+pub fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, acceptance: &mut Acceptance) -> RandomOutcome {
     let mut rng = Rng::new(seed);
-    let mut findings = Vec::new();
+    let sequences: Vec<(Combo, Vec<Stroke>)> = (0..count)
+        .map(|_| {
+            let combo = random::combo(&mut rng);
+            (combo, random::sequence(&mut rng, combo.method))
+        })
+        .collect();
+    compare_sequences(engine, sequences, acceptance)
+}
+
+/// Each sequence typed under its settings, with no macros.
+pub fn compare_sequences(
+    engine: &mut OpenKey,
+    sequences: Vec<(Combo, Vec<Stroke>)>,
+    acceptance: &mut Acceptance,
+) -> RandomOutcome {
     let no_macros = MacroTable::default();
     engine.set_macros(&[]);
-    for _ in 0..count {
-        let combo = random::combo(&mut rng);
-        let strokes = random::sequence(&mut rng, combo.method);
+    let mut outcome = RandomOutcome::default();
+    for (combo, strokes) in sequences {
         let sequence = notation(&strokes);
         let tokens = combo.tokens();
         acceptance.judge_sequence(RANDOM, &sequence, &tokens);
         engine.configure(combo);
         let settings = combo.cuakey_settings();
-        let Some(divergence) = first_divergence(engine, combo, (&settings, &no_macros), &strokes) else {
-            continue;
-        };
-        let (expected, cuakey) = (
-            exact(&divergence.expected, combo.table),
-            exact(&divergence.actual, combo.table),
-        );
-        let reason = acceptance
-            .accept(&Found {
+        let mut accept = |divergence: &Divergence| {
+            acceptance.accept(&Found {
                 source: RANDOM,
                 sequence: &sequence,
                 tokens: &tokens,
                 step: divergence.step + 1,
-                expected: &expected,
-                cuakey: &cuakey,
+                expected: &exact(&divergence.expected, combo.table),
+                cuakey: &exact(&divergence.actual, combo.table),
             })
-            .and_then(|at| acceptance.entry(at))
-            .map(|entry| entry.reason.clone());
-        findings.push(RandomFinding {
-            step_key: strokes
-                .get(divergence.step)
-                .map_or_else(String::new, |s| Notation(*s).to_string()),
-            sequence,
-            combo,
-            divergence,
-            accepted: reason,
-        });
+        };
+        let result = compare_line(engine, combo, (&settings, &no_macros), &strokes, &mut accept);
+        let key_at = |step: usize| strokes.get(step).map_or_else(String::new, |s| Notation(*s).to_string());
+        match (result.open, result.accepted.is_empty(), result.host_defect) {
+            (Some(divergence), ..) => outcome.findings.push(RandomFinding {
+                step_key: key_at(divergence.step),
+                sequence,
+                combo,
+                divergence,
+            }),
+            (None, false, _) => outcome.accepted += 1,
+            (None, true, Some(defect)) => outcome.host_defects.add(defect.family, || HostExample {
+                sequence: sequence.clone(),
+                settings: combo.tokens().join(" "),
+                after: format!("key {} `{}`", defect.step + 1, key_at(defect.step)),
+                faithful: show(&defect.faithful, combo.table),
+                corrected: show(&defect.corrected, combo.table),
+            }),
+            (None, true, None) => {}
+        }
     }
-    findings
+    outcome
 }
 
-/// Types `strokes` into both engines, from an empty text box, and compares the text after every stroke. `cuakey` is
-/// `CuaKey`'s side: its settings and the macros it expands.
-fn first_divergence(
+/// What the check of a run says to do after a stroke.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Flow {
+    Next,
+    /// An entry accepts the divergence: the corrected host's text box takes `CuaKey`'s text, and the run goes on.
+    Resync,
+    Stop,
+}
+
+/// The three text boxes after a stroke: `CuaKey`'s, the corrected host's, and the faithful host's.
+#[derive(Debug, Clone, Copy)]
+pub struct Texts<'a> {
+    pub cuakey: &'a [u16],
+    pub corrected: &'a [u16],
+    pub faithful: &'a [u16],
+}
+
+/// Follows one run stroke by stroke: `CuaKey` against the corrected host, and the faithful host against the
+/// corrected one for a host defect.
+#[derive(Debug, Default)]
+pub struct RunCheck {
+    result: RunResult,
+    /// The faithful host's text has left the corrected host's, or `CuaKey`'s has: no later host defect is looked for.
+    host_checked: bool,
+}
+
+impl RunCheck {
+    /// The texts after the stroke at `step`, and the last host defect the faithful host showed; `accept` names the
+    /// entry that accepts a divergence, if one does.
+    pub fn step(
+        &mut self,
+        step: usize,
+        texts: Texts<'_>,
+        defect: Option<Family>,
+        accept: &mut dyn FnMut(&Divergence) -> Option<usize>,
+    ) -> Flow {
+        let Texts {
+            cuakey,
+            corrected,
+            faithful,
+        } = texts;
+        if !self.host_checked && faithful != corrected {
+            self.host_checked = true;
+            if let (Some(family), true) = (defect, corrected == cuakey) {
+                self.result.host_defect = Some(HostDefect {
+                    family,
+                    step,
+                    faithful: faithful.to_vec(),
+                    corrected: corrected.to_vec(),
+                });
+            }
+        }
+        if corrected == cuakey {
+            return Flow::Next;
+        }
+        self.host_checked = true;
+        let divergence = Divergence {
+            step,
+            expected: corrected.to_vec(),
+            actual: cuakey.to_vec(),
+            unmodelled: None,
+        };
+        if let Some(at) = accept(&divergence) {
+            self.result.accepted.push((divergence, at));
+            Flow::Resync
+        } else {
+            self.result.open = Some(divergence);
+            Flow::Stop
+        }
+    }
+
+    /// `OpenKey` gave a reply the tool cannot apply at `step`: a finding that ends the run.
+    fn unmodelled(&mut self, step: usize, number: i32, corrected: &[u16], cuakey: &[u16]) {
+        self.result.open = Some(Divergence {
+            step,
+            expected: corrected.to_vec(),
+            actual: cuakey.to_vec(),
+            unmodelled: Some(number),
+        });
+    }
+
+    pub fn finish(self) -> RunResult {
+        self.result
+    }
+}
+
+/// Types `strokes` into both engines, from empty text boxes, and compares the text after every stroke. `cuakey` is
+/// `CuaKey`'s side: its settings and the macros it expands. A divergence `accept` accepts does not end the run: the
+/// corrected host's text box takes `CuaKey`'s text, and the comparison goes on.
+pub fn compare_line(
     engine: &mut OpenKey,
     combo: Combo,
     cuakey: (&ComposerSettings, &MacroTable),
     strokes: &[Stroke],
-) -> Option<Divergence> {
-    let mut openkey = OpenKeyScreen::start(engine, combo);
+    accept: &mut dyn FnMut(&Divergence) -> Option<usize>,
+) -> RunResult {
+    let mut openkey = OpenKeyScreens::start(engine, combo);
     let mut cuakey = CuaKeyScreen::new(cuakey.0.clone(), cuakey.1);
+    let mut check = RunCheck::default();
     for (step, stroke) in strokes.iter().enumerate() {
-        let unmodelled = openkey.stroke(*stroke).err().map(|Unmodelled(number)| number);
+        let unmodelled = openkey.stroke(*stroke).err();
         cuakey.stroke(*stroke);
-        if unmodelled.is_some() || openkey.units() != cuakey.units() {
-            return Some(Divergence {
-                step,
-                expected: openkey.units().to_vec(),
-                actual: cuakey.units().to_vec(),
-                unmodelled,
-            });
+        if let Some(Unmodelled(number)) = unmodelled {
+            check.unmodelled(step, number, openkey.corrected(), cuakey.units());
+            break;
+        }
+        let texts = Texts {
+            cuakey: cuakey.units(),
+            corrected: openkey.corrected(),
+            faithful: openkey.faithful(),
+        };
+        let flow = check.step(step, texts, openkey.defect(), accept);
+        match flow {
+            Flow::Next => {}
+            Flow::Resync => openkey.resync(cuakey.units()),
+            Flow::Stop => break,
         }
     }
-    None
+    check.finish()
 }
 
 /// Every text of `convert.txt` converted by both engines under every setting of the conversion.
@@ -212,3 +330,6 @@ pub fn compare_conversions(
     }
     Ok(tally)
 }
+
+#[cfg(test)]
+mod tests;

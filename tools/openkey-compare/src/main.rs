@@ -178,12 +178,13 @@ fn load_acceptance() -> Result<Acceptance, String> {
 
 fn compare_random(engine: &mut OpenKey, count: usize, seed: u64, started: Instant) -> Result<Outcome, String> {
     let mut acceptance = load_acceptance()?;
-    let findings = runs::compare_random(engine, count, seed, &mut acceptance);
-    let unaccepted = findings.iter().filter(|f| f.accepted.is_none()).count();
+    let outcome = runs::compare_random(engine, count, seed, &mut acceptance);
+    let findings = &outcome.findings;
+    let unaccepted = findings.len();
     let stale = acceptance.stale().count();
     Ok(Outcome {
-        report: report::render_random(seed, count, &findings, started.elapsed(), &acceptance),
-        passed: unaccepted == 0 && stale == 0,
+        report: report::render_random(seed, count, &outcome, started.elapsed(), &acceptance),
+        passed: outcome.passed(&acceptance),
         summary: format!(
             "{} of {count} random sequences differ, {unaccepted} of them not accepted; {stale} accepted entries \
              are stale.",

@@ -11,6 +11,8 @@ use crate::accepted::{Acceptance, Accepted};
 use crate::combo::{Combo, language_token, method_name, method_token, table_token, toggle_token};
 use crate::conversion_report::ConversionTally;
 use crate::corpus::{CorpusFile, Line, Notation};
+use crate::openkey_screen::Family;
+use crate::runs::RandomOutcome;
 use crate::screen::show;
 
 /// The first key after which the two text boxes differ, and what each shows then.
@@ -21,6 +23,121 @@ pub struct Divergence {
     pub actual: Vec<u16>,
     /// The number of a reply from `OpenKey` the tool cannot apply, when that is what stopped the run.
     pub unmodelled: Option<i32>,
+}
+
+/// Where `OpenKey`'s own host first left the text a corrected host leaves, while `CuaKey` still matched the
+/// corrected host.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostDefect {
+    pub family: Family,
+    pub step: usize,
+    pub faithful: Vec<u16>,
+    pub corrected: Vec<u16>,
+}
+
+/// What one run found: its first divergence from the corrected host that no entry accepts, the divergences entries
+/// accepted on the way, and the first host defect, if it showed one.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RunResult {
+    pub open: Option<Divergence>,
+    pub accepted: Vec<(Divergence, usize)>,
+    pub host_defect: Option<HostDefect>,
+}
+
+/// One run that showed a host defect, as the report shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostExample {
+    pub sequence: String,
+    pub settings: String,
+    /// "key 3 `s`".
+    pub after: String,
+    pub faithful: String,
+    pub corrected: String,
+}
+
+/// How many examples of each host defect the report shows.
+const EXAMPLES: usize = 3;
+
+/// The runs whose only difference came from `OpenKey`'s host, counted per family, with a few examples of each.
+#[derive(Debug, Default)]
+pub struct HostDefects {
+    counts: [usize; 3],
+    examples: [Vec<HostExample>; 3],
+}
+
+impl HostDefects {
+    /// One more run of `family`; `example` is asked for only while the report still wants examples of it.
+    pub fn add(&mut self, family: Family, example: impl FnOnce() -> HostExample) {
+        let at = family_index(family);
+        if let Some(count) = self.counts.get_mut(at) {
+            *count += 1;
+        }
+        let Some(examples) = self.examples.get_mut(at) else {
+            return;
+        };
+        if examples.len() < EXAMPLES {
+            let example = example();
+            if examples.iter().all(|shown| shown.sequence != example.sequence) {
+                examples.push(example);
+            }
+        }
+    }
+
+    pub const fn counts(&self) -> [usize; 3] {
+        self.counts
+    }
+
+    pub fn count(&self, family: Family) -> usize {
+        self.counts.get(family_index(family)).copied().unwrap_or(0)
+    }
+
+    /// The section of the report, with `per_source` the counts of each source when there is more than one.
+    fn render(&self, out: &mut String, per_source: &[(&str, [usize; 3])]) {
+        out.push_str("## OpenKey host defects (not reproduced)\n\n");
+        out.push_str(HOST_DEFECTS);
+        for family in Family::ALL {
+            let _ = writeln!(out, "- `{}`: {}.", family.token(), family.description());
+        }
+        out.push('\n');
+        if !per_source.is_empty() {
+            out.push_str("| Source |");
+            for family in Family::ALL {
+                let _ = write!(out, " {} |", family.token());
+            }
+            out.push_str("\n| --- | ---: | ---: | ---: |\n");
+            for (source, counts) in per_source {
+                let _ = writeln!(out, "| {source} | {} | {} | {} |", counts[0], counts[1], counts[2]);
+            }
+            out.push('\n');
+        }
+        for family in Family::ALL {
+            let at = family_index(family);
+            let (Some(count), Some(examples)) = (self.counts.get(at), self.examples.get(at)) else {
+                continue;
+            };
+            if examples.is_empty() {
+                continue;
+            }
+            let runs = if *count == 1 { "run" } else { "runs" };
+            let _ = writeln!(out, "Examples of `{}`, {count} {runs}:\n", family.token());
+            for example in examples {
+                let _ = writeln!(
+                    out,
+                    "- `{}`, after {}, settings `{}`: OpenKey's host leaves {}, a corrected host {}.",
+                    example.sequence, example.after, example.settings, example.faithful, example.corrected
+                );
+            }
+            out.push('\n');
+        }
+    }
+}
+
+const HOST_DEFECTS: &str = "CuaKey is compared with OpenKey's engine applied by a corrected host. A second pass \
+    applies the same answers the way OpenKey's own Windows host does; a run whose only difference comes from that \
+    host is counted here, by what the host did, and never fails the run. CuaKey does not reproduce these:\n\n";
+
+fn family_index(family: Family) -> usize {
+    Family::ALL.iter().position(|f| *f == family).unwrap_or(0)
 }
 
 /// How many runs there were, how many of them differed, and how many of those an entry accepts.
@@ -103,6 +220,8 @@ struct FileTally {
     lines: Vec<Line>,
     count: Count,
     groups: HashMap<GroupKey, Group>,
+    /// The runs whose only difference came from `OpenKey`'s host, per family.
+    host: [usize; 3],
 }
 
 impl FileTally {
@@ -132,6 +251,7 @@ pub struct CorpusTally {
     files: Vec<FileTally>,
     settings: Vec<(String, Count)>,
     defaults: Count,
+    host_defects: HostDefects,
 }
 
 impl Default for CorpusTally {
@@ -143,6 +263,7 @@ impl Default for CorpusTally {
                 .map(|name| (name, Count::default()))
                 .collect(),
             defaults: Count::default(),
+            host_defects: HostDefects::default(),
         }
     }
 }
@@ -155,13 +276,20 @@ impl CorpusTally {
             lines,
             count: Count::default(),
             groups: HashMap::new(),
+            host: [0; 3],
         });
     }
 
     /// One run of line `line` of the current file under `combo`; where it first differed, if it did; and the entry
     /// that accepts that, if one does.
-    pub fn record(&mut self, line: usize, combo: Combo, divergence: Option<Divergence>, accepted: Option<usize>) {
-        let end = RunEnd::of(divergence.as_ref(), accepted);
+    pub fn record(&mut self, line: usize, combo: Combo, result: RunResult) {
+        let end = if result.open.is_some() {
+            RunEnd::Differs
+        } else if result.accepted.is_empty() {
+            RunEnd::Matched
+        } else {
+            RunEnd::Accepted
+        };
         let differences = combo.differences();
         if differences.is_empty() || differences == [method_name(combo.method)] {
             self.defaults.add(end);
@@ -175,8 +303,24 @@ impl CorpusTally {
             return;
         };
         file.count.add(end);
-        if let Some(divergence) = divergence {
-            add_to_group(&mut file.groups, line, combo, divergence, accepted);
+        if let Some(divergence) = result.open {
+            add_to_group(&mut file.groups, line, combo, divergence, None);
+        }
+        for (divergence, at) in result.accepted {
+            add_to_group(&mut file.groups, line, combo, divergence, Some(at));
+        }
+        if let (RunEnd::Matched, Some(defect)) = (end, result.host_defect) {
+            if let Some(count) = file.host.get_mut(family_index(defect.family)) {
+                *count += 1;
+            }
+            let text = file.lines.get(line);
+            self.host_defects.add(defect.family, || HostExample {
+                sequence: text.map(|text| text.text.clone()).unwrap_or_default(),
+                settings: combo.to_string(),
+                after: text.map(|text| after_key(text, defect.step)).unwrap_or_default(),
+                faithful: show(&defect.faithful, combo.table),
+                corrected: show(&defect.corrected, combo.table),
+            });
         }
     }
 
@@ -226,31 +370,41 @@ impl CorpusTally {
         if let Some(conversion) = conversion {
             conversion.render_differences(&mut out);
         }
+        let per_file: Vec<(&str, [usize; 3])> = self.files.iter().map(|file| (file.file.name, file.host)).collect();
+        self.host_defects.render(&mut out, &per_file);
         self.render_accepted(&mut out, acceptance, conversion);
         render_stale(&mut out, acceptance.stale());
         out
     }
 
     fn render_summary(&self, out: &mut String) {
-        out.push_str("| Corpus file | Lines | Runs | Runs that differ | Accepted | Lines that differ | Entries |\n");
-        out.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+        out.push_str(
+            "| Corpus file | Lines | Runs | Runs that differ | Accepted | Host defects only | Lines that differ | \
+             Entries |\n",
+        );
+        out.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
         for file in &self.files {
             let open = file.sorted(false);
             let mut lines: Vec<usize> = open.iter().map(|(key, _)| key.line).collect();
             lines.dedup();
             let _ = writeln!(
                 out,
-                "| {} | {} | {} | {} | {} | {} | {} |",
+                "| {} | {} | {} | {} | {} | {} | {} | {} |",
                 file.file.name,
                 file.lines.len(),
                 file.count.runs,
                 file.count.differ_with_share(),
                 file.count.accepted,
+                file.host.iter().sum::<usize>(),
                 lines.len(),
                 open.len()
             );
         }
-        out.push_str("\nLines that differ and entries count only the differences no entry accepts.\n");
+        out.push_str(
+            "\nRuns that differ count the differences from OpenKey's engine applied by a corrected host; host defects \
+             only are runs whose only difference comes from OpenKey's own host. Lines that differ and entries count \
+             only the differences no entry accepts.\n",
+        );
         out.push_str("\n| Setting that differs from the default | Runs | Runs that differ | Not accepted |\n");
         out.push_str("| --- | ---: | ---: | ---: |\n");
         let rows = std::iter::once(("none (every setting at its default)", self.defaults))
@@ -310,9 +464,12 @@ const INTRODUCTION: &str = "Each line of a corpus file is typed into an empty te
     spell check, restoring an invalid word, modern tones, quick Telex, quick first consonant, quick last consonant, \
     and capitals each on and off; the macro file is typed with its macro table, in Vietnamese and in English, with \
     macros, macros in English, matching capitals, spell check, restore, and capitals each on and off. After every key \
-    the text OpenKey's Windows host would leave (expected) is compared with the text CuaKey's edits leave, and a run \
-    stops at its first difference. Each text of the conversion corpus is converted by both engines from every code \
-    table to every code table, with each case option, with and without accents, and the outputs are compared.\n\n";
+    the text OpenKey's engine leaves when a corrected host applies its answers (expected) is compared with the text \
+    CuaKey's edits leave. A run stops at its first difference no entry accepts; after an accepted one, the expected \
+    text takes CuaKey's and the run goes on. A second pass applies the same answers the way OpenKey's own Windows host \
+    does, and the runs whose only difference comes from that host are counted apart and never fail. Each text of the \
+    conversion corpus is converted by both engines from every code table to every code table, with each case option, \
+    with and without accents, and the outputs are compared.\n\n";
 
 const HOW_TO_READ: &str = "## Differences\n\n\
     Keys are written in the corpus notation (see `tools/openkey-compare/README.md`). Each entry gives the line, the \
@@ -459,34 +616,38 @@ fn render_stale<'a>(out: &mut String, stale: impl Iterator<Item = &'a Accepted>)
     out.push('\n');
 }
 
-/// One random sequence that differed, and the reason of the entry that accepts it, if one does.
+/// One random sequence with a divergence from the corrected host that no entry accepts.
 #[derive(Debug, Clone)]
 pub struct RandomFinding {
     pub sequence: String,
     pub combo: Combo,
     pub step_key: String,
     pub divergence: Divergence,
-    pub accepted: Option<String>,
 }
 
 /// The report of a random run of `count` sequences from `seed`.
 pub fn render_random(
     seed: u64,
     count: usize,
-    findings: &[RandomFinding],
+    outcome: &RandomOutcome,
     elapsed: Duration,
     acceptance: &Acceptance,
 ) -> String {
-    let accepted = findings.iter().filter(|f| f.accepted.is_some()).count();
+    let findings = &outcome.findings;
     let mut out = String::new();
     out.push_str("# OpenKey comparison: random sequences\n\n");
     let _ = writeln!(
         out,
-        "{count} sequences from seed {seed}, each under random settings and ended by a Space, in {:.1} s: {} differ, \
-         {accepted} of them accepted in `accepted-differences.toml`, {} not.\n",
+        "{count} sequences from seed {seed}, each under random settings and ended by a Space, in {:.1} s, compared \
+         with OpenKey's engine applied by a corrected host: {} differ where no entry accepts it, {} had only \
+         accepted differences, and {} differ only through OpenKey's own host.\n",
         elapsed.as_secs_f64(),
         findings.len(),
-        findings.len() - accepted
+        outcome.accepted,
+        Family::ALL
+            .iter()
+            .map(|family| outcome.host_defects.count(*family))
+            .sum::<usize>()
     );
     out.push_str(
         "## Differences\n\nKeys are written in the corpus notation (see `tools/openkey-compare/README.md`); the \
@@ -494,7 +655,7 @@ pub fn render_random(
     );
     for finding in findings {
         let table = finding.combo.table;
-        let _ = write!(
+        let _ = writeln!(
             out,
             "- `{}`, after key {} `{}`: expected {}, CuaKey {}.{} Settings `{}`.",
             finding.sequence,
@@ -505,14 +666,11 @@ pub fn render_random(
             unmodelled_note(finding.divergence.unmodelled),
             finding.combo.tokens().join(" ")
         );
-        match &finding.accepted {
-            Some(reason) => {
-                let _ = writeln!(out, " Accepted: {}.", reason.trim_end_matches('.'));
-            }
-            None => out.push('\n'),
-        }
     }
     out.push('\n');
+    outcome
+        .host_defects
+        .render(&mut out, &[("random", outcome.host_defects.counts())]);
     render_stale(&mut out, acceptance.stale());
     out
 }
