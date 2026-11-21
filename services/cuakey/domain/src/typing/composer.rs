@@ -226,10 +226,10 @@ impl Composer {
     }
 
     /// The edit that swaps the word on screen for its macro's expansion, found by the word as shown or else by the keys
-    /// as typed, followed by the key that ended the word. The
-    /// key goes into the edit when it types text, and is sent after it when it types none.
+    /// as typed, followed by the key that ended the word. The key goes into the edit when it types text, and is sent
+    /// after it when it types none. Tab moves on, often out of the text box, and leaves the word as it is.
     fn macro_edit(&self, shown: &str, typed_keys: &str, raised: OnOff, key: KeyPress) -> Option<Edit> {
-        if !self.macros_apply() {
+        if !self.macros_apply() || key.code() == KeyCode::Tab {
             return None;
         }
         let match_case = self.settings.macros().match_case();

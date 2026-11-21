@@ -346,21 +346,41 @@ fn the_edit_deletes_the_word_as_shown_when_the_keys_matched() {
 }
 
 #[test]
-fn enter_and_tab_are_sent_after_the_expansion_not_typed_into_it() {
-    for code in [KeyCode::Enter, KeyCode::Tab] {
-        let mut composer = telex_with(&[("ko", "không")]);
+fn enter_is_sent_after_the_expansion_not_typed_into_it() {
+    let mut composer = telex_with(&[("ko", "không")]);
+    type_text(&mut composer, "ko");
+
+    let edit = press(&mut composer, KeyCode::Enter);
+
+    assert_eq!(
+        edit,
+        Edit::Replace {
+            delete: 2,
+            insert: "không".into(),
+            resend_key: true,
+        },
+        "Enter must still act as the key"
+    );
+}
+
+#[test]
+fn a_tab_ends_the_word_without_expanding_a_macro() {
+    let in_english = settings().with(SettingChange::MacrosInEnglish(OnOff::On));
+    for language in [Language::Vietnamese, Language::English] {
+        let mut composer = composer_for(&in_english, language, &[("ko", "không")]);
         type_text(&mut composer, "ko");
 
-        let edit = press(&mut composer, code);
+        let edit = press(&mut composer, KeyCode::Tab);
 
         assert_eq!(
             edit,
-            Edit::Replace {
-                delete: 2,
-                insert: "không".into(),
-                resend_key: true,
-            },
-            "{code:?} must still act as the key"
+            Edit::PassThrough,
+            "{language:?}: Tab moves on and leaves the shortcut"
+        );
+        assert_eq!(
+            type_text(&mut composer, " "),
+            " ",
+            "{language:?}: the Tab ended the word"
         );
     }
 }
