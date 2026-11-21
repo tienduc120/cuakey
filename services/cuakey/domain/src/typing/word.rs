@@ -58,6 +58,10 @@ impl Glyph {
             Self::Other(_) => self,
         }
     }
+
+    fn from_char(c: char) -> Self {
+        Letter::from_char(c).map_or(Self::Other(c), Self::Letter)
+    }
 }
 
 /// What the word reads of the settings.
@@ -118,6 +122,26 @@ pub(super) struct Word {
 }
 
 impl Word {
+    /// A word showing `text` as it was typed, which later keys only add to.
+    pub(super) fn as_typed(text: &str) -> Self {
+        let glyphs: Vec<Glyph> = text.chars().map(Glyph::from_char).collect();
+        let keys = glyphs
+            .iter()
+            .enumerate()
+            .map(|(at, typed)| TypedKey {
+                code: KeyCode::Other,
+                typed: *typed,
+                at,
+            })
+            .collect();
+        Self {
+            glyphs,
+            keys,
+            state: State::AsTyped { from: 0 },
+            changed: false,
+        }
+    }
+
     pub(super) fn is_empty(&self) -> bool {
         self.glyphs.is_empty()
     }

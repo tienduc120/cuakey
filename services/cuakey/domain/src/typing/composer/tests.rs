@@ -665,3 +665,41 @@ fn backspace_moves_the_tone_onto_the_vowel_that_carries_it_now() {
     );
     assert_eq!(composer.word(), screen, "the word is what the screen shows");
 }
+
+#[test]
+fn backspace_right_after_a_space_takes_the_word_up_again() {
+    let mut composer = telex();
+    let mut screen = String::new();
+
+    for c in "chaof \u{8}".chars() {
+        type_key(&mut composer, &mut screen, c, OnOff::Off);
+    }
+    let taken_up = String::from(composer.word());
+    type_key(&mut composer, &mut screen, 'f', OnOff::Off);
+
+    assert_eq!(
+        taken_up, "chào",
+        "the Space is gone and the word is the one being typed"
+    );
+    assert_eq!(screen, "chaof", "f again takes the grave back");
+}
+
+#[test]
+fn only_backspace_right_after_the_space_takes_the_word_up() {
+    let mut composer = telex();
+
+    assert_eq!(
+        type_text(&mut composer, "chaof x\u{8}f"),
+        "chào f",
+        "the f starts a word of its own"
+    );
+}
+
+#[test]
+fn a_restored_word_is_taken_up_as_it_was_typed() {
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "ass \u{8}s"),
+        "ass",
+        "the word the Space restored takes more keys as they are"
+    );
+}

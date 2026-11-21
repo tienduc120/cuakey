@@ -49,6 +49,9 @@ pub struct Composer {
     word: Word,
     /// The word as the screen shows it, kept so `word` can lend it out.
     shown: String,
+    /// The word a Space just ended, as the screen shows it: a Backspace right after deletes the Space and takes the
+    /// word up again.
+    ended: Option<(Word, String)>,
     sentence: Sentence,
 }
 
@@ -58,18 +61,20 @@ impl Composer {
             settings,
             word: Word::default(),
             shown: String::new(),
+            ended: None,
             sentence: Sentence::default(),
         }
     }
 
     /// What to do on screen with `key`.
     pub fn press(&mut self, key: KeyPress) -> Edit {
+        let ended = self.ended.take();
         if self.settings.language() == Language::English {
             self.break_word();
             return Edit::PassThrough;
         }
         if key.code() == KeyCode::Backspace && key.mods().ctrl_or_alt() == OnOff::Off {
-            return self.delete_back();
+            return self.delete_back(ended);
         }
         match self.keystroke(key) {
             Some(keystroke) => self.type_into_word(keystroke, key),
@@ -81,6 +86,7 @@ impl Composer {
     pub fn break_word(&mut self) {
         self.word = Word::default();
         self.shown.clear();
+        self.ended = None;
         self.sentence = Sentence::default();
     }
 
@@ -95,9 +101,14 @@ impl Composer {
         &self.shown
     }
 
-    /// Backspace deletes the last character of the word; with no word, the key goes through.
-    fn delete_back(&mut self) -> Edit {
+    /// Backspace deletes the last character of the word; with no word, the key goes through, and right after a Space
+    /// takes up the word the Space ended.
+    fn delete_back(&mut self, ended: Option<(Word, String)>) -> Edit {
         if self.word.is_empty() {
+            if let Some((word, shown)) = ended {
+                self.word = word;
+                self.shown = shown;
+            }
             return Edit::PassThrough;
         }
         self.word.delete_last(self.rules().style);
@@ -142,12 +153,19 @@ impl Composer {
         if let Some(c) = text_of(key) {
             self.sentence = self.sentence.after(c);
         }
-        word.ending(self.rules())
-            .map_or(Edit::PassThrough, |insert| Edit::Replace {
-                delete: shown.chars().count(),
-                insert,
-                resend_key: true,
-            })
+        let ending = word.ending(self.rules());
+        let edit = ending.as_ref().map_or(Edit::PassThrough, |text| Edit::Replace {
+            delete: shown.chars().count(),
+            insert: text.clone(),
+            resend_key: true,
+        });
+        if key.code() == KeyCode::Space && key.mods().ctrl_or_alt() == OnOff::Off {
+            self.ended = Some(match ending {
+                Some(text) => (Word::as_typed(&text), text),
+                None => (word, shown),
+            });
+        }
+        edit
     }
 
     fn effects_of(&self, key: KeyPress) -> Option<&'static [Effect]> {
