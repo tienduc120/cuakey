@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use super::quick;
 use super::spelling::{self, Consonants, Spelling};
-use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, is_vowel};
+use super::tone::{MarkTarget, Syllable, ToneStyle, is_vowel};
 use super::{Effect, Mark};
 use crate::{BaseLetter, KeyCode, Letter, LetterCase, OnOff, Tone};
 
@@ -287,14 +287,19 @@ impl Word {
         }
     }
 
-    /// Types `vowel` at the end of the word, unless a final consonant is already there.
+    /// Types `vowel` at the end of the word, when the syllable has no vowel yet.
     fn type_vowel(&mut self, syllable: &Syllable<'_>, vowel: BaseLetter, case: LetterCase) -> Outcome {
-        match (syllable.ending(), Letter::from_parts(vowel, Tone::Ngang, case)) {
-            (Ending::Open, Some(letter)) => {
+        let has_vowel = self
+            .glyphs
+            .iter()
+            .skip(syllable.start())
+            .any(|glyph| glyph.base().is_some_and(is_vowel));
+        match Letter::from_parts(vowel, Tone::Ngang, case) {
+            Some(letter) if !has_vowel => {
                 self.glyphs.push(Glyph::Letter(letter));
                 Outcome::TypedVowel(self.glyphs.len() - 1)
             }
-            (Ending::Open, None) | (Ending::Closed, _) => Outcome::NotHere,
+            _ => Outcome::NotHere,
         }
     }
 

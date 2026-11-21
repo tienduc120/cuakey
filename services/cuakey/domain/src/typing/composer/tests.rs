@@ -738,3 +738,11 @@ fn marks_and_tones_never_reach_past_consonants_that_cannot_end_a_syllable() {
     assert_eq!(type_text(&mut vni(), "a1b2"), "áb2", "the 2 types itself");
     assert_eq!(type_text(&mut telex(), "toans"), "toán", "n ends a syllable");
 }
+
+#[test]
+fn a_lone_w_types_u_horn_only_where_the_syllable_has_no_vowel_yet() {
+    assert_eq!(type_text(&mut telex(), "ew"), "ew", "e takes no mark from w");
+    assert_eq!(type_text(&mut telex(), "new"), "new", "nor does the e of ne");
+    assert_eq!(type_text(&mut telex(), "e]"), "e]", "nor a bracket");
+    assert_eq!(type_text(&mut telex(), "tw"), "tư", "after consonants alone, w types ư");
+}
