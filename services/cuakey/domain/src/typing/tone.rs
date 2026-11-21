@@ -146,6 +146,11 @@ impl<'a> Syllable<'a> {
         self.letters.get(self.start..self.vowels.start).unwrap_or_default()
     }
 
+    /// Where the vowels start in the word.
+    pub(super) const fn vowels_start(&self) -> usize {
+        self.vowels.start
+    }
+
     pub(super) fn vowels(&self) -> &'a [BaseLetter] {
         self.letters.get(self.vowels.clone()).unwrap_or_default()
     }

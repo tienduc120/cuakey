@@ -753,3 +753,16 @@ fn the_u_after_q_is_never_the_vowel_of_the_syllable() {
     assert_eq!(type_text(&mut telex(), "quas"), "quá", "the a after qu takes it");
     assert_eq!(type_text(&mut telex(), "quys"), "quý", "as does the y");
 }
+
+#[test]
+fn after_th_w_on_an_open_uo_marks_the_o_alone() {
+    assert_eq!(type_text(&mut telex(), "thuowr"), "thuở", "thuở");
+    assert_eq!(type_text(&mut telex(), "huow"), "hươ", "after h, both take the horn");
+    assert_eq!(type_text(&mut vni(), "thuo73"), "thuở", "VNI 7 alike");
+}
+
+#[test]
+fn a_consonant_after_uo_with_a_horn_on_the_o_puts_one_on_the_u() {
+    assert_eq!(type_text(&mut telex(), "thuowng"), "thương", "ươ before a consonant");
+    assert_eq!(type_text(&mut telex(), "thuowrng"), "thưởng", "with its tone");
+}

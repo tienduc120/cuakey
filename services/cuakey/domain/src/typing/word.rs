@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use super::quick;
 use super::spelling::{self, Consonants, Spelling};
-use super::tone::{MarkTarget, Syllable, ToneStyle, is_vowel};
+use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, is_vowel};
 use super::{Effect, Mark};
 use crate::{BaseLetter, KeyCode, Letter, LetterCase, OnOff, Tone};
 
@@ -186,6 +186,7 @@ impl Word {
             Some(Outcome::Stroked(at)) => self.typed_at(at),
             Some(Outcome::NotHere) | None => self.glyphs.push(key.typed),
         }
+        self.join_horns();
         self.place_tone(rules.style);
     }
 
@@ -231,7 +232,7 @@ impl Word {
     }
 
     fn put_mark(&mut self, syllable: &Syllable<'_>, mark: Mark) -> Outcome {
-        match syllable.mark_target(mark) {
+        match mark_target(syllable, mark) {
             None => Outcome::NotHere,
             Some(MarkTarget::One { at, plain, marked }) => {
                 let had_it = self.base_at(at) == Some(marked);
@@ -369,6 +370,19 @@ impl Word {
         self.keys.retain(|key| key.at < len);
     }
 
+    /// Puts the horn on the u of uơ once a consonant closes the syllable: uơ ends a syllable, ươ goes before a
+    /// consonant.
+    fn join_horns(&mut self) {
+        let Some(letters) = letters_of(&self.glyphs) else {
+            return;
+        };
+        let syllable = Syllable::last(&letters);
+        let horn_on_o_alone = syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn];
+        if horn_on_o_alone && syllable.ending() == Ending::Closed {
+            self.set_base(syllable.vowels_start(), BaseLetter::UHorn);
+        }
+    }
+
     /// Moves the tone of the last syllable onto the vowel that carries it now.
     fn place_tone(&mut self, style: ToneStyle) {
         let Some(letters) = letters_of(&self.glyphs) else {
@@ -503,4 +517,19 @@ fn letters_of(glyphs: &[Glyph]) -> Option<Vec<BaseLetter>> {
 
 fn render(glyphs: &[Glyph]) -> String {
     glyphs.iter().map(|glyph| glyph.to_char()).collect()
+}
+
+/// Where `mark` goes in `syllable`. After th, a mark on an open uo goes on the o alone: thuở.
+fn mark_target(syllable: &Syllable<'_>, mark: Mark) -> Option<MarkTarget> {
+    let target = syllable.mark_target(mark)?;
+    let open_after_th =
+        syllable.ending() == Ending::Open && syllable.first_consonants() == [BaseLetter::T, BaseLetter::H];
+    match target {
+        MarkTarget::HornPair { o, .. } if open_after_th => Some(MarkTarget::One {
+            at: o,
+            plain: BaseLetter::O,
+            marked: BaseLetter::OHorn,
+        }),
+        MarkTarget::HornPair { .. } | MarkTarget::One { .. } => Some(target),
+    }
 }

@@ -83,3 +83,13 @@ fn the_settings_allow_more_consonants() {
     assert_eq!(spelled("fanh", quick), Spelling::Syllable, "f for ph");
     assert_eq!(spelled("hag", quick), Spelling::Syllable, "g for ng");
 }
+
+#[test]
+fn uo_with_a_horn_on_the_o_alone_ends_a_syllable() {
+    assert_eq!(spelled("thuơ", VIETNAMESE), Spelling::Syllable, "thuơ");
+    assert_eq!(
+        spelled("thuơng", VIETNAMESE),
+        Spelling::Start,
+        "before a consonant it is ươ"
+    );
+}
