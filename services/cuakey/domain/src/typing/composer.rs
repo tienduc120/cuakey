@@ -100,7 +100,7 @@ impl Composer {
         if self.word.is_empty() {
             return Edit::PassThrough;
         }
-        self.word.delete_last();
+        self.word.delete_last(self.rules().style);
         let before = mem::replace(&mut self.shown, self.word.render());
         backspace_edit(&before, &self.shown, self.settings.typing().code_table())
     }

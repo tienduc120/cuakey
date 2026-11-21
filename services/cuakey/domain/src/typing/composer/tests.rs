@@ -649,3 +649,19 @@ fn backspace_deletes_every_code_unit_of_the_last_letter() {
         "a letter of one code unit goes with the key itself"
     );
 }
+
+#[test]
+fn backspace_moves_the_tone_onto_the_vowel_that_carries_it_now() {
+    let mut composer = telex();
+    let mut screen = String::new();
+
+    for c in "toans\u{8}".chars() {
+        type_key(&mut composer, &mut screen, c, OnOff::Off);
+    }
+
+    assert_eq!(
+        screen, "tóa",
+        "with the n gone, an open oa carries the tone on o, old style"
+    );
+    assert_eq!(composer.word(), screen, "the word is what the screen shows");
+}

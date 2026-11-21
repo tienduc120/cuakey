@@ -314,10 +314,9 @@ impl Word {
         }
     }
 
-    /// Backspace: the last character goes, and the tone with it when it was drawn there, and the keys that typed it.
-    /// Nothing else moves, so the word stays what the screen shows. Deleting the key that took a change back lets the
-    /// word change again.
-    pub(super) fn delete_last(&mut self) {
+    /// Backspace: the last character goes, with the keys that typed it, and the tone moves onto the vowel that carries
+    /// it now. Deleting the key that took a change back lets the word change again.
+    pub(super) fn delete_last(&mut self, style: ToneStyle) {
         self.pop_glyph();
         if self.glyphs.is_empty() {
             *self = Self::default();
@@ -328,6 +327,9 @@ impl Word {
             State::TypedVowel(_) => self.state = State::Composing,
             State::AsTyped { from } if len <= from => self.state = State::Composing,
             State::AsTyped { .. } | State::Composing => {}
+        }
+        if self.state == State::Composing {
+            self.place_tone(style);
         }
     }
 
