@@ -20,3 +20,10 @@ fn anything_else_continues_it() {
         );
     }
 }
+
+#[test]
+fn a_line_break_starts_a_sentence_after_anything() {
+    for text in ["\n", "tôi\n", "tôi,\n", "tôi\n "] {
+        assert!(after(text).starts_next(), "{text:?}: a new line starts with a capital");
+    }
+}
