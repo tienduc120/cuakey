@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, mpsc};
 
 use cuakey_application::{LanguageValue, LayoutFlags, MacroView, PreferencesView, SessionError, Toggle, TypingSession};
 use cuakey_interfaces::{
-    MenuEffect, Notice, WindowKind, apply, convert_error_message, labels, load_error_message,
+    MenuEffect, MenuId, Notice, WindowKind, apply, convert_error_message, labels, load_error_message,
     load_macros_error_message, model, notice_message, save_error_message,
 };
 use platform_clock::SystemClock;
@@ -312,20 +312,53 @@ impl Background {
         self.keep(prefs);
     }
 
-    /// Shows the language of `prefs`, stores them, and tells the window process. A run that started on the defaults
-    /// stores nothing, as its notice said.
-    fn keep(&self, prefs: PreferencesView) {
+    /// Shows the language of the session's `session` preferences and stores what the session changed over the stored
+    /// ones.
+    fn keep(&self, session: PreferencesView) {
+        self.show_language(session.language);
+        let saved = self.save_over_stored(|stored| rebase_session(stored, &session));
+        *self.prefs.borrow_mut() = saved.unwrap_or(session);
+    }
+
+    /// Stores a click on the menu entry `id` over the stored preferences, and hands the result to the session.
+    fn keep_menu_change(&self, id: &MenuId) {
+        // A hotkey may have changed the preferences while the menu was open, so the click applies to them as they are.
+        let shown = self.prefs.borrow().clone();
+        let prefs = self
+            .save_over_stored(|stored| rebase_menu_change(stored, &shown, id.clone()))
+            .unwrap_or_else(|| rebase_menu_change(shown.clone(), &shown, id.clone()));
         self.show_language(prefs.language);
-        if self.origin.may_save() {
-            match self.stores.save_preferences(&prefs) {
-                Ok(()) => tell_window_process(AppMessage::Reload),
-                Err(error) => {
-                    tracing::warn!(error = ?error, "could not save the preferences");
-                    notify(save_error_message(&error));
-                }
+        self.send_to_session(prefs.clone(), self.macros.borrow().clone());
+        *self.prefs.borrow_mut() = prefs;
+    }
+
+    /// Saves `edit` of the stored preferences as they are now, tells the window process, and returns what was saved.
+    /// Nothing is saved in a run that started on the defaults, nor when the stored preferences cannot be read now, since
+    /// the save would put the defaults or an older copy in place of what the user set.
+    fn save_over_stored(&self, edit: impl FnOnce(PreferencesView) -> PreferencesView) -> Option<PreferencesView> {
+        if !self.origin.may_save() {
+            return None;
+        }
+        let stored = match self.stores.load_preferences() {
+            Ok(stored) => stored,
+            Err(error) => {
+                tracing::warn!(error = ?error, "could not load the preferences to save over");
+                notify(load_error_message(&error));
+                return None;
+            }
+        };
+        let prefs = edit(stored);
+        match self.stores.save_preferences(&prefs) {
+            Ok(()) => {
+                tell_window_process(AppMessage::Reload);
+                Some(prefs)
+            }
+            Err(error) => {
+                tracing::warn!(error = ?error, "could not save the preferences");
+                notify(save_error_message(&error));
+                None
             }
         }
-        *self.prefs.borrow_mut() = prefs;
     }
 
     /// Reads the preferences and macros the window process stored, and hands them to the session.
@@ -388,13 +421,10 @@ impl Background {
         let Some(id) = chosen.and_then(|id| map.chosen(id)).cloned() else {
             return;
         };
-        // A hotkey may have changed the preferences while the menu was open, so the click applies to them as they are.
-        let mut prefs = self.prefs.borrow().clone();
-        match apply(&mut prefs, id) {
-            MenuEffect::Save => {
-                self.send_to_session(prefs.clone(), self.macros.borrow().clone());
-                self.keep(prefs);
-            }
+        // This only tells what the click does; a change is made again on the stored preferences when it is kept.
+        let effect = apply(&mut self.prefs.borrow().clone(), id.clone());
+        match effect {
+            MenuEffect::Save => self.keep_menu_change(&id),
             MenuEffect::Open(kind) => self.open_window(kind),
             MenuEffect::QuickConvert => self.quick_convert(),
             MenuEffect::Exit => quit(),
@@ -435,6 +465,29 @@ impl Background {
             }
         }
     }
+}
+
+/// The preferences to store for the session's `session` ones: the fresh `stored` ones, with only what the session
+/// changes itself taken from it: the language, the code table in force, and the apps it remembers. The window process
+/// keeps the rest of the store current, so a hotkey or an app switch that lands before its `Reload` arrives must not
+/// put back the settings that save replaced.
+pub(crate) fn rebase_session(stored: PreferencesView, session: &PreferencesView) -> PreferencesView {
+    let mut prefs = PreferencesView {
+        language: session.language,
+        app_memory: session.app_memory.clone(),
+        ..stored
+    };
+    prefs.typing.code_table = session.typing.code_table;
+    prefs
+}
+
+/// The preferences to store for a click on the menu entry `id`: the click applied to the `stored` preferences rebased
+/// on `shown`, the preferences the menu was shown for.
+pub(crate) fn rebase_menu_change(stored: PreferencesView, shown: &PreferencesView, id: MenuId) -> PreferencesView {
+    let mut prefs = rebase_session(stored, shown);
+    // The caller already knows the click is a change to store.
+    apply(&mut prefs, id);
+    prefs
 }
 
 fn start_window_process(kind: WindowKind) -> io::Result<Child> {
@@ -494,3 +547,6 @@ fn put_shortcut(shortcut: Toggle) {
 fn notify(text: &str) {
     show_notice(labels::NOTICE_TITLE, text);
 }
+
+#[cfg(test)]
+mod tests;
