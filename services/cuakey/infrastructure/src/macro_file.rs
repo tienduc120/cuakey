@@ -121,8 +121,7 @@ fn format_macros(macros: &MacroTable) -> String {
     for entry in macros.entries() {
         text.push_str(entry.shortcut());
         text.push(':');
-        // A line break would split the macro in two, so it is written as a space.
-        text.push_str(&entry.expansion().replace("\r\n", " ").replace(['\r', '\n'], " "));
+        text.push_str(entry.expansion());
         text.push('\n');
     }
     text

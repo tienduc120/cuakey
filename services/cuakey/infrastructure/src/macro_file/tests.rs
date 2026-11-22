@@ -97,13 +97,27 @@ async fn no_file_is_an_empty_table() {
 }
 
 #[tokio::test]
-async fn a_line_break_in_an_expansion_does_not_split_its_line() {
-    let dir = TestDir::new("macro_newline");
+async fn every_macro_the_domain_accepts_survives_save_then_load() {
+    let dir = TestDir::new("macro_survival");
     let store = TextMacroStore::new(dir.path().to_path_buf());
+    let saved = table(&[
+        ("a;b", "semicolon inside the shortcut"),
+        ("semi", "; starts the expansion"),
+        ("colons", "one: two: three:"),
+        ("spaces", "  padded both sides  "),
+        ("empty", ""),
+        ("#", "hash"),
+        ("\u{e9}", "x\u{e9}y \u{1f600}"),
+        ("tab", "a\tb"),
+    ]);
 
-    store.save(&table(&[("sig", "best\r\nregards")])).await.unwrap();
+    store.save(&saved).await.unwrap();
 
-    assert_eq!(pairs(&store.load().await.unwrap()), expect(&[("sig", "best regards")]));
+    assert_eq!(
+        store.load().await.unwrap(),
+        saved,
+        "nothing is lost or changed by the file"
+    );
 }
 
 #[tokio::test]

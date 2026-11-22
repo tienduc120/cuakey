@@ -14,6 +14,10 @@ pub enum MacroError {
     Whitespace,
     #[error("the shortcut must not contain a colon")]
     Colon,
+    #[error("the shortcut must not start with a semicolon")]
+    Semicolon,
+    #[error("the expansion must not contain a line break")]
+    LineBreak,
 }
 
 /// One shortcut and the text it expands to.
@@ -24,12 +28,14 @@ pub struct MacroEntry {
 }
 
 impl MacroEntry {
-    /// A shortcut is a single word the macro file can write before its first colon, so it holds no whitespace and no
-    /// colon. The expansion may hold any character.
+    /// A shortcut is a single word the macro file can write before its first colon, so it holds no whitespace, no
+    /// colon, and does not start with a semicolon (the file reads that line as a comment). The expansion is one line of
+    /// the file, so it holds no line break; any other character is fine.
     ///
     /// # Errors
     ///
-    /// Returns a [`MacroError`] when the shortcut is empty or holds whitespace or a colon.
+    /// Returns a [`MacroError`] when the shortcut is empty, holds whitespace or a colon, or starts with a semicolon, or the
+    /// expansion holds a line break.
     pub fn new(shortcut: &str, expansion: &str) -> Result<Self, MacroError> {
         if shortcut.is_empty() {
             return Err(MacroError::Empty);
@@ -39,6 +45,12 @@ impl MacroEntry {
         }
         if shortcut.contains(':') {
             return Err(MacroError::Colon);
+        }
+        if shortcut.starts_with(';') {
+            return Err(MacroError::Semicolon);
+        }
+        if expansion.contains(['\r', '\n']) {
+            return Err(MacroError::LineBreak);
         }
         Ok(Self {
             shortcut: shortcut.into(),

@@ -20,6 +20,10 @@ pub enum InvalidMacro {
     Whitespace(String),
     #[error("the shortcut {0} must not contain a colon")]
     Colon(String),
+    #[error("the shortcut {0} must not start with a semicolon")]
+    Semicolon(String),
+    #[error("the expansion of {0} must not contain a line break")]
+    LineBreak(String),
 }
 
 /// The table holding `macros`; a later shortcut that repeats an earlier one wins.
@@ -48,6 +52,8 @@ fn invalid(error: MacroError, shortcut: &str) -> InvalidMacro {
         MacroError::Empty => InvalidMacro::EmptyShortcut,
         MacroError::Whitespace => InvalidMacro::Whitespace(shortcut.to_owned()),
         MacroError::Colon => InvalidMacro::Colon(shortcut.to_owned()),
+        MacroError::Semicolon => InvalidMacro::Semicolon(shortcut.to_owned()),
+        MacroError::LineBreak => InvalidMacro::LineBreak(shortcut.to_owned()),
     }
 }
 

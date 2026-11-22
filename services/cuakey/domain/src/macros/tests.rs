@@ -116,3 +116,23 @@ fn remove_takes_a_macro_out() {
     assert_eq!(table.lookup("ko", OnOff::Off), None, "gone");
     assert_eq!(table.remove("ko"), None, "nothing to remove twice");
 }
+
+#[test]
+fn a_macro_file_cannot_hold_a_leading_semicolon_or_a_line_break() {
+    assert_eq!(
+        MacroEntry::new(";sig", "x"),
+        Err(MacroError::Semicolon),
+        "the file would read the line as a comment"
+    );
+    assert_eq!(
+        MacroEntry::new("sig", "a\nb"),
+        Err(MacroError::LineBreak),
+        "a line feed would split the line"
+    );
+    assert_eq!(
+        MacroEntry::new("sig", "a\rb"),
+        Err(MacroError::LineBreak),
+        "a carriage return would split the line"
+    );
+    assert!(MacroEntry::new("a;b", "x; y").is_ok(), "a semicolon elsewhere is fine");
+}

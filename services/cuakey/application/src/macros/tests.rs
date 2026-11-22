@@ -137,3 +137,20 @@ async fn export_writes_the_stored_macros() {
 
     assert_eq!(export.store().file(Path::new(FILE)), Some(vec![entry("ko", "không")]));
 }
+
+#[tokio::test]
+async fn save_refuses_what_a_macro_file_cannot_hold() {
+    let save = SaveMacros::new(FakeMacroStore::new(Health::Working));
+
+    let semicolon = save.execute(&[entry(";sig", "x")]).await.unwrap_err();
+    let line_break = save.execute(&[entry("sig", "a\nb")]).await.unwrap_err();
+
+    assert!(
+        matches!(&semicolon, SaveMacrosError::Invalid(InvalidMacro::Semicolon(s)) if s == ";sig"),
+        "{semicolon:?}"
+    );
+    assert!(
+        matches!(&line_break, SaveMacrosError::Invalid(InvalidMacro::LineBreak(s)) if s == "sig"),
+        "{line_break:?}"
+    );
+}
