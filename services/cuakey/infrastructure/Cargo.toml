@@ -7,5 +7,21 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[dependencies]
+cuakey-application = { path = "../application" }
+cuakey-domain = { path = "../domain" }
+platform-clock = { workspace = true }
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true, features = ["std"] }
+tracing = { workspace = true }
+
+# The clipboard is the Windows clipboard.
+[target.'cfg(windows)'.dependencies]
+platform-windows = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
 [lints]
 workspace = true
