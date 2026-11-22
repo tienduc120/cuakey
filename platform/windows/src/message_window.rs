@@ -7,10 +7,10 @@ use std::marker::PhantomData;
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CREATESTRUCTW, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, FindWindowExW, GWLP_USERDATA,
-    GetMessageW, GetWindowLongPtrW, HWND_MESSAGE, MSG, PostMessageW, PostQuitMessage, RegisterClassExW,
-    RegisterWindowMessageW, SetWindowLongPtrW, TranslateMessage, UnregisterClassW, WINDOW_EX_STYLE, WINDOW_STYLE,
-    WM_NCCREATE, WM_NCDESTROY, WNDCLASSEXW,
+    CREATESTRUCTW, ChangeWindowMessageFilterEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+    FindWindowExW, GWLP_USERDATA, GetMessageW, GetWindowLongPtrW, HWND_MESSAGE, MSG, MSGFLT_ALLOW, PostMessageW,
+    PostQuitMessage, RegisterClassExW, RegisterWindowMessageW, SetWindowLongPtrW, TranslateMessage, UnregisterClassW,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_NCCREATE, WM_NCDESTROY, WNDCLASSEXW,
 };
 use windows::core::{HSTRING, PCWSTR, w};
 
@@ -28,6 +28,8 @@ pub enum CreateMessageWindowError {
     RegisterClass(#[source] windows::core::Error),
     #[error("could not create the window")]
     Create(#[source] windows::core::Error),
+    #[error("could not let a program with fewer rights post to the window")]
+    AllowMessage(#[source] windows::core::Error),
 }
 
 /// Why a message could not be posted to the other process.
@@ -131,13 +133,18 @@ impl MessageWindow {
             )
         };
         match created {
-            Ok(hwnd) => Ok(Self {
-                hwnd,
-                class,
-                instance,
-                _state: state,
-                thread_bound: PhantomData,
-            }),
+            Ok(hwnd) => {
+                // From here a failure drops the window, which destroys it.
+                let window = Self {
+                    hwnd,
+                    class,
+                    instance,
+                    _state: state,
+                    thread_bound: PhantomData,
+                };
+                allow_lower_integrity(hwnd, message_id)?;
+                Ok(window)
+            }
             Err(source) => {
                 unregister_class(&class, instance);
                 Err(CreateMessageWindowError::Create(source))
@@ -151,28 +158,31 @@ impl MessageWindow {
         self.hwnd
     }
 
-    /// Handles this thread's messages until [`AppMessage::Quit`] arrives or something posts a quit message.
-    #[expect(
-        clippy::unused_self,
-        reason = "the loop belongs to the window, so it needs one to exist"
-    )]
-    pub fn run_loop(&self) {
-        let mut message = MSG::default();
-        loop {
-            // SAFETY: `message` is a local the call fills; with no window filter it takes any message of this thread.
-            let got = unsafe { GetMessageW(&raw mut message, None, 0, 0) };
-            if got.0 == 0 {
-                return;
-            }
-            if got.0 < 0 {
-                tracing::warn!(error = ?windows::core::Error::from_thread(), "the message loop failed");
-                return;
-            }
-            // SAFETY: `message` was just filled by `GetMessageW`.
-            let _translated = unsafe { TranslateMessage(&raw const message) };
-            // SAFETY: `message` was just filled by `GetMessageW`.
-            unsafe { DispatchMessageW(&raw const message) };
+    /// Handles this thread's messages until [`AppMessage::Quit`] arrives or something posts a quit message, then
+    /// destroys the window.
+    pub fn run_loop(self) {
+        pump_messages();
+        drop(self);
+    }
+}
+
+/// Takes this thread's messages and dispatches them until the quit message or a failure.
+fn pump_messages() {
+    let mut message = MSG::default();
+    loop {
+        // SAFETY: `message` is a local the call fills; with no window filter it takes any message of this thread.
+        let got = unsafe { GetMessageW(&raw mut message, None, 0, 0) };
+        if got.0 == 0 {
+            return;
         }
+        if got.0 < 0 {
+            tracing::warn!(error = ?windows::core::Error::from_thread(), "the message loop failed");
+            return;
+        }
+        // SAFETY: `message` was just filled by `GetMessageW`.
+        let _translated = unsafe { TranslateMessage(&raw const message) };
+        // SAFETY: `message` was just filled by `GetMessageW`.
+        unsafe { DispatchMessageW(&raw const message) };
     }
 }
 
@@ -184,6 +194,14 @@ impl Drop for MessageWindow {
         }
         unregister_class(&self.class, self.instance);
     }
+}
+
+/// Lets a process with fewer rights post the app message to the window. Without it, a `CuaKey` that runs as administrator
+/// would ignore a second launch from the Start menu.
+fn allow_lower_integrity(hwnd: HWND, message_id: u32) -> Result<(), CreateMessageWindowError> {
+    // SAFETY: the window is this thread's own and alive, and no out structure is asked for.
+    unsafe { ChangeWindowMessageFilterEx(hwnd, message_id, MSGFLT_ALLOW, None) }
+        .map_err(CreateMessageWindowError::AllowMessage)
 }
 
 fn unregister_class(class: &HSTRING, instance: HINSTANCE) {

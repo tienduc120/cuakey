@@ -1,6 +1,6 @@
 //! Keeping `CuaKey` to one instance, with a named mutex.
 
-use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
+use windows::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
 use windows::Win32::System::Threading::CreateMutexW;
 use windows::core::HSTRING;
 
@@ -18,14 +18,27 @@ impl Guard {
     /// Takes the mutex `name`. `Ok(None)` means another instance already holds it; an error means the mutex could not
     /// be made, which says nothing about other instances.
     pub fn acquire(name: &str) -> Result<Option<Self>, SingleInstanceError> {
+        let name = HSTRING::from(name);
         // SAFETY: the name is a terminated string that outlives the call, and no security attributes are given.
-        let handle = unsafe { CreateMutexW(None, false, &HSTRING::from(name)) }.map_err(SingleInstanceError)?;
+        let created = unsafe { CreateMutexW(None, false, &name) };
+        let handle = match created {
+            Ok(handle) => handle,
+            // An instance running with more rights owns the mutex and does not let this process open it, which is
+            // as good as finding it taken.
+            Err(error) if held_by_other(&error) => return Ok(None),
+            Err(error) => return Err(SingleInstanceError(error)),
+        };
         let guard = Self(handle);
         // SAFETY: the call only reads this thread's last error, set by `CreateMutexW` just above.
         let existed = unsafe { GetLastError() } == ERROR_ALREADY_EXISTS;
         // Dropping the guard of an existing mutex closes only this process's handle to it.
         Ok((!existed).then_some(guard))
     }
+}
+
+/// Whether a failed `CreateMutexW` means the mutex exists and this process may not open it.
+fn held_by_other(error: &windows::core::Error) -> bool {
+    error.code() == ERROR_ACCESS_DENIED.to_hresult()
 }
 
 impl Drop for Guard {

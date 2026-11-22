@@ -24,3 +24,18 @@ fn guard_is_released_on_drop() {
 
     assert!(again.is_some(), "the name is free once the guard is gone");
 }
+
+#[test]
+fn a_mutex_denied_to_us_belongs_to_a_more_privileged_instance() {
+    use windows::Win32::Foundation::{E_FAIL, ERROR_ACCESS_DENIED};
+
+    use super::held_by_other;
+
+    assert!(held_by_other(&windows::core::Error::from(
+        ERROR_ACCESS_DENIED.to_hresult()
+    )));
+    assert!(
+        !held_by_other(&windows::core::Error::from(E_FAIL)),
+        "any other failure is a real failure"
+    );
+}
