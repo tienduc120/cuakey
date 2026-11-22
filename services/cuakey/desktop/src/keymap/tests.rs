@@ -1,6 +1,6 @@
 use cuakey_application::KeyName;
 
-use super::to_key_name;
+use super::{is_modifier, to_key_name};
 
 #[test]
 fn vk_mapping() {
@@ -51,6 +51,17 @@ fn each_side_of_a_modifier_is_that_modifier() {
     ];
     for (vk, name) in cases {
         assert_eq!(to_key_name(vk), name, "virtual key {vk:#04x}");
+    }
+}
+
+#[test]
+fn only_the_four_modifiers_are_modifiers() {
+    for vk in [0x10, 0xa0, 0xa1, 0x11, 0xa2, 0xa3, 0x12, 0xa4, 0xa5, 0x5b, 0x5c] {
+        assert!(is_modifier(vk), "virtual key {vk:#04x}");
+    }
+    // A, Tab, F5, Caps Lock, the menu key.
+    for vk in [0x41, 0x09, 0x74, 0x14, 0x5d] {
+        assert!(!is_modifier(vk), "virtual key {vk:#04x}");
     }
 }
 

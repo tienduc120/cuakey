@@ -38,6 +38,14 @@ pub(crate) fn to_key_name(vk: u16) -> KeyName {
     }
 }
 
+/// Whether `vk` is Shift, Ctrl, Alt or Win, either side.
+pub(crate) fn is_modifier(vk: u16) -> bool {
+    matches!(
+        to_key_name(vk),
+        KeyName::Shift | KeyName::Ctrl | KeyName::Alt | KeyName::Win
+    )
+}
+
 const LETTERS: [KeyName; 26] = [
     KeyName::A,
     KeyName::B,

@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use cuakey_application::{AppMemoryView, LanguageValue, LayoutFlags, PreferencesView, Toggle, TypingSession};
 use platform_windows::{FocusChange, FocusClass, HookEvent, HookReply, RawKey, RawMods, SendOp};
 
-use super::{HookHandler, HookWorld, Report, SessionUpdate, focus_moved, store_app, switch_needs_save};
+use super::{HookHandler, HookWorld, Report, SessionUpdate, rechecks_focus, store_app, switch_needs_save};
 
 const NO_MODS: RawMods = RawMods {
     shift: false,
@@ -109,23 +109,40 @@ fn store_app_needs_the_store_frame_and_the_setting() {
     assert!(!store_app("notepad.exe", Toggle::On), "only a store app's frame counts");
 }
 
+fn key(event: HookEvent) -> RawKey {
+    match event {
+        HookEvent::Key(key) => key,
+        HookEvent::MouseDown => panic!("not a key"),
+    }
+}
+
 #[test]
-fn focus_moves_to_a_new_app_or_a_new_kind_of_control() {
+fn a_modifier_never_asks_for_a_recheck() {
+    // Shift, Ctrl, Alt and Win: either side, and the ones that name no side.
+    let modifiers = [0x10, 0xa0, 0xa1, 0x11, 0xa2, 0xa3, 0x12, 0xa4, 0xa5, 0x5b, 0x5c];
+    for vk in modifiers {
+        for mods in [NO_MODS, CTRL_HELD] {
+            for event in [down(vk, mods), up(vk, mods)] {
+                assert!(!rechecks_focus(key(event), NOT_SWALLOWED), "{event:?}");
+            }
+        }
+    }
+}
+
+const NOT_SWALLOWED: bool = false;
+
+#[test]
+fn other_keys_recheck_when_they_usually_move_the_focus() {
+    assert!(rechecks_focus(key(down(TAB, NO_MODS)), NOT_SWALLOWED));
+    assert!(rechecks_focus(key(down(A, CTRL_HELD)), NOT_SWALLOWED), "a shortcut");
+    assert!(!rechecks_focus(key(down(A, NO_MODS)), NOT_SWALLOWED), "a letter");
     assert!(
-        focus_moved(None, &change("notepad.exe", true, FocusClass::Text)),
-        "the first classification"
+        !rechecks_focus(key(up(TAB, NO_MODS)), NOT_SWALLOWED),
+        "once, as it goes down"
     );
-    assert!(focus_moved(
-        Some(FocusClass::Text),
-        &change("chrome.exe", true, FocusClass::Text)
-    ));
-    assert!(focus_moved(
-        Some(FocusClass::Text),
-        &change("notepad.exe", false, FocusClass::Password)
-    ));
     assert!(
-        !focus_moved(Some(FocusClass::Text), &change("notepad.exe", false, FocusClass::Text)),
-        "a recheck that finds the same kind of control in the same app"
+        !rechecks_focus(key(down(F5, CTRL_HELD)), true),
+        "a key the session swallowed never reached the app"
     );
 }
 
@@ -203,29 +220,43 @@ fn the_language_hotkey_reports_the_switch() {
 }
 
 #[test]
-fn a_recheck_while_the_hotkey_is_held_does_not_forget_it() {
+fn the_modifiers_of_a_hotkey_never_ask_for_a_recheck() {
+    let (mut handler, _updates) = handler();
+    let world = FakeWorld::new();
+
+    press(
+        &mut handler,
+        &world,
+        &[
+            down(LEFT_CTRL, NO_MODS),
+            down(LEFT_SHIFT, CTRL_HELD),
+            up(LEFT_SHIFT, CTRL_HELD),
+            up(LEFT_CTRL, CTRL_HELD),
+        ],
+    );
+
+    assert_eq!(world.rechecks.get(), 0, "a modifier alone never moves the focus");
+}
+
+#[test]
+fn every_focus_report_starts_a_new_word() {
     let (mut handler, updates) = handler();
     let world = FakeWorld::new();
     updates
         .send(SessionUpdate::Focus(change("notepad.exe", true, FocusClass::Text)))
         .unwrap();
-    press(
-        &mut handler,
-        &world,
-        &[down(LEFT_CTRL, NO_MODS), down(LEFT_SHIFT, CTRL_HELD)],
-    );
-    world.reports.borrow_mut().clear();
+    press(&mut handler, &world, &[down(A, NO_MODS)]);
 
-    // Shift went down with Ctrl held, which asked for a recheck; its answer finds the same text box.
+    // A program moved the focus to another text box of the same app, with no key or click.
     updates
         .send(SessionUpdate::Focus(change("notepad.exe", false, FocusClass::Text)))
         .unwrap();
-    press(&mut handler, &world, &[up(LEFT_SHIFT, CTRL_HELD)]);
+    let reply = handler.handle(down(A, NO_MODS), &world);
 
-    assert!(
-        matches!(world.reports.borrow().as_slice(), [Report::SwitchedLanguage(_)]),
-        "{:?}",
-        world.reports.borrow()
+    assert_eq!(
+        reply,
+        HookReply::default(),
+        "the a starts a word of its own in the new box"
     );
 }
 
@@ -251,6 +282,8 @@ fn the_settings_hotkey_reports_open_settings() {
 
     assert!(replies.last().unwrap().swallow, "the app in front never sees F5");
     assert_eq!(*world.reports.borrow(), [Report::OpenSettings]);
+    // F5 never reached the app, so it moved nothing; a recheck's answer would forget the hotkey before F5 came up.
+    assert_eq!(world.rechecks.get(), 0);
 }
 
 #[test]

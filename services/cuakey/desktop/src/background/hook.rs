@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use cuakey_application::{CommandValue, LayoutFlags, MacroView, PreferencesView, Toggle, TypingSession};
 use platform_windows::{FocusChange, FocusClass, HookEvent, HookReply, RawKey, focus_moving_key};
 
-use crate::keymap::{focus_value, key_command, send_ops};
+use crate::keymap::{focus_value, is_modifier, key_command, send_ops};
 
 /// The frame every Microsoft Store app's window sits in.
 const STORE_APP_FRAME: &str = "applicationframehost.exe";
@@ -53,8 +53,6 @@ pub(crate) struct HookHandler {
     updates: mpsc::Receiver<SessionUpdate>,
     /// The app in front, as the last classification named it.
     app: String,
-    /// The class of the last classification, which tells a move of the focus from a recheck that found it in place.
-    class: Option<FocusClass>,
     store_app_support: Toggle,
 }
 
@@ -65,7 +63,6 @@ impl HookHandler {
             session,
             updates,
             app: String::new(),
-            class: None,
             store_app_support,
         }
     }
@@ -87,7 +84,7 @@ impl HookHandler {
         let command = key_command(key, focus_value(world.focus()), &self.app, world.layout());
         let result = self.session.handle_key(command);
         // The key itself was judged by the control it was typed into; whatever comes after it may not be.
-        if key.down && focus_moving_key(key.vk, key.mods.ctrl_alt_win) {
+        if rechecks_focus(key, result.swallow) {
             world.recheck_focus();
         }
         match result.command {
@@ -120,10 +117,10 @@ impl HookHandler {
         }
     }
 
+    /// Every classification starts a new word: the focus may have moved to another control of the same kind, and the
+    /// word typed in the old one must never be edited in the new one.
     fn focus(&mut self, change: FocusChange, world: &impl HookWorld) {
-        if focus_moved(self.class, &change) {
-            self.session.focus_changed();
-        }
+        self.session.focus_changed();
         if change.app_changed {
             let before = self.session.preferences();
             self.session.app_switched(&change.app);
@@ -132,7 +129,6 @@ impl HookHandler {
                 world.report(Report::Remembered(after));
             }
         }
-        self.class = Some(change.class);
         self.app = change.app;
     }
 }
@@ -143,11 +139,12 @@ pub(crate) fn store_app(app: &str, support: Toggle) -> bool {
     support == Toggle::On && app == STORE_APP_FRAME
 }
 
-/// Whether a classification means the focus moved: to another app, or to another kind of control. A recheck after a
-/// shortcut usually finds the control the focus was already in, and taking that for a move would forget the hotkey
-/// being held.
-pub(crate) fn focus_moved(previous: Option<FocusClass>, change: &FocusChange) -> bool {
-    change.app_changed || previous != Some(change.class)
+/// Whether the hook has the focus classified again after `key`: a key that usually moves the focus, as it goes down.
+/// Never for a modifier, which moves nothing by itself, nor for a key the session swallowed, which the app never saw.
+/// Each classification starts a new word and forgets the hotkey being pressed, so a recheck in the middle of one, as
+/// Shift with Ctrl held or F5 in Ctrl+Shift+F5 would ask for, would keep it from firing.
+pub(crate) fn rechecks_focus(key: RawKey, swallowed: bool) -> bool {
+    key.down && !swallowed && !is_modifier(key.vk) && focus_moving_key(key.vk, key.mods.ctrl_alt_win)
 }
 
 /// Whether an app switch changed what the store keeps for the session: the language or code table it adopted, or the
