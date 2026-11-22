@@ -812,6 +812,18 @@ fn with_spell_check_a_quick_last_consonant_is_judged_as_the_pair_it_stands_for()
 }
 
 #[test]
+fn with_spell_check_no_mark_or_tone_goes_where_no_syllable_can_follow() {
+    let quick_last = vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On));
+    for (keys, shown) in [("aka", "aka"), ("nwohr", "nưohr"), ("tienge", "tiêng")] {
+        assert_eq!(
+            type_text(&mut composer_with(&quick_last), keys),
+            shown,
+            "{keys:?}: âch and ươnh are no syllables, whatever marks come later; iêng is"
+        );
+    }
+}
+
+#[test]
 fn a_quick_last_consonant_is_written_out_only_where_that_makes_a_syllable() {
     let quick_last = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
     for (keys, shown) in [

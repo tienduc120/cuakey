@@ -1,11 +1,13 @@
 //! Vietnamese spelling: whether a word is a Vietnamese syllable, could still become one, or never can. Spell check
 //! reads it to leave other words as they were typed.
 
-use super::tone::Syllable;
+use super::tone::{Syllable, plain_vowel};
 use crate::BaseLetter::{
     self, A, ABreve, ACircumflex, B, C, D, DStroke, E, ECircumflex, F, G, H, I, J, K, L, M, N, O, OCircumflex, OHorn,
     P, Q, R, S, T, U, UHorn, V, W, X, Y, Z,
 };
+use alloc::vec::Vec;
+
 use crate::{OnOff, Tone};
 
 /// How a word reads as Vietnamese.
@@ -194,12 +196,61 @@ pub(super) fn tone_fits_last_consonants(tone: Tone, last: &[BaseLetter]) -> bool
     !STOPS.contains(&as_pair(last)) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
 }
 
-/// Whether a tone may go on a syllable of `vowels` before `last` consonants with spell check on: while the vowels can
-/// still change, or the last consonants can still become ones the vowels take.
-pub(super) fn rhyme_may_take_tone(vowels: &[BaseLetter], last: &[BaseLetter], consonants: Consonants) -> bool {
+/// Every vowel, to find the ones a plain vowel may be marked as.
+const ALL_VOWELS: [BaseLetter; 12] = [
+    A,
+    ABreve,
+    ACircumflex,
+    E,
+    ECircumflex,
+    I,
+    O,
+    OCircumflex,
+    OHorn,
+    U,
+    UHorn,
+    Y,
+];
+
+/// Whether `vowels` before `last` consonants can still make a syllable once marks are put on or taken off them and
+/// the last consonants are finished: with spell check, no mark or tone goes where none can (âk, for âch, or ưoh).
+pub(super) fn rhyme_may_fit(vowels: &[BaseLetter], last: &[BaseLetter], consonants: Consonants) -> bool {
+    if last.is_empty() {
+        return true;
+    }
+    let fits =
+        |marked: &[BaseLetter]| last_consonants(consonants).any(|c| c.starts_with(last) && rhyme_fits(marked, c));
+    let mut marked = vowels.to_vec();
+    vowels.len() <= 3 && any_marking(vowels, 0, &mut marked, &fits)
+}
+
+/// Whether `vowels`, marked as they are, can stand before `last` consonants once those are finished: a mark that
+/// makes âk (for âch) leaves no syllable, one that makes the first vowel of a group still being typed may.
+pub(super) fn marked_rhyme_may_fit(vowels: &[BaseLetter], last: &[BaseLetter], consonants: Consonants) -> bool {
     last.is_empty()
         || !is_vowel_group(vowels)
         || last_consonants(consonants).any(|c| c.starts_with(last) && rhyme_fits(vowels, c))
+}
+
+/// Whether any way of marking `vowels` from `at` on, into `marked`, passes `fits`.
+fn any_marking(
+    vowels: &[BaseLetter],
+    at: usize,
+    marked: &mut Vec<BaseLetter>,
+    fits: &dyn Fn(&[BaseLetter]) -> bool,
+) -> bool {
+    let Some(plain) = vowels.get(at).and_then(|vowel| plain_vowel(*vowel)) else {
+        return fits(marked);
+    };
+    ALL_VOWELS
+        .iter()
+        .filter(|vowel| plain_vowel(**vowel) == Some(plain))
+        .any(|vowel| {
+            if let Some(slot) = marked.get_mut(at) {
+                *slot = *vowel;
+            }
+            any_marking(vowels, at + 1, marked, fits)
+        })
 }
 
 /// The pair a quick last consonant stands for (g ng, h nh, k ch), or `last` as it is.

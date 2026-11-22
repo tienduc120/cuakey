@@ -263,13 +263,13 @@ impl Word {
         let syllable = Syllable::last(&letters).after(from);
         let reaches_vowels = spelling::may_end_syllable(syllable.last_consonants(), rules.consonants);
         match effect {
-            Effect::Mark(mark) if reaches_vowels => self.put_mark(&syllable, mark),
+            Effect::Mark(mark) if reaches_vowels => self.put_mark_that_fits(&syllable, mark, rules),
             Effect::Tone(tone)
                 if reaches_vowels
                     && syllable.takes_tone()
                     && spelling::tone_fits_last_consonants(tone, syllable.last_consonants())
                     && (rules.spell_check == OnOff::Off
-                        || spelling::rhyme_may_take_tone(
+                        || spelling::rhyme_may_fit(
                             syllable.vowels(),
                             syllable.last_consonants(),
                             rules.consonants,
@@ -285,6 +285,24 @@ impl Word {
             }
             Effect::Mark(_) | Effect::Tone(_) | Effect::Vowel(_) => Outcome::NotHere,
         }
+    }
+
+    /// Puts `mark` on, unless spell check is on and the vowels it makes can no longer stand before the last consonants.
+    fn put_mark_that_fits(&mut self, syllable: &Syllable<'_>, mark: Mark, rules: Rules) -> Outcome {
+        let glyphs = self.glyphs.clone();
+        let outcome = self.put_mark(syllable, mark);
+        if rules.spell_check == OnOff::On && matches!(outcome, Outcome::Done(_)) && !self.rhyme_may_fit(rules) {
+            self.glyphs = glyphs;
+            return Outcome::NotHere;
+        }
+        outcome
+    }
+
+    /// Whether the last syllable's vowels, as marked, can still stand before its last consonants.
+    fn rhyme_may_fit(&self, rules: Rules) -> bool {
+        let (letters, _) = self.tail();
+        let syllable = Syllable::last(&letters);
+        spelling::marked_rhyme_may_fit(syllable.vowels(), syllable.last_consonants(), rules.consonants)
     }
 
     fn put_mark(&mut self, syllable: &Syllable<'_>, mark: Mark) -> Outcome {
