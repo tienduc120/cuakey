@@ -79,17 +79,36 @@ fn convert_upper_lower_sentence_each_word() {
 }
 
 #[test]
-fn sentence_and_word_case_leave_the_other_letters_alone() {
+fn sentence_start_leaves_the_other_letters_alone() {
     assert_eq!(
         convert("hELLO wORLD", unicode_with(ConvertCase::SentenceStart)),
         "HELLO wORLD",
-        "sentence start only raises"
+        "sentence start only raises, so names keep their capitals"
     );
+}
+
+#[test]
+fn each_word_only_raises() {
     assert_eq!(
         convert("hELLO wORLD", unicode_with(ConvertCase::EachWord)),
         "HELLO WORLD",
         "each word only raises"
     );
+}
+
+#[test]
+fn a_stop_ends_a_sentence_only_before_a_space() {
+    for (text, cased) in [
+        ("www.example.com", "Www.example.com"),
+        ("giá 100.000 đồng. còn", "Giá 100.000 đồng. Còn"),
+        ("\"xin chào.\" tôi", "\"Xin chào.\" Tôi"),
+    ] {
+        assert_eq!(
+            convert(text, unicode_with(ConvertCase::SentenceStart)),
+            cased,
+            "{text:?}"
+        );
+    }
 }
 
 #[test]

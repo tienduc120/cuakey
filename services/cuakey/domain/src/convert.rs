@@ -173,22 +173,36 @@ fn change_case(text: &str, case: ConvertCase) -> String {
     }
 }
 
-/// Raises the first letter of the text and of each sentence: the first letter after a `.`, `!`, `?`, or line break.
-/// Spaces, quotes, and brackets in between do not start the sentence, but a digit does, so `3 apples` stays.
+/// Where a conversion stands in the sentence whose start it raises.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Sentence {
+    /// Inside a sentence.
+    Going,
+    /// Right after a `.`, `!`, or `?`, which ends the sentence only once a space follows: not in www.example.com.
+    Stopped,
+    /// The next letter starts a sentence.
+    Opens,
+}
+
+/// Raises the first letter of the text and of each sentence: the first letter after a line break, or after a `.`, `!`,
+/// or `?` and the space after it. Quotes and brackets in between do not start the sentence, but a digit does, so
+/// `3 apples` stays.
 fn raise_sentence_starts(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    let mut opens = true;
+    let mut sentence = Sentence::Opens;
     for c in text.chars() {
-        if c.is_alphabetic() && opens {
+        if c.is_alphabetic() && sentence == Sentence::Opens {
             out.extend(c.to_uppercase());
         } else {
             out.push(c);
         }
-        if matches!(c, '.' | '!' | '?' | '\n') {
-            opens = true;
-        } else if c.is_alphanumeric() {
-            opens = false;
-        }
+        sentence = match (c, sentence) {
+            ('\n', _) => Sentence::Opens,
+            (_, Sentence::Stopped) if c.is_whitespace() => Sentence::Opens,
+            ('.' | '!' | '?', _) => Sentence::Stopped,
+            _ if c.is_alphanumeric() => Sentence::Going,
+            _ => sentence,
+        };
     }
     out
 }
