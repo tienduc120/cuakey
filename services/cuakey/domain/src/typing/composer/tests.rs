@@ -824,6 +824,17 @@ fn with_spell_check_no_mark_or_tone_goes_where_no_syllable_can_follow() {
 }
 
 #[test]
+fn a_mark_typed_after_the_last_consonant_of_gieng_still_lands() {
+    let no_restore = vietnamese().with(SettingChange::RestoreInvalidWord(OnOff::Off));
+
+    assert_eq!(
+        type_text(&mut composer_with(&no_restore), "gienges "),
+        "giếng ",
+        "gi then ê reads as iê, which ng follows"
+    );
+}
+
+#[test]
 fn a_quick_last_consonant_is_written_out_only_where_that_makes_a_syllable() {
     let quick_last = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
     for (keys, shown) in [
@@ -1376,6 +1387,15 @@ const VNI_KEYBOARD: Keyboard = Keyboard {
 
 /// Real Vietnamese words, each with the tone style it is written in (on: new style).
 const REAL_WORDS: &[(&str, OnOff)] = &[
+    ("giêng", OnOff::Off),
+    ("giếng", OnOff::Off),
+    ("giềng", OnOff::Off),
+    ("giếc", OnOff::Off),
+    ("giữa", OnOff::Off),
+    ("giấc", OnOff::Off),
+    ("giặt", OnOff::Off),
+    ("thương", OnOff::Off),
+    ("thường", OnOff::Off),
     ("sách", OnOff::Off),
     ("bếch", OnOff::Off),
     ("thích", OnOff::Off),
@@ -1529,6 +1549,40 @@ fn real_words_type_with_the_tone_key_before_or_after_the_last_consonant() {
         wrong,
         Vec::<String>::new(),
         "every real word types as Vietnamese writes it"
+    );
+}
+
+/// What typing `word` with its last ng, nh, or ch as a quick g, h, or k shows when it is not the word, with the shipped
+/// settings and quick last consonant on.
+fn typed_wrong_with_quick_last(keyboard: &Keyboard, (word, new_style): (&str, OnOff), at: ToneKeyAt) -> Option<String> {
+    let quick = [("ng", "g"), ("nh", "h"), ("ch", "k")]
+        .into_iter()
+        .find_map(|(pair, single)| word.strip_suffix(pair).map(|stem| format!("{stem}{single}")))?;
+    let settings = vietnamese()
+        .with(SettingChange::InputMethod(keyboard.method))
+        .with(SettingChange::NewToneStyle(new_style))
+        .with(SettingChange::QuickLastConsonant(OnOff::On));
+    let keys = keys_for(&quick, keyboard, at);
+    let shown = type_text(&mut composer_with(&settings), &format!("{keys} "));
+    (shown != format!("{word} ")).then(|| format!("{:?} {keys:?} shows {shown:?}, not {word:?}", keyboard.method))
+}
+
+#[test]
+fn real_words_type_with_a_quick_last_consonant() {
+    let wrong: Vec<String> = [&TELEX_KEYBOARD, &VNI_KEYBOARD]
+        .into_iter()
+        .flat_map(|keyboard| REAL_WORDS.iter().map(move |entry| (keyboard, *entry)))
+        .filter(|(keyboard, (word, _))| keyboard.method != InputMethod::Telex || telex_types(word))
+        .flat_map(|(keyboard, entry)| {
+            [ToneKeyAt::AfterVowel, ToneKeyAt::End].map(|at| typed_wrong_with_quick_last(keyboard, entry, at))
+        })
+        .flatten()
+        .collect();
+
+    assert_eq!(
+        wrong,
+        Vec::<String>::new(),
+        "every real word ending in ng, nh, or ch types with g, h, or k under quick last consonant"
     );
 }
 

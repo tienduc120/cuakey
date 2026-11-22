@@ -155,3 +155,10 @@ fn c_and_ng_never_follow_e_circumflex_i_or_o_horn() {
         );
     }
 }
+
+#[test]
+fn e_circumflex_after_the_glide_of_gi_reads_as_ie() {
+    for word in ["giêng", "giếng", "giềng", "giếc", "giết", "giữa"] {
+        assert_eq!(spelled(word, VIETNAMESE), Spelling::Syllable, "{word}");
+    }
+}

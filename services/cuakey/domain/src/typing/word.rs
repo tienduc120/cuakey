@@ -270,7 +270,7 @@ impl Word {
                     && spelling::tone_fits_last_consonants(tone, syllable.last_consonants())
                     && (rules.spell_check == OnOff::Off
                         || spelling::rhyme_may_fit(
-                            syllable.vowels(),
+                            &spelling::rhyme_vowels(&syllable),
                             syllable.last_consonants(),
                             rules.consonants,
                         )) =>
@@ -302,7 +302,11 @@ impl Word {
     fn rhyme_may_fit(&self, rules: Rules) -> bool {
         let (letters, _) = self.tail();
         let syllable = Syllable::last(&letters);
-        spelling::marked_rhyme_may_fit(syllable.vowels(), syllable.last_consonants(), rules.consonants)
+        spelling::marked_rhyme_may_fit(
+            &spelling::rhyme_vowels(&syllable),
+            syllable.last_consonants(),
+            rules.consonants,
+        )
     }
 
     fn put_mark(&mut self, syllable: &Syllable<'_>, mark: Mark) -> Outcome {
@@ -606,7 +610,7 @@ fn write_last_pair(glyphs: &mut Vec<Glyph>) -> bool {
                 }
                 return true;
             }
-            spelling::rhyme_fits(syllable.vowels(), syllable.last_consonants())
+            spelling::rhyme_fits(&spelling::rhyme_vowels(&syllable), syllable.last_consonants())
         });
     if fits {
         *glyphs = written;

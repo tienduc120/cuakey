@@ -149,7 +149,7 @@ pub(super) fn spelling(letters: Option<&[BaseLetter]>, consonants: Consonants) -
     let last = syllable.last_consonants();
     let first_ok = first.is_empty() || first_consonants(consonants).any(|c| c == first);
     let last_ok = last.is_empty() || last_consonants(consonants).any(|c| c == last);
-    if first_ok && last_ok && rhyme_fits(syllable.vowels(), last) {
+    if first_ok && last_ok && rhyme_fits(&rhyme_vowels(&syllable), last) {
         return Spelling::Syllable;
     }
     let first_starts = first_consonants(consonants).any(|c| c.starts_with(first));
@@ -194,6 +194,17 @@ pub(super) fn may_end_syllable(last: &[BaseLetter], consonants: Consonants) -> b
 /// below, as in mát, học, and hạp.
 pub(super) fn tone_fits_last_consonants(tone: Tone, last: &[BaseLetter]) -> bool {
     !STOPS.contains(&as_pair(last)) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
+}
+
+/// The vowels of `syllable` as its rhyme is judged: ê after the glide of gi is the iê of giêng and giếc.
+pub(super) fn rhyme_vowels(syllable: &Syllable<'_>) -> Vec<BaseLetter> {
+    let vowels = syllable.vowels();
+    let after_gi = syllable.first_consonants() == [G, I] && vowels.first() == Some(&ECircumflex);
+    after_gi
+        .then_some(I)
+        .into_iter()
+        .chain(vowels.iter().copied())
+        .collect()
 }
 
 /// Every vowel, to find the ones a plain vowel may be marked as.
