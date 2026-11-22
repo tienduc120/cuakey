@@ -16,6 +16,8 @@
 #[cfg(windows)]
 mod clipboard;
 mod focus_cell;
+mod focus_rules;
+mod focus_watch;
 mod hook;
 mod keyboard_layout;
 mod send;
@@ -23,6 +25,10 @@ mod send;
 #[cfg(windows)]
 pub use clipboard::{ClipboardError, read_clipboard_text, write_clipboard_text};
 pub use focus_cell::{FocusCell, FocusClass, focus_moving_key};
+pub use focus_rules::{ElementFlags, ElementProps, classify};
+pub use focus_watch::FocusChange;
+#[cfg(windows)]
+pub use focus_watch::{FocusWatch, StartFocusWatchError, StopFocusWatchError};
 pub use hook::{HookEvent, HookReply, RawKey, RawMods};
 #[cfg(windows)]
 pub use hook::{KeyboardHook, StartHookError, StopHookError};
