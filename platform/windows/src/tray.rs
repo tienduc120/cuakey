@@ -165,8 +165,8 @@ mod shell {
         DestroyIcon, DestroyMenu, DestroyWindow, GWLP_USERDATA, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW,
         HICON, HMENU, IMAGE_ICON, LR_DEFAULTCOLOR, LoadImageW, MENU_ITEM_FLAGS, MSGFLT_ALLOW, PostMessageW,
         RegisterClassExW, RegisterWindowMessageW, SM_CXSMICON, SM_CYSMICON, SetForegroundWindow, SetWindowLongPtrW,
-        TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, UnregisterClassW, WM_APP, WM_NCDESTROY, WM_NULL,
-        WNDCLASSEXW, WS_EX_TOOLWINDOW, WS_POPUP,
+        TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, UnregisterClassW, WM_APP, WM_CLOSE, WM_NCDESTROY,
+        WM_NULL, WNDCLASSEXW, WS_EX_TOOLWINDOW, WS_POPUP,
     };
     #[cfg(test)]
     use windows::Win32::UI::WindowsAndMessaging::{CopyIcon, IDI_APPLICATION, LR_SHARED, WM_KEYDOWN};
@@ -658,7 +658,9 @@ mod shell {
             offer(hwnd, shared);
             true
         } else {
-            false
+            // The system would destroy the window on a request to close, which any program can post to a top-level
+            // window, and the tray would lose its icon unawares. Only dropping the tray destroys it.
+            message == WM_CLOSE
         }
     }
 
@@ -722,6 +724,12 @@ mod shell {
         pub(super) fn post_key(&self, key: u16) -> windows::core::Result<()> {
             // SAFETY: the message carries numbers only, and the window is this thread's own.
             unsafe { PostMessageW(Some(self.hwnd), WM_KEYDOWN, WPARAM(usize::from(key)), LPARAM(0)) }
+        }
+
+        /// Posts the window a request to close, as `taskkill` without `/F` sends one.
+        pub(super) fn post_close(&self) -> windows::core::Result<()> {
+            // SAFETY: the message carries no pointers, and the window is this thread's own.
+            unsafe { PostMessageW(Some(self.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) }
         }
 
         /// Removes the icon behind the tray's back and posts the window Explorer's broadcast, as a restart of

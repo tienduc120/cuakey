@@ -182,6 +182,13 @@ mod live {
     use super::{NIN_KEYSELECT, NIN_SELECT, WM_CONTEXTMENU, WM_LBUTTONDBLCLK, WM_MOUSEMOVE};
     use crate::{AppMessage, MessageWindow, TrayEvent, TrayIcon, post_to};
 
+    /// Dispatches every message queued for this thread, through the loop the app runs.
+    fn pump(class: &str) {
+        let window = MessageWindow::new(class, |_| {}).unwrap();
+        post_to(class, AppMessage::Quit).unwrap();
+        window.run_loop();
+    }
+
     #[test]
     #[ignore = "adds an icon to the notification area, which needs a signed-in desktop with Explorer running"]
     fn the_icon_comes_back_after_explorer_restarts_and_goes_on_drop() {
@@ -193,12 +200,11 @@ mod live {
         })
         .unwrap();
         let class = format!("CuaKeyTest.tray.{}", std::process::id());
-        let window = MessageWindow::new(&class, |_| {}).unwrap();
 
         let shown_when_added = (notification_area_has(tray.hwnd()), tray.is_shown());
         tray.set_tooltip(&"Bộ gõ tiếng Việt CuaKey ".repeat(8)).unwrap();
         let missing_icon = tray.set_icon(TrayIcon(1));
-        tray.act_out_explorer_restart().unwrap();
+        tray.post_close().unwrap();
         for event in [
             NIN_SELECT,
             WM_LBUTTONDBLCLK,
@@ -208,8 +214,10 @@ mod live {
         ] {
             tray.post_callback(event).unwrap();
         }
-        post_to(&class, AppMessage::Quit).unwrap();
-        window.run_loop();
+        pump(&class);
+        let shown_after_close = notification_area_has(tray.hwnd());
+        tray.act_out_explorer_restart().unwrap();
+        pump(&class);
         let shown_after_restart = (notification_area_has(tray.hwnd()), tray.is_shown());
         let hwnd = tray.hwnd();
         drop(tray);
@@ -224,6 +232,10 @@ mod live {
             matches!(missing_icon, Err(TrayError::LoadIcon(_))),
             "an icon the executable does not carry is refused: {missing_icon:?}"
         );
+        assert!(
+            shown_after_close,
+            "a request to close the tray's window leaves the icon in place"
+        );
         assert_eq!(
             shown_after_restart,
             (true, true),
@@ -232,7 +244,7 @@ mod live {
         assert_eq!(
             *events.borrow(),
             [TrayEvent::Activate, TrayEvent::Activate, TrayEvent::MenuRequested],
-            "the message loop of the thread hands the icon's events to the handler"
+            "the message loop of the thread hands the icon's events to the handler, even after a request to close"
         );
         assert!(!shown_after_drop, "dropping the tray removes its icon");
     }
