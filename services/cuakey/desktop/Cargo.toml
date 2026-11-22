@@ -7,5 +7,26 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[[bin]]
+name = "cuakey"
+path = "src/main.rs"
+
+[dependencies]
+cuakey-application = { path = "../application" }
+cuakey-interfaces = { path = "../interfaces" }
+thiserror = { workspace = true, features = ["std"] }
+
+# The app runs on Windows only for now; elsewhere `main` reads its arguments and stops.
+[target.'cfg(windows)'.dependencies]
+cuakey-infrastructure = { path = "../infrastructure" }
+eframe = { workspace = true }
+platform-clock = { workspace = true }
+platform-windows = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
+tracing = { workspace = true }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = { workspace = true }
+
 [lints]
 workspace = true
