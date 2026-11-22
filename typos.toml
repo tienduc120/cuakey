@@ -12,3 +12,5 @@ extend-ignore-re = ['(?m)^(sequence|expected|cuakey) = ".*"$']
 thay = "thay"
 Tham = "Tham"
 Nam = "Nam"
+# The Win32 prefix of the notification-area events (NIN_SELECT, NIN_KEYSELECT).
+NIN = "NIN"

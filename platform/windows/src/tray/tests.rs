@@ -1,15 +1,16 @@
 use super::{
-    CONTEXT_MENU, DOUBLE_CLICK, MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, SELECT, TIP_UNITS, TrayEvent,
-    callback_event, menu_flags as flags_of, tooltip_units,
+    MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, NIN_KEYSELECT, TIP_UNITS, TrayEvent, WM_CONTEXTMENU,
+    WM_LBUTTONDBLCLK, callback_event, menu_flags as flags_of, tooltip_units,
 };
 
+/// `NIN_SELECT`: a single click on the icon, which also comes around a double click.
+const NIN_SELECT: u32 = 0x0400;
 /// `WM_MOUSEMOVE`: the pointer passed over the icon.
-const MOUSE_MOVE: u32 = 0x0200;
-/// `WM_LBUTTONUP`: the left button came up, just before the select notification.
-const LEFT_BUTTON_UP: u32 = 0x0202;
-/// The shell's popup notification, numbered `WM_USER + 6`: the pointer rests on the icon, for a popup the icon does
-/// not draw.
-const POPUP_OPEN: u32 = 0x0406;
+const WM_MOUSEMOVE: u32 = 0x0200;
+/// `WM_LBUTTONUP`: the left button came up, just before `NIN_SELECT`.
+const WM_LBUTTONUP: u32 = 0x0202;
+/// `NIN_POPUPOPEN`: the pointer rests on the icon, for a popup the icon does not draw.
+const NIN_POPUPOPEN: u32 = 0x0406;
 
 /// A version-4 callback's `lParam`: the event in the low word and the icon's id, 1, in the high word.
 fn callback(event: u32) -> isize {
@@ -34,12 +35,13 @@ fn shown(units: &[u16; TIP_UNITS]) -> String {
 #[test]
 fn callback_events_decode() {
     let decoded = [
-        SELECT,
-        DOUBLE_CLICK,
-        CONTEXT_MENU,
-        MOUSE_MOVE,
-        LEFT_BUTTON_UP,
-        POPUP_OPEN,
+        WM_LBUTTONDBLCLK,
+        NIN_KEYSELECT,
+        WM_CONTEXTMENU,
+        NIN_SELECT,
+        WM_MOUSEMOVE,
+        WM_LBUTTONUP,
+        NIN_POPUPOPEN,
     ]
     .map(|event| callback_event(callback(event)));
 
@@ -52,8 +54,10 @@ fn callback_events_decode() {
             None,
             None,
             None,
+            None,
         ],
-        "a click or a double click activates, a context-menu request asks for the menu, and the rest is ignored"
+        "a double click or a key select activates, a context-menu request asks for the menu, and a single click and \
+         the rest are ignored"
     );
 }
 
@@ -107,22 +111,24 @@ fn tooltip_truncates_on_a_char_boundary() {
 #[cfg(windows)]
 #[test]
 fn the_codes_match_the_windows_bindings() {
-    use windows::Win32::UI::Shell::NOTIFYICONDATAW;
+    use windows::Win32::UI::Shell::{self as shell, NOTIFYICONDATAW};
     use windows::Win32::UI::WindowsAndMessaging as wm;
 
-    // The shell numbers its select notification `WM_USER`, which its binding is defined as.
     let ours = [
-        DOUBLE_CLICK,
-        SELECT,
-        CONTEXT_MENU,
+        WM_LBUTTONDBLCLK,
+        NIN_SELECT,
+        NIN_KEYSELECT,
+        WM_CONTEXTMENU,
         MF_GRAYED,
         MF_CHECKED,
         MF_POPUP,
         MF_SEPARATOR,
     ];
+    // The headers define the key select as the select with the keyboard flag.
     let theirs = [
         wm::WM_LBUTTONDBLCLK,
-        wm::WM_USER,
+        shell::NIN_SELECT,
+        shell::NIN_SELECT | shell::NINF_KEY,
         wm::WM_CONTEXTMENU,
         wm::MF_GRAYED.0,
         wm::MF_CHECKED.0,
@@ -144,7 +150,7 @@ mod live {
     use std::rc::Rc;
 
     use super::super::shell::{Tray, TrayError, is_shown};
-    use super::{CONTEXT_MENU, MOUSE_MOVE, SELECT};
+    use super::{NIN_KEYSELECT, NIN_SELECT, WM_CONTEXTMENU, WM_LBUTTONDBLCLK, WM_MOUSEMOVE};
     use crate::{AppMessage, MessageWindow, TrayEvent, TrayIcon, post_to};
 
     #[test]
@@ -164,7 +170,13 @@ mod live {
         tray.set_tooltip(&"Bộ gõ tiếng Việt CuaKey ".repeat(8)).unwrap();
         let missing_icon = tray.set_icon(TrayIcon(1));
         tray.act_out_explorer_restart().unwrap();
-        for event in [SELECT, MOUSE_MOVE, CONTEXT_MENU] {
+        for event in [
+            NIN_SELECT,
+            WM_LBUTTONDBLCLK,
+            WM_MOUSEMOVE,
+            NIN_KEYSELECT,
+            WM_CONTEXTMENU,
+        ] {
             tray.post_callback(event).unwrap();
         }
         post_to(&class, AppMessage::Quit).unwrap();
@@ -185,7 +197,7 @@ mod live {
         );
         assert_eq!(
             *events.borrow(),
-            [TrayEvent::Activate, TrayEvent::MenuRequested],
+            [TrayEvent::Activate, TrayEvent::Activate, TrayEvent::MenuRequested],
             "the message loop of the thread hands the icon's events to the handler"
         );
         assert!(!shown_after_drop, "dropping the tray removes its icon");

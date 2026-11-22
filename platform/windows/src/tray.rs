@@ -7,8 +7,8 @@ pub struct TrayIcon(pub u16);
 /// What the user did with the icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayEvent {
-    /// The icon was clicked or double-clicked. A double click comes after the click it begins with, so one double
-    /// click activates more than once.
+    /// The icon was double-clicked, or chosen with Enter or Space while it had the keyboard focus. A single click does
+    /// nothing.
     Activate,
     /// The user asked for the icon's menu, with a right click or from the keyboard.
     MenuRequested,
@@ -34,13 +34,13 @@ pub enum MenuItem {
 
 /// `WM_LBUTTONDBLCLK`: the icon was double-clicked.
 #[cfg(any(windows, test))]
-const DOUBLE_CLICK: u32 = 0x0203;
-/// The shell's select notification, numbered `WM_USER`: the icon was clicked.
+const WM_LBUTTONDBLCLK: u32 = 0x0203;
+/// `NIN_KEYSELECT`: the icon was chosen with Enter or Space while it had the keyboard focus.
 #[cfg(any(windows, test))]
-const SELECT: u32 = 0x0400;
+const NIN_KEYSELECT: u32 = 0x0401;
 /// `WM_CONTEXTMENU`: the user asked for the icon's menu.
 #[cfg(any(windows, test))]
-const CONTEXT_MENU: u32 = 0x007b;
+const WM_CONTEXTMENU: u32 = 0x007b;
 
 /// `MF_GRAYED`: the entry is drawn dimmed and cannot be chosen.
 #[cfg(any(windows, test))]
@@ -60,12 +60,13 @@ const MF_SEPARATOR: u32 = 0x0800;
 const TIP_UNITS: usize = 128;
 
 /// The event a version-4 notification-area callback reports in the low word of its `lParam`, or `None` for one the
-/// icon does not act on. The high word is the icon's id.
+/// icon does not act on. The high word is the icon's id. A single click (`NIN_SELECT`) is not one: it also comes
+/// around every double click.
 #[cfg(any(windows, test))]
 fn callback_event(lparam: isize) -> Option<TrayEvent> {
     match u32::try_from(lparam & 0xffff).ok()? {
-        DOUBLE_CLICK | SELECT => Some(TrayEvent::Activate),
-        CONTEXT_MENU => Some(TrayEvent::MenuRequested),
+        WM_LBUTTONDBLCLK | NIN_KEYSELECT => Some(TrayEvent::Activate),
+        WM_CONTEXTMENU => Some(TrayEvent::MenuRequested),
         _ => None,
     }
 }
@@ -119,12 +120,12 @@ mod shell {
         NOTIFY_ICON_MESSAGE, NOTIFYICON_VERSION_4, NOTIFYICONDATAW, NOTIFYICONDATAW_0, Shell_NotifyIconW,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        AppendMenuW, ChangeWindowMessageFilterEx, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyIcon,
-        DestroyMenu, DestroyWindow, GWLP_USERDATA, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, HICON, HMENU,
-        IMAGE_ICON, LR_DEFAULTCOLOR, LoadImageW, MENU_ITEM_FLAGS, MSGFLT_ALLOW, PostMessageW, RegisterClassExW,
-        RegisterWindowMessageW, SM_CXSMICON, SM_CYSMICON, SetForegroundWindow, SetWindowLongPtrW, TPM_NONOTIFY,
-        TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, UnregisterClassW, WM_APP, WM_NCDESTROY, WM_NULL, WNDCLASSEXW,
-        WS_EX_TOOLWINDOW, WS_POPUP,
+        AppendMenuW, CS_DBLCLKS, ChangeWindowMessageFilterEx, CreatePopupMenu, CreateWindowExW, DefWindowProcW,
+        DestroyIcon, DestroyMenu, DestroyWindow, GWLP_USERDATA, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW,
+        HICON, HMENU, IMAGE_ICON, LR_DEFAULTCOLOR, LoadImageW, MENU_ITEM_FLAGS, MSGFLT_ALLOW, PostMessageW,
+        RegisterClassExW, RegisterWindowMessageW, SM_CXSMICON, SM_CYSMICON, SetForegroundWindow, SetWindowLongPtrW,
+        TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, UnregisterClassW, WM_APP, WM_NCDESTROY, WM_NULL,
+        WNDCLASSEXW, WS_EX_TOOLWINDOW, WS_POPUP,
     };
     #[cfg(test)]
     use windows::Win32::UI::WindowsAndMessaging::{CopyIcon, IDI_APPLICATION, LR_SHARED, WM_KEYDOWN};
@@ -443,6 +444,9 @@ mod shell {
     fn create_window(instance: HINSTANCE) -> Result<HWND, TrayError> {
         let class = WNDCLASSEXW {
             cbSize: u32::try_from(size_of::<WNDCLASSEXW>()).unwrap_or(0),
+            // Only a class with this style receives double clicks. Whether the notification area applies that rule to
+            // the double clicks it reports to the icon's window is not documented, so the class has it.
+            style: CS_DBLCLKS,
             lpfnWndProc: Some(window_proc),
             hInstance: instance,
             lpszClassName: CLASS_NAME,
