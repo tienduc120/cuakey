@@ -13,6 +13,13 @@ const SETTINGS_NOT_SAVED: &str = "Không lưu được cài đặt";
 pub enum Notice {
     /// Quick convert put the converted text on the clipboard.
     ConvertDone,
+    /// The stored preferences could not be read at start, so the app runs on the defaults and stores nothing until it
+    /// starts again, rather than put the defaults in place of what the user set.
+    DefaultsNotSaved,
+    /// A window opened on preferences that could not be read, so it saves none of its changes.
+    SettingsUnreadNotSaved,
+    /// The macro window opened on macros that could not be read, so it saves none of its changes.
+    MacrosUnreadNotSaved,
     /// The user refused the administrator prompt, so the app runs with normal rights.
     ElevationRefused,
     /// The app could not start itself again as administrator.
@@ -30,6 +37,11 @@ pub enum Notice {
 pub const fn notice_message(notice: Notice) -> &'static str {
     match notice {
         Notice::ConvertDone => "Chuyển mã thành công!",
+        Notice::DefaultsNotSaved => {
+            "Không đọc được cài đặt. CuaKey dùng cài đặt gốc và không lưu thay đổi cho đến khi được khởi động lại"
+        }
+        Notice::SettingsUnreadNotSaved => "Không đọc được cài đặt nên thay đổi ở cửa sổ này không được lưu",
+        Notice::MacrosUnreadNotSaved => "Không đọc được bảng gõ tắt nên thay đổi ở cửa sổ này không được lưu",
         Notice::ElevationRefused => "Không được cấp quyền Admin, CuaKey chạy với quyền thường",
         Notice::ElevationFailed => "Không khởi động lại được CuaKey với quyền Admin",
         Notice::StartupNeedsAdministrator => "Cần chạy CuaKey với quyền Admin để đổi cách khởi động cùng Windows",
@@ -40,11 +52,11 @@ pub const fn notice_message(notice: Notice) -> &'static str {
     }
 }
 
-/// Why the stored preferences could not be read; the app then carries on with the defaults.
+/// Why the stored preferences could not be read.
 #[must_use]
 pub const fn load_error_message(error: &LoadPreferencesError) -> &'static str {
     match error {
-        LoadPreferencesError::Storage(_) => "Không đọc được cài đặt, CuaKey dùng cài đặt gốc",
+        LoadPreferencesError::Storage(_) => "Không đọc được cài đặt",
     }
 }
 

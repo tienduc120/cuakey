@@ -131,15 +131,38 @@ fn each_quick_convert_failure_has_its_own_message() {
 }
 
 #[test]
-fn a_failed_load_says_the_defaults_are_used() {
+fn a_failed_load_says_the_settings_were_not_read() {
     assert_eq!(
         load_error_message(&LoadPreferencesError::Storage(storage_error())),
-        "Không đọc được cài đặt, CuaKey dùng cài đặt gốc"
+        "Không đọc được cài đặt"
     );
 }
 
-const ALL_NOTICES: [Notice; 8] = [
+#[test]
+fn running_on_defaults_says_nothing_is_saved_until_a_restart() {
+    assert_eq!(
+        notice_message(Notice::DefaultsNotSaved),
+        "Không đọc được cài đặt. CuaKey dùng cài đặt gốc và không lưu thay đổi cho đến khi được khởi động lại"
+    );
+}
+
+#[test]
+fn a_window_built_on_an_unread_file_says_its_changes_are_not_saved() {
+    assert_eq!(
+        notice_message(Notice::SettingsUnreadNotSaved),
+        "Không đọc được cài đặt nên thay đổi ở cửa sổ này không được lưu"
+    );
+    assert_eq!(
+        notice_message(Notice::MacrosUnreadNotSaved),
+        "Không đọc được bảng gõ tắt nên thay đổi ở cửa sổ này không được lưu"
+    );
+}
+
+const ALL_NOTICES: [Notice; 11] = [
     Notice::ConvertDone,
+    Notice::DefaultsNotSaved,
+    Notice::SettingsUnreadNotSaved,
+    Notice::MacrosUnreadNotSaved,
     Notice::ElevationRefused,
     Notice::ElevationFailed,
     Notice::StartupNeedsAdministrator,
