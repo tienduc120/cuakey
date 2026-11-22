@@ -1,10 +1,13 @@
 use std::cell::{Cell, RefCell};
 use std::sync::mpsc;
 
-use cuakey_application::{AppMemoryView, LanguageValue, LayoutFlags, PreferencesView, Toggle, TypingSession};
+use cuakey_application::{
+    AppMemoryView, KeyResult, LanguageValue, LayoutFlags, MacroView, OutputAction, PreferencesView, Toggle,
+    TypingSession,
+};
 use platform_windows::{FocusChange, FocusClass, HookEvent, HookReply, RawKey, RawMods, SendOp};
 
-use super::{HookHandler, HookWorld, Report, SessionUpdate, rechecks_focus, store_app, switch_needs_save};
+use super::{HookHandler, HookWorld, Report, SessionUpdate, reaches_app, rechecks_focus, store_app, switch_needs_save};
 
 const NO_MODS: RawMods = RawMods {
     shift: false,
@@ -18,6 +21,11 @@ const CTRL_HELD: RawMods = RawMods {
 
 const A: u16 = 0x41;
 const TAB: u16 = 0x09;
+const ENTER: u16 = 0x0d;
+const K: u16 = 0x4b;
+const O: u16 = 0x4f;
+const S: u16 = 0x53;
+const D: u16 = 0x44;
 const F5: u16 = 0x74;
 const LEFT_CTRL: u16 = 0xa2;
 const LEFT_SHIFT: u16 = 0xa0;
@@ -95,6 +103,17 @@ fn handler() -> (HookHandler, mpsc::Sender<SessionUpdate>) {
     handler_with(&PreferencesView::default())
 }
 
+/// A handler whose session expands `ko` to `không`.
+fn handler_with_macro() -> (HookHandler, mpsc::Sender<SessionUpdate>) {
+    let (updates, received) = mpsc::channel();
+    let macros = [MacroView {
+        shortcut: "ko".to_owned(),
+        expansion: "không".to_owned(),
+    }];
+    let session = TypingSession::new(&PreferencesView::default(), &macros).unwrap();
+    (HookHandler::new(session, received), updates)
+}
+
 fn press(handler: &mut HookHandler, world: &FakeWorld, events: &[HookEvent]) -> Vec<HookReply> {
     events.iter().map(|event| handler.handle(*event, world)).collect()
 }
@@ -123,26 +142,49 @@ fn a_modifier_never_asks_for_a_recheck() {
     for vk in modifiers {
         for mods in [NO_MODS, CTRL_HELD] {
             for event in [down(vk, mods), up(vk, mods)] {
-                assert!(!rechecks_focus(key(event), NOT_SWALLOWED), "{event:?}");
+                assert!(!rechecks_focus(key(event), REACHES_APP), "{event:?}");
             }
         }
     }
 }
 
-const NOT_SWALLOWED: bool = false;
+const REACHES_APP: bool = true;
 
 #[test]
 fn other_keys_recheck_when_they_usually_move_the_focus() {
-    assert!(rechecks_focus(key(down(TAB, NO_MODS)), NOT_SWALLOWED));
-    assert!(rechecks_focus(key(down(A, CTRL_HELD)), NOT_SWALLOWED), "a shortcut");
-    assert!(!rechecks_focus(key(down(A, NO_MODS)), NOT_SWALLOWED), "a letter");
+    assert!(rechecks_focus(key(down(TAB, NO_MODS)), REACHES_APP));
+    assert!(rechecks_focus(key(down(A, CTRL_HELD)), REACHES_APP), "a shortcut");
+    assert!(!rechecks_focus(key(down(A, NO_MODS)), REACHES_APP), "a letter");
     assert!(
-        !rechecks_focus(key(up(TAB, NO_MODS)), NOT_SWALLOWED),
+        !rechecks_focus(key(up(TAB, NO_MODS)), REACHES_APP),
         "once, as it goes down"
     );
     assert!(
-        !rechecks_focus(key(down(F5, CTRL_HELD)), true),
-        "a key the session swallowed never reached the app"
+        !rechecks_focus(key(down(F5, CTRL_HELD)), !REACHES_APP),
+        "a hotkey's key, swallowed and never sent on, never reached the app"
+    );
+}
+
+#[test]
+fn a_key_reaches_the_app_untouched_or_sent_again() {
+    let result = |swallow, actions| KeyResult {
+        swallow,
+        actions,
+        command: None,
+    };
+
+    assert!(reaches_app(&result(false, Vec::new())), "passed through");
+    assert!(
+        reaches_app(&result(true, vec![OutputAction::Backspace, OutputAction::ResendKey])),
+        "replaced, then sent again"
+    );
+    assert!(
+        !reaches_app(&result(true, vec![OutputAction::Unit(0xe2)])),
+        "replaced by what was typed in its place"
+    );
+    assert!(
+        !reaches_app(&result(true, Vec::new())),
+        "swallowed, as a hotkey's key is"
     );
 }
 
@@ -217,6 +259,45 @@ fn the_language_hotkey_reports_the_switch() {
         panic!("one switch is reported: {reports:?}");
     };
     assert_eq!(prefs.language, LanguageValue::English);
+}
+
+/// Types `letters` as presses and releases, then the key `ending`, and returns its reply.
+fn type_then(handler: &mut HookHandler, world: &FakeWorld, letters: &[u16], ending: u16) -> HookReply {
+    for &letter in letters {
+        press(handler, world, &[down(letter, NO_MODS), up(letter, NO_MODS)]);
+    }
+    handler.handle(down(ending, NO_MODS), world)
+}
+
+fn sends_the_key_again(reply: &HookReply) -> bool {
+    reply.swallow && reply.ops.iter().any(|op| matches!(op, SendOp::ResendKey(_)))
+}
+
+#[test]
+fn tab_after_a_restored_word_reaches_the_app_and_rechecks() {
+    let (mut handler, _updates) = handler();
+    let world = FakeWorld::new();
+
+    // "asd" shows "ád", which is no Vietnamese word, so Tab types "asd" again and then goes on to the app. A macro
+    // never ends on Tab, which leaves the word as it is.
+    let reply = type_then(&mut handler, &world, &[A, S, D], TAB);
+
+    assert!(sends_the_key_again(&reply), "{reply:?}");
+    assert_eq!(world.rechecks.get(), 1, "the app moves the focus on the Tab it is sent");
+}
+
+#[test]
+fn enter_after_a_macro_reaches_the_app_and_rechecks() {
+    let (mut handler, _updates) = handler_with_macro();
+    let world = FakeWorld::new();
+
+    let reply = type_then(&mut handler, &world, &[K, O], ENTER);
+
+    assert!(
+        sends_the_key_again(&reply),
+        "ko becomes không and Enter follows: {reply:?}"
+    );
+    assert_eq!(world.rechecks.get(), 1);
 }
 
 #[test]

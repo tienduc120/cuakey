@@ -5,7 +5,9 @@
 
 use std::sync::mpsc;
 
-use cuakey_application::{CommandValue, LayoutFlags, MacroView, PreferencesView, Toggle, TypingSession};
+use cuakey_application::{
+    CommandValue, KeyResult, LayoutFlags, MacroView, OutputAction, PreferencesView, Toggle, TypingSession,
+};
 use platform_windows::{FocusChange, FocusClass, HookEvent, HookReply, RawKey, focus_moving_key};
 
 use crate::keymap::{focus_value, is_modifier, key_command, send_ops};
@@ -84,7 +86,7 @@ impl HookHandler {
         let command = key_command(key, focus_value(world.focus()), &self.app, world.layout());
         let result = self.session.handle_key(command);
         // The key itself was judged by the control it was typed into; whatever comes after it may not be.
-        if rechecks_focus(key, result.swallow) {
+        if rechecks_focus(key, reaches_app(&result)) {
             world.recheck_focus();
         }
         match result.command {
@@ -139,12 +141,19 @@ pub(crate) fn store_app(app: &str, support: Toggle) -> bool {
     support == Toggle::On && app == STORE_APP_FRAME
 }
 
-/// Whether the hook has the focus classified again after `key`: a key that usually moves the focus, as it goes down.
-/// Never for a modifier, which moves nothing by itself, nor for a key the session swallowed, which the app never saw.
-/// Each classification starts a new word and forgets the hotkey being pressed, so a recheck in the middle of one, as
-/// Shift with Ctrl held or F5 in Ctrl+Shift+F5 would ask for, would keep it from firing.
-pub(crate) fn rechecks_focus(key: RawKey, swallowed: bool) -> bool {
-    key.down && !swallowed && !is_modifier(key.vk) && focus_moving_key(key.vk, key.mods.ctrl_alt_win)
+/// Whether the hook has the focus classified again after `key`, which `reaches_app` says the app in front gets: a key
+/// that usually moves the focus, as it goes down. Never for a modifier, which moves nothing by itself, nor for a key
+/// the app never gets, as a hotkey's key. Each classification starts a new word and forgets the hotkey being pressed,
+/// so a recheck in the middle of one, as Shift with Ctrl held or F5 in Ctrl+Shift+F5 would ask for, would keep it from
+/// firing.
+pub(crate) fn rechecks_focus(key: RawKey, reaches_app: bool) -> bool {
+    key.down && reaches_app && !is_modifier(key.vk) && focus_moving_key(key.vk, key.mods.ctrl_alt_win)
+}
+
+/// Whether the app in front gets the key the session answered with `result`: passed through, or sent again after a
+/// replacement, as Tab and Enter are after a restored word or a macro.
+pub(crate) fn reaches_app(result: &KeyResult) -> bool {
+    !result.swallow || result.actions.contains(&OutputAction::ResendKey)
 }
 
 /// Whether an app switch changed what the store keeps for the session: the language or code table it adopted, or the
