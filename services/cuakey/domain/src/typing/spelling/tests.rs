@@ -123,3 +123,21 @@ fn a_group_that_ends_a_syllable_takes_no_last_consonant() {
         assert_eq!(spelled(word, VIETNAMESE), Spelling::Syllable, "{word}");
     }
 }
+
+#[test]
+fn a_quick_last_consonant_is_judged_as_the_pair_it_stands_for() {
+    let quick_last = Consonants {
+        quick_last: OnOff::On,
+        ..VIETNAMESE
+    };
+    for word in ["bach", "bak", "anh", "ah", "hang", "hag"] {
+        assert_eq!(spelled(word, quick_last), Spelling::Syllable, "{word}");
+    }
+    for word in ["bôk", "âk", "uh"] {
+        assert_ne!(
+            spelled(word, quick_last),
+            Spelling::Syllable,
+            "{word}: the pair it stands for does not fit"
+        );
+    }
+}

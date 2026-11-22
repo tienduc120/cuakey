@@ -191,7 +191,25 @@ pub(super) fn may_end_syllable(last: &[BaseLetter], consonants: Consonants) -> b
 /// Whether a syllable ending in `last` consonants can carry `tone`: after c, ch, p, or t only the acute and the dot
 /// below, as in mát, học, and hạp.
 pub(super) fn tone_fits_last_consonants(tone: Tone, last: &[BaseLetter]) -> bool {
-    !STOPS.contains(&last) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
+    !STOPS.contains(&as_pair(last)) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
+}
+
+/// Whether a tone may go on a syllable of `vowels` before `last` consonants with spell check on: while the vowels can
+/// still change, or the last consonants can still become ones the vowels take.
+pub(super) fn rhyme_may_take_tone(vowels: &[BaseLetter], last: &[BaseLetter], consonants: Consonants) -> bool {
+    last.is_empty()
+        || !is_vowel_group(vowels)
+        || last_consonants(consonants).any(|c| c.starts_with(last) && rhyme_fits(vowels, c))
+}
+
+/// The pair a quick last consonant stands for (g ng, h nh, k ch), or `last` as it is.
+fn as_pair(last: &[BaseLetter]) -> &[BaseLetter] {
+    match last {
+        [G] => &[N, G],
+        [H] => &[N, H],
+        [K] => &[C, H],
+        _ => last,
+    }
 }
 
 /// Whether `vowels` are a Vietnamese vowel group.
@@ -238,9 +256,9 @@ const ENDING_GROUPS: [&[BaseLetter]; 30] = [
 ];
 
 /// Whether `vowels` are a Vietnamese vowel group that `last` consonants may follow: a group that ends a syllable takes
-/// none, and ch and nh follow only the vowels that take them.
+/// none, and ch and nh follow only the vowels that take them. A quick last consonant counts as the pair it stands for.
 pub(super) fn rhyme_fits(vowels: &[BaseLetter], last: &[BaseLetter]) -> bool {
-    let fits_last = match last {
+    let fits_last = match as_pair(last) {
         [] => true,
         _ if ENDING_GROUPS.contains(&vowels) => false,
         [C | N, H] => BEFORE_CH_NH.contains(&vowels),

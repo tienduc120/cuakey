@@ -794,6 +794,24 @@ fn quick_last_consonant() {
 }
 
 #[test]
+fn with_spell_check_a_quick_last_consonant_is_judged_as_the_pair_it_stands_for() {
+    let quick_last = vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On));
+    for (keys, shown) in [
+        ("book ", "book "),
+        ("look ", "look "),
+        ("aak ", "aak "),
+        ("uhr", "uhr"),
+        ("ahs ", "ánh "),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(&quick_last), keys),
+            shown,
+            "{keys:?}: ôch, âch and unh are no syllables, anh is"
+        );
+    }
+}
+
+#[test]
 fn a_quick_last_consonant_is_written_out_only_where_that_makes_a_syllable() {
     let quick_last = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
     for (keys, shown) in [

@@ -267,7 +267,13 @@ impl Word {
             Effect::Tone(tone)
                 if reaches_vowels
                     && syllable.takes_tone()
-                    && spelling::tone_fits_last_consonants(tone, syllable.last_consonants()) =>
+                    && spelling::tone_fits_last_consonants(tone, syllable.last_consonants())
+                    && (rules.spell_check == OnOff::Off
+                        || spelling::rhyme_may_take_tone(
+                            syllable.vowels(),
+                            syllable.last_consonants(),
+                            rules.consonants,
+                        )) =>
             {
                 self.put_tone(&syllable, tone, rules.style)
             }
