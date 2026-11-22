@@ -209,7 +209,7 @@ mod shell {
         RegisterClass(#[source] windows::core::Error),
         #[error("could not create the tray window")]
         CreateWindow(#[source] windows::core::Error),
-        #[error("could not let the taskbar message through to the tray window")]
+        #[error("could not let Explorer's messages through to the tray window")]
         AllowMessage(#[source] windows::core::Error),
         #[error("could not load the icon")]
         LoadIcon(#[source] windows::core::Error),
@@ -302,7 +302,9 @@ mod shell {
                 shared,
                 icon,
             };
-            allow_taskbar_created(hwnd, taskbar_created)?;
+            // Explorer sends both its taskbar announcement and the icon's events.
+            allow_from_explorer(hwnd, taskbar_created)?;
+            allow_from_explorer(hwnd, CALLBACK_MESSAGE)?;
             offer(hwnd, &tray.shared);
             Ok(tray)
         }
@@ -573,9 +575,9 @@ mod shell {
         }
     }
 
-    /// Lets Explorer's broadcast reach a tray that runs as administrator, which would otherwise not hear a program
+    /// Lets `message` from Explorer reach a tray that runs as administrator, which would otherwise not hear a program
     /// with fewer rights.
-    fn allow_taskbar_created(hwnd: HWND, message: u32) -> Result<(), TrayError> {
+    fn allow_from_explorer(hwnd: HWND, message: u32) -> Result<(), TrayError> {
         // SAFETY: the window is this thread's own and alive, and no out structure is asked for.
         unsafe { ChangeWindowMessageFilterEx(hwnd, message, MSGFLT_ALLOW, None) }.map_err(TrayError::AllowMessage)
     }
