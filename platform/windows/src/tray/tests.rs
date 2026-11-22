@@ -219,7 +219,7 @@ mod live {
         let events = Rc::new(RefCell::new(Vec::new()));
         let sink = Rc::clone(&events);
         // An assertion that fails below drops the tray as it unwinds, which removes the icon.
-        let mut tray = Tray::add_stock("CuaKey: thử biểu tượng", move |event| {
+        let tray = Tray::add_stock("CuaKey: thử biểu tượng", move |event| {
             sink.borrow_mut().push(event);
         })
         .unwrap();

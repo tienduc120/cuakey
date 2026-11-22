@@ -224,16 +224,26 @@ mod shell {
     type Handler = Box<dyn FnMut(TrayEvent)>;
 
     /// The icon in the notification area, with a hidden window of its own that receives its events. Dropping it
-    /// removes the icon.
-    #[derive(Debug)]
+    /// removes the icon. Every method takes `&self`, since a call can come from a handler that runs while another
+    /// holds the tray, as one dispatched by the menu's loop.
     #[must_use = "dropping the tray removes its icon"]
     pub struct Tray {
         hwnd: HWND,
         instance: HINSTANCE,
         /// What the window procedure reads. `Rc` keeps the type on the thread that owns the window.
         shared: Rc<Shared>,
-        /// The icon shown. It is the last field, so it is destroyed after the icon is removed.
-        icon: Icon,
+        /// The icon shown, whose handle `shared` holds. It is the last field, so it is destroyed after the icon is
+        /// removed.
+        icon: Cell<Icon>,
+    }
+
+    impl std::fmt::Debug for Tray {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("Tray")
+                .field("hwnd", &self.hwnd)
+                .field("shared", &self.shared)
+                .finish_non_exhaustive()
+        }
     }
 
     /// What the window procedure shares with the tray. The window holds a count of its own, from [`lend`] until
@@ -300,7 +310,7 @@ mod shell {
                 hwnd,
                 instance,
                 shared,
-                icon,
+                icon: Cell::new(icon),
             };
             // Explorer sends both its taskbar announcement and the icon's events.
             allow_from_explorer(hwnd, taskbar_created)?;
@@ -316,11 +326,11 @@ mod shell {
 
         /// Shows `icon` instead. While the icon waits for the taskbar, or when the notification area cannot take the
         /// change (which is an error), the new icon is kept, and appears when the icon is next added.
-        pub fn set_icon(&mut self, icon: TrayIcon) -> Result<(), TrayError> {
+        pub fn set_icon(&self, icon: TrayIcon) -> Result<(), TrayError> {
             let loaded = Icon::load(IconSource::Executable(icon), self.instance).map_err(TrayError::LoadIcon)?;
             self.shared.icon.set(loaded.0);
             // The notification area may use the old icon until the update returns, so it is destroyed only then.
-            let previous = std::mem::replace(&mut self.icon, loaded);
+            let previous = self.icon.replace(loaded);
             let updated = self.update();
             drop(previous);
             updated
