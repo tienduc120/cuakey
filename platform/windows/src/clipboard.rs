@@ -2,7 +2,7 @@
 
 use std::ffi::c_void;
 
-use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL};
+use windows::Win32::Foundation::{E_INVALIDARG, GlobalFree, HANDLE, HGLOBAL};
 use windows::Win32::System::DataExchange::{
     CloseClipboard, EmptyClipboard, GetClipboardData, IsClipboardFormatAvailable, OpenClipboard, SetClipboardData,
 };
@@ -96,14 +96,23 @@ impl LockedMemory {
         // SAFETY: the handle is locked.
         let bytes = unsafe { GlobalSize(self.handle) };
         // SAFETY: the block is locked, so `address` is valid for `bytes` bytes and at least 8-byte aligned (global
-        // allocations are), and nothing writes it while this shared borrow of the guard lives.
+        // allocations are), and `write_units` needs the guard mutably, so nothing writes it while this shared borrow lives.
         unsafe { std::slice::from_raw_parts(self.address.cast::<u16>(), bytes / size_of::<u16>()) }
     }
 
-    fn write_units(&self, units: &[u16]) {
-        // SAFETY: the caller allocated the block for `units.len()` code units, the two do not overlap, and `address`
-        // is a locked, aligned block.
-        unsafe { std::ptr::copy_nonoverlapping(units.as_ptr(), self.address.cast::<u16>(), units.len()) }
+    /// Copies `units` to the start of the block, or refuses when the block is too small to hold them. Taking the guard
+    /// mutably keeps any slice from `units` from living across the write.
+    fn write_units(&mut self, units: &[u16]) -> Result<(), windows::core::Error> {
+        // SAFETY: the handle is locked.
+        let capacity = unsafe { GlobalSize(self.handle) };
+        if units.len().saturating_mul(size_of::<u16>()) > capacity {
+            return Err(windows::core::Error::from(E_INVALIDARG));
+        }
+        // SAFETY: the block is locked, so `address` is valid for `capacity` bytes and aligned for `u16`, and the check
+        // above makes the copy fit; `units` is a separate allocation, and the exclusive borrow of the guard means no
+        // slice from `units()` is alive.
+        unsafe { std::ptr::copy_nonoverlapping(units.as_ptr(), self.address.cast::<u16>(), units.len()) };
+        Ok(())
     }
 }
 
@@ -132,11 +141,10 @@ impl GlobalMemory {
         self.handle.unwrap_or_default()
     }
 
-    /// Copies `units` in; the block was allocated for exactly these.
+    /// Copies `units` in, or refuses when the block is too small.
     fn fill(&self, units: &[u16]) -> Result<(), windows::core::Error> {
-        let lock = LockedMemory::lock(self.handle())?;
-        lock.write_units(units);
-        Ok(())
+        let mut lock = LockedMemory::lock(self.handle())?;
+        lock.write_units(units)
     }
 
     /// The clipboard owns the memory from here on and frees it itself.
