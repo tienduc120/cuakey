@@ -945,6 +945,25 @@ fn without_spell_check_a_word_typed_as_it_is_stays_so_after_backspace() {
 }
 
 #[test]
+fn a_syllable_ending_in_c_ch_or_t_takes_only_the_acute_or_the_dot_below() {
+    for (keys, shown) in [("matf", "matf"), ("hocr", "hocr"), ("sachx", "sachx")] {
+        assert_eq!(
+            type_text(&mut telex(), keys),
+            shown,
+            "{keys:?}: no Vietnamese syllable reads so"
+        );
+    }
+    for (keys, shown) in [("mats", "mát"), ("hocj", "học"), ("sachs", "sách"), ("hapf", "hàp")] {
+        assert_eq!(
+            type_text(&mut telex(), keys),
+            shown,
+            "{keys:?}: a stop takes these two, and p any tone"
+        );
+    }
+    assert_eq!(type_text(&mut vni(), "mat4"), "mat4", "VNI alike");
+}
+
+#[test]
 fn marks_and_tones_never_reach_past_consonants_that_cannot_end_a_syllable() {
     assert_eq!(type_text(&mut telex(), "java"), "java", "v ends no syllable");
     assert_eq!(

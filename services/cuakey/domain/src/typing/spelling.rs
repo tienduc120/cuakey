@@ -6,7 +6,7 @@ use crate::BaseLetter::{
     self, A, ABreve, ACircumflex, B, C, D, DStroke, E, ECircumflex, F, G, H, I, J, K, L, M, N, O, OCircumflex, OHorn,
     P, Q, R, S, T, U, UHorn, V, W, X, Y, Z,
 };
-use crate::OnOff;
+use crate::{OnOff, Tone};
 
 /// How a word reads as Vietnamese.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +70,10 @@ const QUICK_FIRST: [&[BaseLetter]; 3] = [&[F], &[J], &[W]];
 const LAST_CONSONANTS: [&[BaseLetter]; 8] = [&[C], &[C, H], &[M], &[N], &[N, G], &[N, H], &[P], &[T]];
 
 const QUICK_LAST: [&[BaseLetter]; 3] = [&[G], &[H], &[K]];
+
+/// The last consonants that stop the syllable short, which then takes only the acute or the dot below. A p lets every
+/// tone through, so a tone typed after it still lands, as in the ẻp of express.
+const STOPS: [&[BaseLetter]; 3] = [&[C], &[C, H], &[T]];
 
 /// The vowel groups of Vietnamese syllables.
 const VOWEL_GROUPS: [&[BaseLetter]; 55] = [
@@ -183,6 +187,12 @@ pub(super) fn may_precede_typed_vowel(first: &[BaseLetter], zwjf_first: OnOff) -
 /// still reach the vowels before them.
 pub(super) fn may_end_syllable(last: &[BaseLetter], consonants: Consonants) -> bool {
     last.is_empty() || last_consonants(consonants).any(|c| c.starts_with(last))
+}
+
+/// Whether a syllable ending in `last` consonants can carry `tone`: after c, ch, or t only the acute and the dot below,
+/// as in mát and học.
+pub(super) fn tone_fits_last_consonants(tone: Tone, last: &[BaseLetter]) -> bool {
+    !STOPS.contains(&last) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
 }
 
 /// Whether `vowels` are a Vietnamese vowel group.

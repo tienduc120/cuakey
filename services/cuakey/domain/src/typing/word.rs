@@ -256,7 +256,11 @@ impl Word {
         let reaches_vowels = spelling::may_end_syllable(syllable.last_consonants(), rules.consonants);
         match effect {
             Effect::Mark(mark) if reaches_vowels => self.put_mark(&syllable, mark),
-            Effect::Tone(tone) if reaches_vowels && syllable.takes_tone() => {
+            Effect::Tone(tone)
+                if reaches_vowels
+                    && syllable.takes_tone()
+                    && spelling::tone_fits_last_consonants(tone, syllable.last_consonants()) =>
+            {
                 self.put_tone(&syllable, tone, rules.style)
             }
             Effect::Stroke => self.stroke(&syllable, rules),
