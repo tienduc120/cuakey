@@ -10273,3 +10273,48 @@ step = 23
 expected = "0054 00f4 0069 0020 00f0 0069 0020 0068 006a 0020 006c 0075 0061 00ec 0063 0020"
 cuakey = "0054 00f4 0069 0020 00f0 0069 0020 0068 006a 0020 006c 0075 0061 0063 0073 0020"
 reason = "ua ends a syllable, as in lúa and múa, and takes no last consonant, so luác is no Vietnamese word, and with restore on CuaKey gives back the keys; OpenKey keeps luác."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check restore quick-last"
+step = 7
+expected = "thuowg "
+cuakey = "thương "
+reason = "With quick last consonant on, thuowg is thương, the u of uơ taking its horn before ng; with restore on OpenKey gives back the keys thuowg."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check restore quick-last"
+step = 7
+expected = "0074 0068 0075 006f 0077 0067 0020"
+cuakey = "0074 0068 00ad 00ac 006e 0067 0020"
+reason = "With quick last consonant on, thuowg is thương, the u of uơ taking its horn before ng; with restore on OpenKey gives back the keys thuowg."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check restore quick-last"
+step = 7
+expected = "0074 0068 0075 006f 0077 0067 0020"
+cuakey = "0074 0068 00f6 00f4 006e 0067 0020"
+reason = "With quick last consonant on, thuowg is thương, the u of uơ taking its horn before ng; with restore on OpenKey gives back the keys thuowg."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check restore quick-last"
+step = 7
+expected = "0074 0068 0075 006f 0077 0067 0020"
+cuakey = "0074 0068 01b0 01a1 006e 0067 0020"
+reason = "With quick last consonant on, thuowg is thương, the u of uơ taking its horn before ng; with restore on OpenKey gives back the keys thuowg."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "cp1258 spell-check restore quick-last"
+step = 7
+expected = "0074 0068 0075 006f 0077 0067 0020"
+cuakey = "0074 0068 00fd 00f5 006e 0067 0020"
+reason = "With quick last consonant on, thuowg is thương, the u of uơ taking its horn before ng; with restore on OpenKey gives back the keys thuowg."
