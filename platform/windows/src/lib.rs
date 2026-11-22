@@ -15,9 +15,23 @@
 
 #[cfg(windows)]
 mod clipboard;
+mod focus_cell;
+mod hook;
+mod keyboard_layout;
+mod send;
 
 #[cfg(windows)]
 pub use clipboard::{ClipboardError, read_clipboard_text, write_clipboard_text};
+pub use focus_cell::{FocusCell, FocusClass, focus_moving_key};
+pub use hook::{HookEvent, HookReply, RawKey, RawMods};
+#[cfg(windows)]
+pub use hook::{KeyboardHook, StartHookError, StopHookError};
+#[cfg(windows)]
+pub use keyboard_layout::{foreground_layout, ime_open};
+pub use keyboard_layout::{is_english, may_have_ime};
+pub use send::SendOp;
+#[cfg(windows)]
+pub use send::{SendError, send};
 
 /// The `dwExtraInfo` tag on every input the app sends ("CUKY" in ASCII), so its own keyboard hook can tell that input
 /// from the user's and let it through untouched.

@@ -19,6 +19,7 @@ publish = false
 
 # Platform crates. Services reach shared technical code only through these.
 platform-clock = { path = "platform/clock" }
+platform-task = { path = "platform/task" }
 platform-windows = { path = "platform/windows" }
 
 # Runtime

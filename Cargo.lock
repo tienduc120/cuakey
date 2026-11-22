@@ -400,7 +400,9 @@ dependencies = [
 name = "platform-windows"
 version = "0.1.0"
 dependencies = [
+ "platform-task",
  "thiserror",
+ "tracing",
  "windows",
 ]
 
