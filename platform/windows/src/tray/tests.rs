@@ -1,6 +1,6 @@
 use super::{
     ChangeCall, MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, NIN_KEYSELECT, Presence, TIP_UNITS, TrayEvent,
-    WM_CONTEXTMENU, WM_LBUTTONDBLCLK, callback_event, menu_flags as flags_of, tooltip_units,
+    WM_CONTEXTMENU, WM_LBUTTONDBLCLK, callback_event, command_id, menu_flags as flags_of, tooltip_units,
 };
 
 /// `NIN_SELECT`: a single click on the icon, which also comes around a double click.
@@ -83,6 +83,19 @@ fn menu_flags() {
     );
     assert_eq!(separator, MF_SEPARATOR, "a separator is a dividing line");
     assert_eq!(submenu, MF_POPUP, "a submenu opens a popup");
+}
+
+#[test]
+fn only_ids_the_menu_can_hand_back_are_accepted() {
+    let largest = u32::try_from(i32::MAX).unwrap();
+
+    let accepted = [0, 1, largest, largest + 1, u32::MAX].map(command_id);
+
+    assert_eq!(
+        accepted,
+        [None, Some(1), Some(usize::try_from(largest).unwrap()), None, None],
+        "zero reads as a dismissed menu and ids past i32::MAX do not come back, so both are refused"
+    );
 }
 
 #[test]

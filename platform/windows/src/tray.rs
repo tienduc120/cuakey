@@ -17,8 +17,8 @@ pub enum TrayEvent {
 /// One entry of the icon's menu.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MenuItem {
-    /// An entry the user can choose; `Tray::show_menu` returns its `id`, which must not be zero. `checked: None`
-    /// draws no check mark, as `Some(false)` does.
+    /// An entry the user can choose; `Tray::show_menu` returns its `id`, which must be from 1 to `i32::MAX`, or the
+    /// menu is refused. `checked: None` draws no check mark, as `Some(false)` does.
     Command {
         id: u32,
         label: String,
@@ -127,6 +127,14 @@ fn menu_flags(item: &MenuItem) -> u32 {
     }
 }
 
+/// `id` as a menu entry's identifier, or `None` for one the menu could not hand back: zero, since `TrackPopupMenu`
+/// answers zero for a dismissed menu, and anything above `i32::MAX`, since it answers in an `i32`.
+#[cfg(any(windows, test))]
+fn command_id(id: u32) -> Option<usize> {
+    let id = i32::try_from(id).ok().filter(|&id| id != 0)?;
+    usize::try_from(id).ok()
+}
+
 /// `text` as `szTip` holds it: UTF-16, cut after the last whole character that leaves room for the terminating NUL,
 /// so a surrogate pair is never split, and padded with NULs.
 #[cfg(any(windows, test))]
@@ -173,7 +181,8 @@ mod shell {
     use windows::core::{HSTRING, PCWSTR, w};
 
     use super::{
-        ChangeCall, MenuItem, Presence, TIP_UNITS, TrayEvent, TrayIcon, callback_event, menu_flags, tooltip_units,
+        ChangeCall, MenuItem, Presence, TIP_UNITS, TrayEvent, TrayIcon, callback_event, command_id, menu_flags,
+        tooltip_units,
     };
 
     /// The class of the tray's hidden window.
@@ -462,8 +471,7 @@ mod shell {
             let flags = MENU_ITEM_FLAGS(menu_flags(item));
             match item {
                 MenuItem::Command { id, label, .. } => {
-                    let id = usize::try_from(*id)
-                        .map_err(|error| windows::core::Error::new(E_INVALIDARG, error.to_string()))?;
+                    let id = command_id(*id).ok_or_else(refused_id)?;
                     self.append_entry(flags, id, Some(&HSTRING::from(label.as_str())))
                 }
                 MenuItem::Submenu { label, items } => {
@@ -485,6 +493,11 @@ mod shell {
             // the call, which copies it.
             unsafe { AppendMenuW(self.handle, flags, id, text) }
         }
+    }
+
+    /// Why an entry is refused whose id the menu could not hand back.
+    fn refused_id() -> windows::core::Error {
+        windows::core::Error::new(E_INVALIDARG, "a menu entry's id must be from 1 to i32::MAX")
     }
 
     impl Drop for PopupMenu {
