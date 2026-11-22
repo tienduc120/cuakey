@@ -33,6 +33,9 @@ tracing = { version = "0.1.44", default-features = false, features = ["std", "at
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "fmt", "json", "env-filter"] }
 windows = "0.62.2"
 
+# UI
+egui = { version = "0.37.0", default-features = false }
+
 # Tooling (xtask only)
 anyhow = "1.0.104"
 cargo_metadata = "0.23.1"

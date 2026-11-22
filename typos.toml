@@ -8,4 +8,7 @@ extend-exclude = ["target/", "*.lock", "LICENSES/", ".xtask/", "tools/openkey-co
 extend-ignore-re = ['(?m)^(sequence|expected|cuakey) = ".*"$']
 
 [default.extend-words]
+# Vietnamese words that read as English typos.
+thay = "thay"
+Tham = "Tham"
 Nam = "Nam"

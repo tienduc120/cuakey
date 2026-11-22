@@ -7,5 +7,10 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[dependencies]
+cuakey-application = { path = "../application" }
+egui = { workspace = true }
+thiserror = { workspace = true, features = ["std"] }
+
 [lints]
 workspace = true
