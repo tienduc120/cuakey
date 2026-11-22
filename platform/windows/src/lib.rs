@@ -16,6 +16,7 @@
 mod app_message;
 #[cfg(windows)]
 mod beep;
+mod browser;
 #[cfg(windows)]
 mod clipboard;
 #[cfg(windows)]
@@ -63,6 +64,8 @@ pub use send::{SendError, send};
 pub use app_message::{AppMessage, WindowKind};
 #[cfg(windows)]
 pub use beep::beep;
+#[cfg(windows)]
+pub use browser::{OpenUrlError, open_url};
 #[cfg(windows)]
 pub use elevation::{RelaunchError, is_elevated, relaunch_elevated};
 #[cfg(windows)]
