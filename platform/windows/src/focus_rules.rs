@@ -12,7 +12,7 @@ pub struct ElementProps {
     pub value_read_only: Option<bool>,
     /// The class name UI Automation reports, which is the window class for a classic control.
     pub class_name: String,
-    /// The lower-cased executable file name of the app in front, such as `excel.exe`.
+    /// The lower-cased executable file name of the app whose top-level window holds the focus, such as `excel.exe`.
     pub process: String,
     /// A classic edit window with the `ES_PASSWORD` style, which hides what is typed.
     pub es_password: bool,

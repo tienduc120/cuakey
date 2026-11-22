@@ -1,6 +1,8 @@
+use std::cell::Cell;
+
 use platform_clock::Timestamp;
 
-use super::{FocusChange, app_name, log_line, next_change, request_recheck};
+use super::{FocusChange, app_name, app_window, log_line, next_change, request_recheck};
 use crate::{ElementFlags, ElementProps, FocusCell, FocusClass};
 
 #[test]
@@ -145,5 +147,47 @@ fn recheck_marks_the_focus_pending_before_queueing() {
     assert!(
         !cell.set(FocusClass::Text, answered),
         "the answer about the control before the recheck no longer lands"
+    );
+}
+
+#[test]
+fn the_app_comes_from_the_window_with_the_focus() {
+    let from_event = app_window(Some("event"), || Some("focus"), || Some("front"));
+    let from_focus = app_window(None, || Some("focus"), || Some("front"));
+    let from_front = app_window(None, || None, || Some("front"));
+    let from_nothing = app_window::<&str>(None, || None, || None);
+
+    assert_eq!(
+        from_event,
+        Some("event"),
+        "a focus change names the window it happened in, even before that window's app is in front"
+    );
+    assert_eq!(
+        from_focus,
+        Some("focus"),
+        "a recheck asks the thread in front which window has the focus"
+    );
+    assert_eq!(
+        from_front,
+        Some("front"),
+        "and takes the window in front when that thread names none"
+    );
+    assert_eq!(from_nothing, None, "with no window at all, the app goes unnamed");
+}
+
+#[test]
+fn an_event_window_needs_no_further_lookup() {
+    let lookups = Cell::new(0);
+    let look = |window| {
+        lookups.set(lookups.get() + 1);
+        Some(window)
+    };
+
+    let found = app_window(Some(1), || look(2), || look(3));
+
+    assert_eq!(
+        (found, lookups.get()),
+        (Some(1), 0),
+        "the system calls that find the focus in front are made only for a recheck"
     );
 }

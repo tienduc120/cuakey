@@ -13,9 +13,10 @@ use crate::{ElementProps, FocusCell};
 /// One classification of the focused control, as the watch hands it on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FocusChange {
-    /// The lower-cased executable file name of the app in front, or empty when it cannot be read.
+    /// The lower-cased executable file name of the app whose top-level window holds the focus, or empty when it cannot
+    /// be read. A Microsoft Store app's top-level window is its frame, so it is `applicationframehost.exe`.
     pub app: String,
-    /// The app in front is not the one of the previous change; the first change always brings one to the front.
+    /// The app is not the one of the previous change; the first change always counts as a new app.
     pub app_changed: bool,
     pub class: FocusClass,
 }
@@ -34,6 +35,15 @@ fn next_change(previous_app: Option<&str>, app: String, class: FocusClass) -> Fo
 #[cfg(any(windows, test))]
 fn app_name(image_path: &str) -> String {
     image_path.rsplit(['\\', '/']).next().unwrap_or_default().to_lowercase()
+}
+
+/// The window whose app a classification is about: the window a focus change happened in; for a recheck, which has
+/// none, the window with the focus in the thread in front (`focus`), or else the window in front (`front`). The window
+/// in front can still be the previous app's just after a switch, so it comes last, and each lookup is made only when
+/// the one before it found nothing.
+#[cfg(any(windows, test))]
+fn app_window<W>(event: Option<W>, focus: impl FnOnce() -> Option<W>, front: impl FnOnce() -> Option<W>) -> Option<W> {
+    event.or_else(focus).or_else(front)
 }
 
 /// One line of the focus log: the time, the app, what UI Automation said about the control (or why it could not be
@@ -82,6 +92,7 @@ mod watch {
     use std::io::{self, Write as _};
     use std::marker::PhantomData;
     use std::path::Path;
+    use std::ptr;
     use std::sync::{Arc, mpsc};
 
     use platform_clock::Clock;
@@ -102,13 +113,13 @@ mod watch {
         UIA_NativeWindowHandlePropertyId, UIA_PROPERTY_ID, UIA_ValueIsReadOnlyPropertyId, UnhookWinEvent,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageW, EVENT_OBJECT_FOCUS, GWL_STYLE, GetForegroundWindow, GetMessageW, GetWindowLongPtrW,
-        GetWindowThreadProcessId, MSG, PM_NOREMOVE, PeekMessageW, PostThreadMessageW, WINEVENT_OUTOFCONTEXT,
-        WINEVENT_SKIPOWNPROCESS, WM_APP, WM_QUIT,
+        DispatchMessageW, EVENT_OBJECT_FOCUS, GA_ROOT, GUITHREADINFO, GWL_STYLE, GetAncestor, GetForegroundWindow,
+        GetGUIThreadInfo, GetMessageW, GetWindowLongPtrW, GetWindowThreadProcessId, MSG, PM_NOREMOVE, PeekMessageW,
+        PostThreadMessageW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_QUIT,
     };
     use windows::core::PWSTR;
 
-    use super::{FocusChange, app_name, log_line, next_change, request_recheck};
+    use super::{FocusChange, app_name, app_window, log_line, next_change, request_recheck};
     use crate::focus_rules::style_says_password;
     use crate::{ElementFlags, ElementProps, FocusCell, FocusClass, classify};
 
@@ -242,7 +253,8 @@ mod watch {
 
     /// The thread message that asks for a recheck, with the generation its answer must carry in `wParam`.
     const RECHECK_MESSAGE: u32 = WM_APP;
-    /// The thread message for a focus change that arrived while another was being classified.
+    /// The thread message for a focus change that arrived while another was being classified, with the window it
+    /// happened in, or zero, in `wParam`.
     const FOCUS_MOVED_MESSAGE: u32 = WM_APP + 1;
 
     /// How long UI Automation may take to reach an app, and then to get its answer, before the read fails and the
@@ -316,16 +328,16 @@ mod watch {
     }
 
     impl Watcher {
-        /// The focus moved: a new generation, and its answer.
-        fn answer_focus_moved(&mut self) {
+        /// The focus moved, in `window` when the system said where: a new generation, and its answer.
+        fn answer_focus_moved(&mut self, window: Option<HWND>) {
             let generation = self.cell.invalidate();
-            self.answer(generation);
+            self.answer(generation, window);
         }
 
         /// Classifies the focused control as the answer for `generation`, records and logs it, and hands the change
-        /// on while it is still current.
-        fn answer(&mut self, generation: u64) {
-            let app = foreground_app();
+        /// on while it is still current. `event_window` is the window a focus change happened in; a recheck has none.
+        fn answer(&mut self, generation: u64, event_window: Option<HWND>) {
+            let app = app_of(event_window);
             let reading = self.automation.read_focused(app.clone());
             let class = reading.as_ref().map_or(FocusClass::Unknown, classify);
             let current = self.cell.set(class, generation);
@@ -563,18 +575,19 @@ mod watch {
         }
     }
 
-    /// The `WinEvent` callback for a focus change in another process.
+    /// The `WinEvent` callback for a focus change in another process, in `window`.
     extern "system" fn focus_event(
         _hook: HWINEVENTHOOK,
         _event: u32,
-        _window: HWND,
+        window: HWND,
         _object: i32,
         _child: i32,
         _thread: u32,
         _time: u32,
     ) {
-        if !with_watcher(Watcher::answer_focus_moved) {
-            requeue(FOCUS_MOVED_MESSAGE, WPARAM(0));
+        if !with_watcher(|watcher| watcher.answer_focus_moved(present(window))) {
+            // The handle is only an identifier here, never dereferenced, so its address is all the message carries.
+            requeue(FOCUS_MOVED_MESSAGE, WPARAM(window.0.addr()));
         }
     }
 
@@ -622,11 +635,14 @@ mod watch {
     fn handle_thread_message(message: u32, word: WPARAM) {
         let handled = match message {
             RECHECK_MESSAGE => match u64::try_from(word.0) {
-                Ok(generation) => with_watcher(|watcher| watcher.answer(generation)),
+                Ok(generation) => with_watcher(|watcher| watcher.answer(generation, None)),
                 // Only a generation `recheck` posted arrives here, and it always fits.
                 Err(_) => true,
             },
-            FOCUS_MOVED_MESSAGE => with_watcher(Watcher::answer_focus_moved),
+            FOCUS_MOVED_MESSAGE => {
+                let window = present(HWND(ptr::without_provenance_mut(word.0)));
+                with_watcher(|watcher| watcher.answer_focus_moved(window))
+            }
             _ => true,
         };
         if !handled {
@@ -668,17 +684,51 @@ mod watch {
         }
     }
 
-    /// The name of the app whose window is in front, or empty when it cannot be read.
-    fn foreground_app() -> String {
-        foreground_image_path().map(|path| app_name(&path)).unwrap_or_default()
+    /// The name of the app a classification is about, or empty when it cannot be read: the app owning the top-level
+    /// window of the window [`app_window`] picks.
+    fn app_of(event_window: Option<HWND>) -> String {
+        app_window(event_window, focus_window_in_front, window_in_front)
+            .and_then(|window| image_path_of(top_level(window)))
+            .map(|path| app_name(&path))
+            .unwrap_or_default()
     }
 
-    fn foreground_image_path() -> Option<String> {
+    /// `window`, unless it is null.
+    fn present(window: HWND) -> Option<HWND> {
+        (!window.is_invalid()).then_some(window)
+    }
+
+    fn window_in_front() -> Option<HWND> {
         // SAFETY: the call takes nothing and returns a window handle, null when no window is in front.
-        let window = unsafe { GetForegroundWindow() };
-        if window.is_invalid() {
+        present(unsafe { GetForegroundWindow() })
+    }
+
+    /// The window with the keyboard focus in the thread that owns the window in front, if it names one.
+    fn focus_window_in_front() -> Option<HWND> {
+        let front = window_in_front()?;
+        // SAFETY: with no process id asked for, the call only returns the window's thread id, zero for a window that
+        // has just closed.
+        let thread = unsafe { GetWindowThreadProcessId(front, None) };
+        if thread == 0 {
             return None;
         }
+        let mut info = GUITHREADINFO {
+            cbSize: u32::try_from(size_of::<GUITHREADINFO>()).ok()?,
+            ..GUITHREADINFO::default()
+        };
+        // SAFETY: `info` is a local the call fills, with its size set as the call requires.
+        unsafe { GetGUIThreadInfo(thread, &raw mut info) }.ok()?;
+        present(info.hwndFocus)
+    }
+
+    /// The top-level window `window` belongs to, or `window` itself when it has none or no longer exists.
+    fn top_level(window: HWND) -> HWND {
+        // SAFETY: the call only walks a window's parents, and for a window that no longer exists it returns null.
+        present(unsafe { GetAncestor(window, GA_ROOT) }).unwrap_or(window)
+    }
+
+    /// The full path of the executable of the process that owns `window`.
+    fn image_path_of(window: HWND) -> Option<String> {
         let mut process_id = 0;
         // SAFETY: `process_id` is a local the call fills; for a window that has just closed it fails and returns zero.
         let thread = unsafe { GetWindowThreadProcessId(window, Some(&raw mut process_id)) };
