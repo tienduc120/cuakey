@@ -965,6 +965,22 @@ fn backspace_right_after_punctuation_takes_the_word_up_again() {
 }
 
 #[test]
+fn backspace_over_any_key_that_ended_a_word_takes_the_sentence_back() {
+    let capitals = settings().with(SettingChange::CapitalizeSentences(OnOff::On));
+    for (keys, shown) in [
+        ("tooi\n\u{8}ban", "tôiban"),
+        ("tooi\n\u{8} ban", "tôi ban"),
+        ("tooi. \u{8}\u{8} ban", "tôi ban"),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(&capitals), keys),
+            shown,
+            "{keys:?}: the line break or full stop is gone, so no sentence starts"
+        );
+    }
+}
+
+#[test]
 fn taking_a_word_up_again_takes_its_sentence_back() {
     let capitals = settings().with(SettingChange::CapitalizeSentences(OnOff::On));
 

@@ -1,6 +1,7 @@
 //! What each key does on screen to the word being typed.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::{iter, mem};
 
 use super::capitalise::Sentence;
@@ -49,22 +50,22 @@ pub struct Composer {
     word: Word,
     /// The word as the screen shows it, kept so `word` can lend it out.
     shown: String,
-    /// The word a Space or punctuation just ended: a Backspace right after deletes that character and takes the word up
-    /// again.
-    ended: Option<Ended>,
+    /// The last words keys ended, the latest last: a Backspace with no word deletes the key that ended the latest and
+    /// takes that word up again, with the sentence and shortcut as they stood before the key.
+    history: Vec<Ended>,
     /// What the screen shows before the word since the last key that ended a word other than a digit: Telex ends the
     /// word at a digit, yet a shortcut such as vn1 is looked up whole.
     run: String,
     sentence: Sentence,
     /// Where the sentence stood when the word being typed started, for a Backspace that deletes the whole word.
     word_sentence: Sentence,
-    /// The word just before the word being typed, which Backspace takes up again once it has deleted the word being
-    /// typed and the key that ended the one before.
-    before: Option<Ended>,
     macros: MacroTable,
     /// The engine capitalised the first letter of the word being typed, which the user typed in lower case.
     raised: OnOff,
 }
+
+/// How many ended words Backspace can go back through.
+const HISTORY: usize = 8;
 
 /// A word a key just ended, with what the composer knew of it then.
 #[derive(Debug)]
@@ -76,6 +77,8 @@ struct Ended {
     sentence: Sentence,
     word_sentence: Sentence,
     raised: OnOff,
+    /// The shortcut run before the key that ended the word.
+    run: String,
 }
 
 impl Composer {
@@ -84,11 +87,10 @@ impl Composer {
             settings,
             word: Word::default(),
             shown: String::new(),
-            ended: None,
+            history: Vec::new(),
             run: String::new(),
             sentence: Sentence::default(),
             word_sentence: Sentence::default(),
-            before: None,
             macros: MacroTable::default(),
             raised: OnOff::Off,
         }
@@ -96,7 +98,6 @@ impl Composer {
 
     /// What to do on screen with `key`.
     pub fn press(&mut self, key: KeyPress) -> Edit {
-        let ended = self.ended.take();
         if key.mods().ctrl_or_alt().is_on() {
             // The chord may move the caret, so the sentence it lands in is unknown.
             self.sentence = Sentence::default();
@@ -106,20 +107,23 @@ impl Composer {
             return self.press_in_english(key);
         }
         if key.code() == KeyCode::Backspace {
-            return self.delete_back(ended);
+            return self.delete_back();
         }
         match self.keystroke(key) {
-            Some(keystroke) => self.type_into_word(keystroke, key, ended),
+            Some(keystroke) => self.type_into_word(keystroke, key),
             None if self.types_itself_after_the_word(key) => {
-                self.ended = Some(Ended {
+                let ended = Ended {
                     word: mem::take(&mut self.word),
-                    shown: self.shown.clone(),
+                    shown: mem::take(&mut self.shown),
                     sentence: self.sentence,
                     word_sentence: self.word_sentence,
                     raised: self.raised,
-                });
+                    run: mem::take(&mut self.run),
+                };
+                self.remember(ended);
                 self.sentence = text_of(key).map_or(self.sentence, |c| self.sentence.after(c));
-                self.leave_word()
+                self.raised = OnOff::Off;
+                Edit::PassThrough
             }
             None => self.end_word(key),
         }
@@ -130,8 +134,7 @@ impl Composer {
         self.raised = OnOff::Off;
         self.word = Word::default();
         self.shown.clear();
-        self.ended = None;
-        self.before = None;
+        self.history.clear();
         self.run.clear();
         self.sentence = Sentence::default();
     }
@@ -155,7 +158,7 @@ impl Composer {
     /// The word ends as the screen shows it, and the key goes through: a Ctrl or Alt chord is for the app, which acts on
     /// the text as the screen shows it.
     fn leave_word(&mut self) -> Edit {
-        self.before = None;
+        self.history.clear();
         self.raised = OnOff::Off;
         self.word = Word::default();
         self.shown.clear();
@@ -163,18 +166,23 @@ impl Composer {
         Edit::PassThrough
     }
 
-    /// Backspace deletes the last character of the word; with no word, the key goes through, and right after a Space or
-    /// punctuation takes up the word it ended. The sentence goes back to where it stood before the text Backspace takes
-    /// away.
-    fn delete_back(&mut self, ended: Option<Ended>) -> Edit {
+    /// Backspace deletes the last character of the word. With no word, the key goes through and deletes the key that
+    /// ended the latest word, which is taken up again. The sentence goes back to where it stood before the text
+    /// Backspace takes away.
+    fn delete_back(&mut self) -> Edit {
         if self.word.is_empty() {
-            self.run.pop();
-            if let Some(ended) = ended {
-                self.word = ended.word;
-                self.shown = ended.shown;
-                self.sentence = ended.sentence;
-                self.word_sentence = ended.word_sentence;
-                self.raised = ended.raised;
+            match self.history.pop() {
+                Some(ended) => {
+                    self.word = ended.word;
+                    self.shown = ended.shown;
+                    self.sentence = ended.sentence;
+                    self.word_sentence = ended.word_sentence;
+                    self.raised = ended.raised;
+                    self.run = ended.run;
+                }
+                None => {
+                    self.run.pop();
+                }
             }
             return Edit::PassThrough;
         }
@@ -182,7 +190,6 @@ impl Composer {
         if self.word.is_empty() {
             self.sentence = self.word_sentence;
             self.raised = OnOff::Off;
-            self.ended = self.before.take();
         }
         let before = mem::replace(&mut self.shown, self.word.render());
         backspace_edit(&before, &self.shown, self.settings.typing().code_table())
@@ -207,10 +214,9 @@ impl Composer {
         })
     }
 
-    fn type_into_word(&mut self, keystroke: Keystroke, key: KeyPress, ended: Option<Ended>) -> Edit {
+    fn type_into_word(&mut self, keystroke: Keystroke, key: KeyPress) -> Edit {
         if self.word.is_empty() {
             self.word_sentence = self.sentence;
-            self.before = ended;
             let typed = typed_by(key).map(Glyph::to_char);
             self.raised = if typed.is_some_and(|c| c != keystroke.typed.to_char()) {
                 OnOff::On
@@ -228,7 +234,7 @@ impl Composer {
     /// A key that types no letter ends the word: the word may change once more, then the key follows. A digit carries
     /// what the screen shows on into the shortcut being typed.
     fn end_word(&mut self, key: KeyPress) -> Edit {
-        self.before = None;
+        let run_before = self.run.clone();
         let word = mem::take(&mut self.word);
         let raised = mem::replace(&mut self.raised, OnOff::Off);
         let shown = mem::take(&mut self.shown);
@@ -247,6 +253,8 @@ impl Composer {
                 raised: if run.is_empty() { raised } else { OnOff::Off },
             };
             if let Some(edit) = self.macro_edit(&forms, key) {
+                // The screen shows the expansion now, not the words before it.
+                self.history.clear();
                 return edit;
             }
         }
@@ -260,20 +268,32 @@ impl Composer {
             self.run.push_str(ending.as_deref().unwrap_or(&shown));
             self.run.push(digit);
         }
-        if text.is_some_and(|c| !c.is_control() && digit.is_none()) {
+        if text.is_some() {
             let (word, shown) = match ending {
                 Some(text) => (Word::as_typed(&text), text),
                 None => (word, shown),
             };
-            self.ended = Some(Ended {
+            self.remember(Ended {
                 word,
                 shown,
                 sentence,
                 word_sentence: self.word_sentence,
                 raised,
+                run: run_before,
             });
+        } else {
+            // A key that types nothing, such as an arrow, may move the caret away from the words before.
+            self.history.clear();
         }
         edit
+    }
+
+    /// Records a word that a key typing a character ended, for Backspace to take up again.
+    fn remember(&mut self, ended: Ended) {
+        self.history.push(ended);
+        if self.history.len() > HISTORY {
+            self.history.remove(0);
+        }
     }
 
     /// English passes every key through. Only when macros work in English does the composer follow the typed word, to
