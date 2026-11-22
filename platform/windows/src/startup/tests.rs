@@ -120,3 +120,51 @@ mod registry {
         assert!(second_delete.is_ok(), "deleting what is not there is success");
     }
 }
+
+#[cfg(windows)]
+mod live_task {
+    use std::path::Path;
+
+    use super::super::system::delete_task_error;
+    use super::{run_value, task_spec};
+    use crate::task_scheduler::{self, Registered};
+
+    /// Deletes the test task even when an assertion fails.
+    struct Cleanup(String);
+
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            drop(task_scheduler::delete(&self.0));
+        }
+    }
+
+    #[test]
+    #[ignore = "registers a scheduled task; needs an elevated process"]
+    fn startup_task_round_trip() {
+        let name = format!("CuaKeyTest-{}", std::process::id());
+        let _cleanup = Cleanup(name.clone());
+        // A program that does not exist, so the task would run nothing if the cleanup ever failed.
+        let exe = Path::new(r"C:\CuaKeyTest\missing.exe");
+        let spec = task_spec();
+
+        task_scheduler::create(&name, exe).unwrap();
+        let registered = task_scheduler::read_back(&name).unwrap();
+        task_scheduler::delete(&name).unwrap();
+        let second_delete = task_scheduler::delete(&name).or_else(delete_task_error);
+
+        assert_eq!(
+            registered,
+            Registered {
+                disallow_start: spec.battery.disallow_start,
+                stop_when_leaving_mains: spec.battery.stop_when_leaving_mains,
+                time_limit: spec.time_limit.to_owned(),
+                priority: spec.priority,
+                run_level_highest: true,
+                trigger_user: task_scheduler::expected_trigger_user().unwrap(),
+                action_path: run_value(exe),
+            },
+            "the task reads back as it was registered"
+        );
+        assert!(second_delete.is_ok(), "deleting a task that is not there is success");
+    }
+}

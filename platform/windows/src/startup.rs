@@ -4,6 +4,7 @@
 use std::path::Path;
 
 /// The name of the `Run` value and of the scheduled task.
+#[cfg(windows)]
 pub(crate) const ENTRY_NAME: &str = "CuaKey";
 
 /// How `CuaKey` starts when the user signs in.
@@ -153,8 +154,8 @@ mod system {
             match step {
                 Step::SetRunValue => set_run_value(ENTRY_NAME, &exe)?,
                 Step::DeleteRunValue => delete_run_value(ENTRY_NAME)?,
-                Step::CreateTask => task_scheduler::create(&exe).map_err(create_task_error)?,
-                Step::DeleteTask => task_scheduler::delete().or_else(delete_task_error)?,
+                Step::CreateTask => task_scheduler::create(ENTRY_NAME, &exe).map_err(create_task_error)?,
+                Step::DeleteTask => task_scheduler::delete(ENTRY_NAME).or_else(delete_task_error)?,
             }
         }
         Ok(())

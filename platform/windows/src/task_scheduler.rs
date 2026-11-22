@@ -5,6 +5,8 @@ use std::path::Path;
 use windows::Win32::Foundation::VARIANT_BOOL;
 use windows::Win32::Security::Authentication::Identity::{GetUserNameExW, NameSamCompatible};
 use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance};
+#[cfg(test)]
+use windows::Win32::System::TaskScheduler::TASK_RUNLEVEL_LUA;
 use windows::Win32::System::TaskScheduler::{
     IExecAction, ILogonTrigger, ITaskDefinition, ITaskFolder, ITaskService, TASK_ACTION_EXEC, TASK_CREATE_OR_UPDATE,
     TASK_INSTANCES_IGNORE_NEW, TASK_LOGON_INTERACTIVE_TOKEN, TASK_RUNLEVEL_HIGHEST, TASK_TRIGGER_LOGON, TaskScheduler,
@@ -13,20 +15,20 @@ use windows::Win32::System::Variant::VARIANT;
 use windows::core::{BSTR, Interface, PWSTR};
 
 use crate::com::ComScope;
-use crate::startup::{ENTRY_NAME, Instances, RunLevel, Trigger, run_value, task_spec};
+use crate::startup::{Instances, RunLevel, Trigger, run_value, task_spec};
 
-/// Registers the task for `exe`, replacing one of the same name.
-pub(crate) fn create(exe: &Path) -> windows::core::Result<()> {
+/// Registers the task `name` for `exe`, replacing one of the same name.
+pub(crate) fn create(name: &str, exe: &Path) -> windows::core::Result<()> {
     let _com = ComScope::enter()?;
-    register(exe)
+    register(name, exe)
 }
 
-/// Deletes the task. A missing task fails with `ERROR_FILE_NOT_FOUND`, which the caller treats as done.
-pub(crate) fn delete() -> windows::core::Result<()> {
+/// Deletes the task `name`. A missing task fails with `ERROR_FILE_NOT_FOUND`, which the caller treats as done.
+pub(crate) fn delete(name: &str) -> windows::core::Result<()> {
     let _com = ComScope::enter()?;
     let (_service, folder) = connect()?;
     // SAFETY: the name is a string that outlives the call, and no flags are set.
-    unsafe { folder.DeleteTask(&BSTR::from(ENTRY_NAME), 0) }
+    unsafe { folder.DeleteTask(&BSTR::from(name), 0) }
 }
 
 // Every interface below is a local of a function that returns before the scope that initialised COM ends.
@@ -43,7 +45,7 @@ fn connect() -> windows::core::Result<(ITaskService, ITaskFolder)> {
     Ok((service, folder))
 }
 
-fn register(exe: &Path) -> windows::core::Result<()> {
+fn register(name: &str, exe: &Path) -> windows::core::Result<()> {
     let spec = task_spec();
     let (service, folder) = connect()?;
     // SAFETY: the flags argument is reserved and zero.
@@ -57,7 +59,7 @@ fn register(exe: &Path) -> windows::core::Result<()> {
     // an interactive token needs.
     unsafe {
         folder.RegisterTaskDefinition(
-            &BSTR::from(ENTRY_NAME),
+            &BSTR::from(name),
             &definition,
             TASK_CREATE_OR_UPDATE.0,
             &none,
@@ -131,4 +133,83 @@ fn apply_settings(definition: &ITaskDefinition) -> windows::core::Result<()> {
     let Instances::IgnoreNew = spec.instances;
     // SAFETY: the value is a valid policy.
     unsafe { settings.SetMultipleInstances(TASK_INSTANCES_IGNORE_NEW) }
+}
+
+/// What a registered task holds, as the live test reads it back.
+#[cfg(test)]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Registered {
+    pub(crate) disallow_start: bool,
+    pub(crate) stop_when_leaving_mains: bool,
+    pub(crate) time_limit: String,
+    pub(crate) priority: i32,
+    pub(crate) run_level_highest: bool,
+    pub(crate) trigger_user: String,
+    pub(crate) action_path: String,
+}
+
+/// The current user as the task's trigger names them.
+#[cfg(test)]
+pub(crate) fn expected_trigger_user() -> windows::core::Result<String> {
+    Ok(current_user()?.to_string())
+}
+
+/// Reads the registered task `name` back.
+#[cfg(test)]
+pub(crate) fn read_back(name: &str) -> windows::core::Result<Registered> {
+    let _com = ComScope::enter()?;
+    inspect(name)
+}
+
+#[cfg(test)]
+fn inspect(name: &str) -> windows::core::Result<Registered> {
+    let (_service, folder) = connect()?;
+    // SAFETY: the name is a string that outlives the call.
+    let task = unsafe { folder.GetTask(&BSTR::from(name)) }?;
+    // SAFETY: the call takes no arguments and returns the task's definition.
+    let definition = unsafe { task.Definition() }?;
+    // SAFETY: the call takes no arguments and returns the definition's settings.
+    let settings = unsafe { definition.Settings() }?;
+    let mut disallow_start = VARIANT_BOOL::default();
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { settings.DisallowStartIfOnBatteries(&raw mut disallow_start) }?;
+    let mut stop_when_leaving_mains = VARIANT_BOOL::default();
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { settings.StopIfGoingOnBatteries(&raw mut stop_when_leaving_mains) }?;
+    let mut time_limit = BSTR::new();
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { settings.ExecutionTimeLimit(&raw mut time_limit) }?;
+    let mut priority = 0_i32;
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { settings.Priority(&raw mut priority) }?;
+    // SAFETY: the call takes no arguments and returns the definition's principal.
+    let principal = unsafe { definition.Principal() }?;
+    let mut run_level = TASK_RUNLEVEL_LUA;
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { principal.RunLevel(&raw mut run_level) }?;
+    // SAFETY: the call takes no arguments and returns the definition's collection.
+    let triggers = unsafe { definition.Triggers() }?;
+    // SAFETY: collection items are numbered from 1, and the task has one trigger.
+    let trigger = unsafe { triggers.get_Item(1) }?;
+    let logon: ILogonTrigger = trigger.cast()?;
+    let mut trigger_user = BSTR::new();
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { logon.UserId(&raw mut trigger_user) }?;
+    // SAFETY: the call takes no arguments and returns the definition's collection.
+    let actions = unsafe { definition.Actions() }?;
+    // SAFETY: collection items are numbered from 1, and the task has one action.
+    let action = unsafe { actions.get_Item(1) }?;
+    let exec: IExecAction = action.cast()?;
+    let mut action_path = BSTR::new();
+    // SAFETY: the pointer is to a local the call fills.
+    unsafe { exec.Path(&raw mut action_path) }?;
+    Ok(Registered {
+        disallow_start: disallow_start.as_bool(),
+        stop_when_leaving_mains: stop_when_leaving_mains.as_bool(),
+        time_limit: time_limit.to_string(),
+        priority,
+        run_level_highest: run_level == TASK_RUNLEVEL_HIGHEST,
+        trigger_user: trigger_user.to_string(),
+        action_path: action_path.to_string(),
+    })
 }
