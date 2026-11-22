@@ -2,7 +2,56 @@
 
 Vietnamese typing for Windows, written in Rust.
 
-## Licence
+## Features
+
+- Telex, VNI and Simple Telex input methods.
+- Five code tables: Unicode, TCVN3, VNI Windows, Unicode Composite and Vietnamese Locale CP1258.
+- Spell check that restores the keys you typed when a word is not Vietnamese.
+- Macros in a `macros.txt` file, compatible with OpenKey and UniKey.
+- Conversion between code tables, and quick convert from the clipboard.
+- Per-app memory of the input mode, and a list of apps where Vietnamese is always on.
+- Vietnamese only in text boxes, never in password boxes.
+- No Windows keyboard layout or input method is added.
+
+## Install
+
+Download the zip from the Releases page, unpack it, and run `cuakey.exe`.
+
+The build is not code-signed. If Windows SmartScreen warns about it, choose "More info", then "Run anyway".
+On PCs with Smart App Control turned on, unsigned builds may be blocked.
+
+## Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+Shift | Switch between Vietnamese and English (acts when the keys are released) |
+| Ctrl+Shift+F5 | Open the settings |
+| Double click on the tray icon | Open the settings |
+
+## How it works
+
+- A low-level keyboard hook sees each key, and `SendInput` replaces the text it changes.
+- UI Automation tells a text box from a password box, so Vietnamese is turned off where it should not apply.
+- No keyboard layout or input method is installed.
+- The typing engine is written in Rust from scratch and checked against OpenKey's behaviour with `cargo xtask compare-openkey`.
+- Windows open in a separate process, so the background process stays small.
+
+## Build
+
+```
+cargo build --release -p cuakey-desktop
+cargo xtask verify
+cargo nextest run
+```
+
+## Contributing
+
+Changes follow the rules in [AGENTS.md](AGENTS.md).
+Run `lefthook install` once per clone to set up the git hooks.
+Commits use Conventional Commits.
+A change to typing keeps `cargo xtask compare-openkey` green.
+
+## License
 
 MIT, Copyright (c) 2026 Luu Tien Duc. See [LICENSE](LICENSE).
 

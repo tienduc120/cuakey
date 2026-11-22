@@ -4,7 +4,10 @@ Only MIT, BSD, and Apache-2.0 material is brought in. For each item keep the ups
 
 ## Vendored or adapted
 
-None yet. Configuration was written fresh after reading the projects in the README Credits.
+- The rules, gates, and skills come from rust-base, the owner's own MIT-licensed work, under the same copyright holder as this repository.
+- The icons in `icon/` are the project's own artwork, under the project license.
+
+Nothing is taken from OpenKey: its sources are fetched and built locally by the comparison tool and never committed.
 
 ## Crates (used as dependencies, not copied)
 
