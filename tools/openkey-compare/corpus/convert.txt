@@ -17,5 +17,5 @@ Giá 100.000 đồng (3 cái)
 Mai đi chơi 😀 nhé 🎉
 Hello World, This Is English
 a\\b và c/d
-tiê\u{301}ng Việ\u{323}t
+tiê\u{301}ng Viê\u{323}t
 tie\u{302}\u{301}ng Vie\u{323}\u{302}t
