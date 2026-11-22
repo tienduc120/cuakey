@@ -53,8 +53,8 @@ pub use self::inject::{SendError, send};
 mod inject {
     use windows::Win32::Foundation::{LPARAM, WPARAM};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-        KEYEVENTF_UNICODE, SendInput, VIRTUAL_KEY, VK_BACK, VK_INSERT, VK_LEFT, VK_SHIFT,
+        GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
+        KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, SendInput, VIRTUAL_KEY, VK_BACK, VK_INSERT, VK_LEFT, VK_SHIFT,
     };
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, PostMessageW, WM_CHAR};
 
@@ -77,11 +77,13 @@ mod inject {
     /// the keys before it are sent and before its Shift+Insert. With `store_app`, each backspace is also posted to the
     /// window in front as a character, which Microsoft Store apps need.
     pub fn send(ops: &[SendOp], store_app: bool) -> Result<(), SendError> {
+        // Read once, before any of these keys go out, so a Shift sent for one op is never taken for the user's.
+        let shift_held = !ops.is_empty() && shift_is_held();
         for segment in segments(ops) {
             if let Some(SendOp::Paste(units)) = segment.first() {
                 write_clipboard_text(&String::from_utf16_lossy(units)).map_err(SendError::Clipboard)?;
             }
-            send_inputs(&build_inputs(segment))?;
+            send_inputs(&build_inputs(segment, shift_held))?;
             if store_app {
                 post_backspace_chars(store_app_backspace_messages(segment))?;
             }
@@ -89,8 +91,8 @@ mod inject {
         Ok(())
     }
 
-    /// The keyboard events for `ops`, in order.
-    pub(super) fn build_inputs(ops: &[SendOp]) -> Vec<INPUT> {
+    /// The keyboard events for `ops`, in order; `shift_held` says whether the user is holding Shift.
+    pub(super) fn build_inputs(ops: &[SendOp], shift_held: bool) -> Vec<INPUT> {
         let mut inputs = Vec::with_capacity(ops.len().saturating_mul(4));
         for op in ops {
             match op {
@@ -99,8 +101,8 @@ mod inject {
                     inputs.push(unicode(*unit, PRESS));
                     inputs.push(unicode(*unit, KEYEVENTF_KEYUP));
                 }
-                SendOp::SelectPreviousChar => shifted_tap(&mut inputs, VK_LEFT),
-                SendOp::Paste(_) => shifted_tap(&mut inputs, VK_INSERT),
+                SendOp::SelectPreviousChar => shifted_tap(&mut inputs, VK_LEFT, shift_held),
+                SendOp::Paste(_) => shifted_tap(&mut inputs, VK_INSERT, shift_held),
                 SendOp::ResendKey(key) => inputs.push(resent(key)),
             }
         }
@@ -114,11 +116,25 @@ mod inject {
         inputs.push(key(vk, 0, flags | KEYEVENTF_KEYUP));
     }
 
-    /// Shift held around an extended key, the arrow or navigation one rather than its number pad twin.
-    fn shifted_tap(inputs: &mut Vec<INPUT>, vk: VIRTUAL_KEY) {
+    /// An extended key, the arrow or navigation one rather than its number pad twin, with Shift held around it. When
+    /// the user already holds Shift, that Shift applies and is left alone: releasing it would turn the next letters
+    /// lowercase while the user still holds it.
+    fn shifted_tap(inputs: &mut Vec<INPUT>, vk: VIRTUAL_KEY, shift_held: bool) {
+        if shift_held {
+            tap(inputs, vk, KEYEVENTF_EXTENDEDKEY);
+            return;
+        }
         inputs.push(key(VK_SHIFT, 0, PRESS));
         tap(inputs, vk, KEYEVENTF_EXTENDEDKEY);
         inputs.push(key(VK_SHIFT, 0, KEYEVENTF_KEYUP));
+    }
+
+    /// Whether the user is physically holding Shift, read the way the hook reads it.
+    fn shift_is_held() -> bool {
+        // SAFETY: the call takes a key code and only reads the system's key state.
+        let state = unsafe { GetAsyncKeyState(i32::from(VK_SHIFT.0)) };
+        // The high bit, which makes the value negative, says the key is down.
+        state < 0
     }
 
     fn resent(typed: &RawKey) -> INPUT {

@@ -74,8 +74,13 @@ mod inputs {
         unsafe { input.Anonymous.ki }
     }
 
+    /// The events for `ops` while the user holds no Shift.
     fn events(ops: &[SendOp]) -> Vec<KEYBDINPUT> {
-        build_inputs(ops).iter().map(keyboard_event).collect()
+        build_inputs(ops, false).iter().map(keyboard_event).collect()
+    }
+
+    fn events_while_shift_held(ops: &[SendOp]) -> Vec<KEYBDINPUT> {
+        build_inputs(ops, true).iter().map(keyboard_event).collect()
     }
 
     fn key(vk: VIRTUAL_KEY, flags: KEYBD_EVENT_FLAGS) -> KEYBDINPUT {
@@ -149,6 +154,34 @@ mod inputs {
                 key(VK_SHIFT, KEYEVENTF_KEYUP),
             ],
             "Shift+Insert pastes in more apps than Ctrl+V, and the text itself goes by the clipboard"
+        );
+    }
+
+    #[test]
+    fn select_previous_char_keeps_a_held_shift() {
+        let sent = events_while_shift_held(&[SendOp::SelectPreviousChar]);
+
+        assert_eq!(
+            sent,
+            [
+                key(VK_LEFT, KEYEVENTF_EXTENDEDKEY),
+                key(VK_LEFT, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP),
+            ],
+            "the user's Shift already makes Left select, and releasing it would turn the next letters lowercase"
+        );
+    }
+
+    #[test]
+    fn paste_keeps_a_held_shift() {
+        let sent = events_while_shift_held(&[SendOp::Paste(vec![0x1ec7])]);
+
+        assert_eq!(
+            sent,
+            [
+                key(VK_INSERT, KEYEVENTF_EXTENDEDKEY),
+                key(VK_INSERT, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP),
+            ],
+            "the user's Shift already makes Insert paste, and releasing it would turn the next letters lowercase"
         );
     }
 
