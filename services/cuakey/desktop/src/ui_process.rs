@@ -2,6 +2,7 @@
 //! process. Each open window has a native window of its own; the first is eframe's root viewport, and the process
 //! ends when the last one closes.
 
+mod system;
 mod window;
 
 use std::cell::RefCell;
@@ -69,6 +70,8 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
         centered: true,
         // The windows bring their own font; eframe would only warn about the ones it is missing.
         system_font_fallback: false,
+        // eframe's clipboard is not built in, and it would swallow Ctrl+V; the windows take the shortcuts themselves.
+        clipboard_shortcuts: false,
         ..eframe::NativeOptions::default()
     };
     eframe::run_native(
@@ -139,7 +142,7 @@ impl eframe::App for UiApp {
         let ctx = ui.ctx().clone();
         let mut shown = Vec::new();
         if let Some(first) = self.windows.first_mut() {
-            let actions = first.show(ui);
+            let actions = draw(first, ui);
             let closing = ui.input(|input| input.viewport().close_requested());
             shown.push(Shown {
                 kind: first.kind(),
@@ -151,7 +154,7 @@ impl eframe::App for UiApp {
             let kind = window.kind();
             let (actions, closing) =
                 ctx.show_viewport_immediate(window.viewport_id(), window.viewport(&self.icon), |ui, _class| {
-                    let actions = window.show(ui);
+                    let actions = draw(window, ui);
                     (actions, ui.input(|input| input.viewport().close_requested()))
                 });
             shown.push(Shown { kind, actions, closing });
@@ -165,6 +168,15 @@ impl eframe::App for UiApp {
             }
         }
     }
+}
+
+/// Draws `window` into `ui`, the root ui of its viewport, with the clipboard and the browser at hand.
+fn draw(window: &mut Window, ui: &mut Ui) -> Vec<UiAction> {
+    let ctx = ui.ctx().clone();
+    system::before_drawing(&ctx);
+    let actions = window.show(ui);
+    system::after_drawing(&ctx);
+    actions
 }
 
 impl UiApp {
