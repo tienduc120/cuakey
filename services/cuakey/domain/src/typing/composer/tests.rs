@@ -738,6 +738,20 @@ fn a_w_typed_again_to_take_back_its_vowel_is_no_quick_first_consonant() {
 }
 
 #[test]
+fn a_chord_ends_the_sentence_as_far_as_capitals_go() {
+    let mut composer = composer_with(&settings().with(SettingChange::CapitalizeSentences(OnOff::On)));
+    type_text(&mut composer, "tooi. ");
+
+    composer.press(KeyPress::new(KeyCode::S, KeyMods::none().with_ctrl_or_alt(OnOff::On)));
+
+    assert_eq!(
+        type_text(&mut composer, "ban"),
+        "ban",
+        "the chord may have moved the caret, so no sentence is known to start"
+    );
+}
+
+#[test]
 fn simple_telex_brackets_end_the_word_as_it_shows() {
     let quick = settings()
         .with(SettingChange::InputMethod(InputMethod::SimpleTelex))

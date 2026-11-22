@@ -94,6 +94,8 @@ impl Composer {
     pub fn press(&mut self, key: KeyPress) -> Edit {
         let ended = self.ended.take();
         if key.mods().ctrl_or_alt().is_on() {
+            // The chord may move the caret, so the sentence it lands in is unknown.
+            self.sentence = Sentence::default();
             return self.leave_word();
         }
         if self.settings.language() == Language::English {
