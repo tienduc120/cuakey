@@ -66,11 +66,11 @@ pub use beep::beep;
 #[cfg(windows)]
 pub use elevation::{RelaunchError, is_elevated, relaunch_elevated};
 #[cfg(windows)]
-pub use known_folder::{KnownFolderError, roaming_app_data};
+pub use known_folder::{KnownFolderError, roaming_app_data, system_fonts};
 #[cfg(windows)]
 pub use message_window::{CreateMessageWindowError, MessageWindow, PostError, post_to};
 #[cfg(windows)]
-pub use notify::show as show_notice;
+pub use notify::{show as show_notice, show_and_wait as show_notice_and_wait};
 #[cfg(windows)]
 pub use shortcut::{ShortcutError, set_desktop_shortcut};
 #[cfg(windows)]

@@ -10,7 +10,7 @@ const ALL_KINDS: [WindowKind; 5] = [
 
 #[test]
 fn app_message_round_trip_encoding() {
-    let mut messages = vec![AppMessage::Reload, AppMessage::Quit];
+    let mut messages = vec![AppMessage::Reload, AppMessage::Quit, AppMessage::Wake];
     messages.extend(ALL_KINDS.map(AppMessage::ShowWindow));
 
     for message in messages {
@@ -38,9 +38,14 @@ fn codes_are_distinct() {
         .iter()
         .map(|kind| AppMessage::ShowWindow(*kind).encode())
         .collect();
-    codes.extend([AppMessage::Reload.encode(), AppMessage::Quit.encode()]);
+    codes.extend([AppMessage::Reload, AppMessage::Quit, AppMessage::Wake].map(AppMessage::encode));
     codes.sort_unstable();
     codes.dedup();
 
-    assert_eq!(codes.len(), ALL_KINDS.len() + 2, "no two messages share a code");
+    assert_eq!(codes.len(), ALL_KINDS.len() + 3, "no two messages share a code");
+}
+
+#[test]
+fn wake_travels_clear_of_the_window_kinds() {
+    assert_eq!(AppMessage::Wake.encode(), 3, "the plain messages count up from one");
 }

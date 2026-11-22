@@ -18,10 +18,14 @@ pub enum AppMessage {
     ShowWindow(WindowKind),
     /// Exit.
     Quit,
+    /// Something is waiting in a queue of the receiving process's own; a thread of that process posts this to wake
+    /// the thread that runs the window.
+    Wake,
 }
 
 const RELOAD: usize = 1;
 const QUIT: usize = 2;
+const WAKE: usize = 3;
 /// The code of the first window kind; the others follow it in order, clear of the plain messages.
 const SHOW_WINDOW_BASE: usize = 0x10;
 
@@ -32,6 +36,7 @@ impl AppMessage {
         match self {
             Self::Reload => RELOAD,
             Self::Quit => QUIT,
+            Self::Wake => WAKE,
             Self::ShowWindow(WindowKind::Settings) => SHOW_WINDOW_BASE,
             Self::ShowWindow(WindowKind::Macros) => SHOW_WINDOW_BASE + 1,
             Self::ShowWindow(WindowKind::Convert) => SHOW_WINDOW_BASE + 2,
@@ -46,6 +51,7 @@ impl AppMessage {
         Some(match code {
             RELOAD => Self::Reload,
             QUIT => Self::Quit,
+            WAKE => Self::Wake,
             code if code == SHOW_WINDOW_BASE => Self::ShowWindow(WindowKind::Settings),
             code if code == SHOW_WINDOW_BASE + 1 => Self::ShowWindow(WindowKind::Macros),
             code if code == SHOW_WINDOW_BASE + 2 => Self::ShowWindow(WindowKind::Convert),

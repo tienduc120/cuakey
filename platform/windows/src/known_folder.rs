@@ -5,7 +5,9 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 
 use windows::Win32::System::Com::CoTaskMemFree;
-use windows::Win32::UI::Shell::{FOLDERID_Desktop, FOLDERID_RoamingAppData, KF_FLAG_DEFAULT, SHGetKnownFolderPath};
+use windows::Win32::UI::Shell::{
+    FOLDERID_Desktop, FOLDERID_Fonts, FOLDERID_RoamingAppData, KF_FLAG_DEFAULT, SHGetKnownFolderPath,
+};
 use windows::core::{GUID, PWSTR};
 
 /// Why a folder could not be found.
@@ -16,6 +18,11 @@ pub struct KnownFolderError(#[source] windows::core::Error);
 /// The user's roaming application data folder, where `CuaKey` keeps its files.
 pub fn roaming_app_data() -> Result<PathBuf, KnownFolderError> {
     known_folder(&FOLDERID_RoamingAppData)
+}
+
+/// The folder Windows keeps its fonts in, where the windows find one that covers Vietnamese.
+pub fn system_fonts() -> Result<PathBuf, KnownFolderError> {
+    known_folder(&FOLDERID_Fonts)
 }
 
 /// The user's desktop folder.
