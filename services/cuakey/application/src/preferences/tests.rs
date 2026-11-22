@@ -1,6 +1,6 @@
 use super::{
     LoadPreferences, LoadPreferencesError, ResetPreferences, ResetPreferencesError, SavePreferences,
-    SavePreferencesError,
+    SavePreferencesError, app_name,
 };
 use crate::testing::{FakePreferencesStore, Health};
 use crate::{
@@ -218,4 +218,16 @@ async fn reset_keeps_the_cause_of_a_storage_failure() {
         matches!(err, ResetPreferencesError::Storage(StoreError::Storage(_))),
         "{err:?}"
     );
+}
+
+#[test]
+fn app_name_keeps_the_lower_case_file_name() {
+    assert_eq!(app_name(r"C:\Games\Game.EXE").unwrap(), "game.exe");
+    assert_eq!(app_name("  Notes.exe ").unwrap(), "notes.exe");
+}
+
+#[test]
+fn app_name_refuses_blank_text() {
+    assert_eq!(app_name("   ").unwrap_err(), UpdateError::EmptyAppName);
+    assert_eq!(app_name(r"C:\Games\").unwrap_err(), UpdateError::EmptyAppName);
 }

@@ -436,6 +436,15 @@ impl PreferencesView {
     }
 }
 
+/// An app's file name in lower case, so `C:\Games\Game.EXE` and `game.exe` name the same app.
+///
+/// # Errors
+///
+/// Refuses text with no file name in it.
+pub fn app_name(text: &str) -> Result<String, UpdateError> {
+    Ok(AppName::new(text)?.as_str().to_owned())
+}
+
 /// Why a set of preferences was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum UpdateError {
