@@ -547,7 +547,8 @@ impl Word {
     }
 }
 
-/// Writes out a g, h, or k that ends `glyphs` after a vowel.
+/// Writes out a g, h, or k that ends `glyphs` after a vowel, where the vowels take the pair it stands for: ah is anh,
+/// but âk stays. The u of uơ takes its horn before the pair, as thuơg is thương.
 fn write_last_pair(glyphs: &mut Vec<Glyph>) -> bool {
     let (Some(last), Some(before)) = (
         glyphs.last().and_then(|g| g.letter()),
@@ -558,9 +559,26 @@ fn write_last_pair(glyphs: &mut Vec<Glyph>) -> bool {
     let Some(pair) = quick::last_pair(last.base()).filter(|_| is_vowel(before)) else {
         return false;
     };
-    glyphs.pop();
-    glyphs.extend(pair.iter().filter_map(|base| letter_glyph(*base, last.case())));
-    true
+    let mut written = glyphs.clone();
+    written.pop();
+    written.extend(pair.iter().filter_map(|base| letter_glyph(*base, last.case())));
+    let fits = letters_of(&written).is_none_or(|letters| {
+        let syllable = Syllable::last(&letters);
+        if syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn] {
+            let at = syllable.vowels_start();
+            if let Some(Glyph::Letter(u)) = written.get_mut(at)
+                && let Some(horned) = Letter::from_parts(BaseLetter::UHorn, u.tone(), u.case())
+            {
+                *u = horned;
+            }
+            return true;
+        }
+        spelling::rhyme_fits(syllable.vowels(), syllable.last_consonants())
+    });
+    if fits {
+        *glyphs = written;
+    }
+    fits
 }
 
 /// Writes out an f, j, or w that starts `glyphs` and is not alone, the pair's second letter in capitals only when the

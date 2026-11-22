@@ -93,3 +93,19 @@ fn uo_with_a_horn_on_the_o_alone_ends_a_syllable() {
         "before a consonant it is ươ"
     );
 }
+
+#[test]
+fn ch_and_nh_follow_only_a_e_circumflex_and_i_and_the_groups_built_on_them() {
+    for word in [
+        "sách", "bếch", "thích", "huých", "khuếch", "oách", "anh", "lênh", "xinh", "huỳnh", "khuếnh", "oanh",
+    ] {
+        assert_eq!(spelled(word, VIETNAMESE), Spelling::Syllable, "{word}");
+    }
+    for word in ["âch", "ânh", "unh", "ônh", "ơch", "ech", "uch"] {
+        assert_ne!(
+            spelled(word, VIETNAMESE),
+            Spelling::Syllable,
+            "{word}: no Vietnamese syllable ends so"
+        );
+    }
+}

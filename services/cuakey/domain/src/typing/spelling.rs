@@ -148,7 +148,7 @@ pub(super) fn spelling(letters: Option<&[BaseLetter]>, consonants: Consonants) -
     let last = syllable.last_consonants();
     let first_ok = first.is_empty() || first_consonants(consonants).any(|c| c == first);
     let last_ok = last.is_empty() || last_consonants(consonants).any(|c| c == last);
-    if first_ok && last_ok && vowels_fit(syllable.vowels(), last.is_empty()) {
+    if first_ok && last_ok && rhyme_fits(syllable.vowels(), last) {
         return Spelling::Syllable;
     }
     let first_starts = first_consonants(consonants).any(|c| c.starts_with(first));
@@ -200,9 +200,18 @@ pub(super) fn is_vowel_group(vowels: &[BaseLetter]) -> bool {
     VOWEL_GROUPS.contains(&vowels)
 }
 
-/// Whether `vowels` may stand in a syllable that is `open` or not: uơ only ends one.
-fn vowels_fit(vowels: &[BaseLetter], open: bool) -> bool {
-    is_vowel_group(vowels) && (open || vowels != [U, OHorn])
+/// The vowels ch and nh follow: a, ê, and i, and the groups built on them (sách, bếch, thích, oách, khuếch, huých).
+const BEFORE_CH_NH: [&[BaseLetter]; 7] = [&[A], &[ECircumflex], &[I], &[Y], &[O, A], &[U, ECircumflex], &[U, Y]];
+
+/// Whether `vowels` are a Vietnamese vowel group that `last` consonants may follow: uơ only ends a syllable, and ch and
+/// nh follow only the vowels that take them.
+pub(super) fn rhyme_fits(vowels: &[BaseLetter], last: &[BaseLetter]) -> bool {
+    let fits_last = match last {
+        [] => true,
+        [C | N, H] => BEFORE_CH_NH.contains(&vowels),
+        _ => vowels != [U, OHorn],
+    };
+    is_vowel_group(vowels) && fits_last
 }
 
 #[cfg(test)]

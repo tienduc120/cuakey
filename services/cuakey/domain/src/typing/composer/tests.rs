@@ -794,6 +794,24 @@ fn quick_last_consonant() {
 }
 
 #[test]
+fn a_quick_last_consonant_is_written_out_only_where_that_makes_a_syllable() {
+    let quick_last = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
+    for (keys, shown) in [
+        ("ah ", "anh "),
+        ("eeh ", "ênh "),
+        ("aak ", "âk "),
+        ("uhf ", "ùh "),
+        ("thuowg ", "thương "),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(&quick_last), keys),
+            shown,
+            "{keys:?}: with spell check off too"
+        );
+    }
+}
+
+#[test]
 fn capitalise_sentence() {
     let mut composer = composer_with(&vietnamese().with(SettingChange::CapitalizeSentences(OnOff::On)));
 
@@ -1291,6 +1309,17 @@ const VNI_KEYBOARD: Keyboard = Keyboard {
 
 /// Real Vietnamese words, each with the tone style it is written in (on: new style).
 const REAL_WORDS: &[(&str, OnOff)] = &[
+    ("sách", OnOff::Off),
+    ("bếch", OnOff::Off),
+    ("thích", OnOff::Off),
+    ("huých", OnOff::Off),
+    ("khuếch", OnOff::Off),
+    ("oách", OnOff::Off),
+    ("anh", OnOff::Off),
+    ("lênh", OnOff::Off),
+    ("xinh", OnOff::Off),
+    ("khuếnh", OnOff::Off),
+    ("oanh", OnOff::Off),
     ("quỳnh", OnOff::Off),
     ("quýnh", OnOff::Off),
     ("quỵt", OnOff::Off),
