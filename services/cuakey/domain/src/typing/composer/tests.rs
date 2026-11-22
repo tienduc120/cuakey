@@ -802,6 +802,7 @@ fn a_quick_last_consonant_is_written_out_only_where_that_makes_a_syllable() {
         ("aak ", "âk "),
         ("uhf ", "ùh "),
         ("thuowg ", "thương "),
+        ("aig ", "aig "),
     ] {
         assert_eq!(
             type_text(&mut composer_with(&quick_last), keys),

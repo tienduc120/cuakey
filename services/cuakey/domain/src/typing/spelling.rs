@@ -203,13 +203,49 @@ pub(super) fn is_vowel_group(vowels: &[BaseLetter]) -> bool {
 /// The vowels ch and nh follow: a, ê, and i, and the groups built on them (sách, bếch, thích, oách, khuếch, huých).
 const BEFORE_CH_NH: [&[BaseLetter]; 7] = [&[A], &[ECircumflex], &[I], &[Y], &[O, A], &[U, ECircumflex], &[U, Y]];
 
-/// Whether `vowels` are a Vietnamese vowel group that `last` consonants may follow: uơ only ends a syllable, and ch and
-/// nh follow only the vowels that take them.
+/// The vowel groups that end a syllable themselves, in a semivowel (mai, kêu, tuổi) or as ia, ua, ưa, and uơ do: no
+/// last consonant follows them.
+const ENDING_GROUPS: [&[BaseLetter]; 30] = [
+    &[A, I],
+    &[A, O],
+    &[A, U],
+    &[A, Y],
+    &[ACircumflex, U],
+    &[ACircumflex, Y],
+    &[E, O],
+    &[ECircumflex, U],
+    &[I, A],
+    &[I, U],
+    &[O, I],
+    &[OCircumflex, I],
+    &[OHorn, I],
+    &[U, A],
+    &[U, I],
+    &[UHorn, A],
+    &[UHorn, I],
+    &[UHorn, U],
+    &[U, OHorn],
+    &[O, A, I],
+    &[O, A, Y],
+    &[O, E, O],
+    &[U, ACircumflex, Y],
+    &[U, OCircumflex, I],
+    &[UHorn, OHorn, I],
+    &[UHorn, OHorn, U],
+    &[I, ECircumflex, U],
+    &[Y, ECircumflex, U],
+    &[U, Y, A],
+    &[U, Y, U],
+];
+
+/// Whether `vowels` are a Vietnamese vowel group that `last` consonants may follow: a group that ends a syllable takes
+/// none, and ch and nh follow only the vowels that take them.
 pub(super) fn rhyme_fits(vowels: &[BaseLetter], last: &[BaseLetter]) -> bool {
     let fits_last = match last {
         [] => true,
+        _ if ENDING_GROUPS.contains(&vowels) => false,
         [C | N, H] => BEFORE_CH_NH.contains(&vowels),
-        _ => vowels != [U, OHorn],
+        _ => true,
     };
     is_vowel_group(vowels) && fits_last
 }

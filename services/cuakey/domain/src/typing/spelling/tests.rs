@@ -109,3 +109,17 @@ fn ch_and_nh_follow_only_a_e_circumflex_and_i_and_the_groups_built_on_them() {
         );
     }
 }
+
+#[test]
+fn a_group_that_ends_a_syllable_takes_no_last_consonant() {
+    for word in ["aim", "maon", "kêut", "ngoin", "tuôit"] {
+        assert_ne!(
+            spelled(word, VIETNAMESE),
+            Spelling::Syllable,
+            "{word}: the group already ends the syllable"
+        );
+    }
+    for word in ["mai", "cao", "kêu", "ngoi", "tuổi"] {
+        assert_eq!(spelled(word, VIETNAMESE), Spelling::Syllable, "{word}");
+    }
+}
