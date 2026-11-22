@@ -222,3 +222,49 @@ fn hotkey_on_an_unknown_key_is_refused() {
         Err(PreferencesError::UnknownHotkeyKey)
     );
 }
+
+#[test]
+fn bare_f5_after_ctrl_shift_is_not_a_hotkey() {
+    let mut rig = Rig::new();
+    rig.send(CTRL, Down);
+    rig.send(SHIFT, Down);
+    rig.send(SHIFT, Up);
+    rig.send(CTRL, Up);
+
+    assert_eq!(rig.send(key(KeyCode::F5), Down), outcome(false, None));
+    assert_eq!(rig.send(key(KeyCode::F5), Up), outcome(false, None));
+}
+
+#[test]
+fn key_only_hotkey_fires_after_earlier_modifier_use() {
+    let f9 = Hotkey::new(ModifierSet::empty(), Some(KeyCode::F9)).unwrap();
+    let settings = Settings::default().with(SettingChange::QuickConvertHotkey(Some(f9)));
+    let mut rig = Rig::with(&settings);
+    rig.send(CTRL, Down);
+    rig.send(key(KeyCode::C), Down);
+    rig.send(key(KeyCode::C), Up);
+    rig.send(CTRL, Up);
+
+    assert_eq!(rig.send(key(KeyCode::F9), Down), outcome(true, None));
+    assert_eq!(
+        rig.send(key(KeyCode::F9), Up),
+        outcome(true, Some(HotkeyAction::QuickConvert))
+    );
+}
+
+#[test]
+fn chord_survives_a_partial_release() {
+    let mut rig = Rig::new();
+    rig.send(CTRL, Down);
+    rig.send(SHIFT, Down);
+
+    // Shift comes up before any key, so the switch hotkey fires then.
+    assert_eq!(rig.send(SHIFT, Up), outcome(false, Some(HotkeyAction::SwitchLanguage)));
+    // Ctrl is still held, so the chord is still Ctrl+Shift and F5 completes the settings hotkey.
+    assert_eq!(rig.send(key(KeyCode::F5), Down), outcome(true, None));
+    assert_eq!(
+        rig.send(key(KeyCode::F5), Up),
+        outcome(true, Some(HotkeyAction::OpenSettings))
+    );
+    assert_eq!(rig.send(CTRL, Up), outcome(false, None));
+}

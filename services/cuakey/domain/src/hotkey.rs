@@ -235,6 +235,9 @@ impl HotkeyMatcher {
             bindings.modifier_only(self.chord)
         };
         self.spent = OnOff::On;
+        if self.held.is_empty() {
+            self.chord = ModifierSet::empty();
+        }
         HotkeyOutcome::new(false, fire)
     }
 
