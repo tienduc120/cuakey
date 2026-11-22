@@ -7,6 +7,8 @@ pub enum PreferencesError {
     EmptyAppName,
     #[error("a hotkey needs a modifier or a key")]
     EmptyHotkey,
+    #[error("a hotkey cannot use an unknown key")]
+    UnknownHotkeyKey,
     #[error("the switch hotkey and the settings hotkey must differ")]
     SwitchEqualsSettings,
     #[error("the quick convert hotkey must differ from the switch and settings hotkeys")]
