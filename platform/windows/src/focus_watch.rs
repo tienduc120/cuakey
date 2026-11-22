@@ -2,6 +2,8 @@
 
 #[cfg(any(windows, test))]
 use std::fmt;
+#[cfg(any(windows, test))]
+use std::sync::Arc;
 
 #[cfg(any(windows, test))]
 use platform_clock::Timestamp;
@@ -81,6 +83,44 @@ fn request_recheck<E>(cell: &FocusCell, post: impl FnOnce(u64) -> Result<(), E>)
     post(cell.invalidate())
 }
 
+/// The focus changes that arrive while the watch is still classifying an earlier one, kept apart from the rest of the
+/// watch's state so the callback can reach them while that state is in use.
+#[cfg(any(windows, test))]
+struct MissedFocus<W> {
+    cell: Arc<FocusCell>,
+    /// The window of the latest missed change, when the system said where it happened.
+    latest: Option<W>,
+    /// A message to answer the missed changes is already queued.
+    queued: bool,
+}
+
+#[cfg(any(windows, test))]
+impl<W> MissedFocus<W> {
+    fn new(cell: Arc<FocusCell>) -> Self {
+        Self {
+            cell,
+            latest: None,
+            queued: false,
+        }
+    }
+
+    /// Records a focus change, in `window` when known, that cannot be answered yet. The focus is marked pending at
+    /// once, so the answer in progress is refused rather than recorded for a control the focus has left. Returns
+    /// whether a message must be queued to answer it: only for the first change missed since the last answer, so a
+    /// burst of changes costs one more read, not one each.
+    fn record(&mut self, window: Option<W>) -> bool {
+        self.cell.invalidate();
+        self.latest = window;
+        !std::mem::replace(&mut self.queued, true)
+    }
+
+    /// The window of the latest missed change, taken to answer it; the next missed change queues a message again.
+    fn take(&mut self) -> Option<W> {
+        self.queued = false;
+        self.latest.take()
+    }
+}
+
 #[cfg(windows)]
 pub use self::watch::{FocusWatch, StartFocusWatchError, StopFocusWatchError};
 
@@ -92,7 +132,6 @@ mod watch {
     use std::io::{self, Write as _};
     use std::marker::PhantomData;
     use std::path::Path;
-    use std::ptr;
     use std::sync::{Arc, mpsc};
 
     use platform_clock::Clock;
@@ -119,7 +158,7 @@ mod watch {
     };
     use windows::core::PWSTR;
 
-    use super::{FocusChange, app_name, app_window, log_line, next_change, request_recheck};
+    use super::{FocusChange, MissedFocus, app_name, app_window, log_line, next_change, request_recheck};
     use crate::focus_rules::style_says_password;
     use crate::{ElementFlags, ElementProps, FocusCell, FocusClass, classify};
 
@@ -253,9 +292,9 @@ mod watch {
 
     /// The thread message that asks for a recheck, with the generation its answer must carry in `wParam`.
     const RECHECK_MESSAGE: u32 = WM_APP;
-    /// The thread message for a focus change that arrived while another was being classified, with the window it
-    /// happened in, or zero, in `wParam`.
-    const FOCUS_MOVED_MESSAGE: u32 = WM_APP + 1;
+    /// The thread message that answers the focus changes missed while another was being classified; [`MISSED`] holds
+    /// the latest one's window.
+    const MISSED_FOCUS_MESSAGE: u32 = WM_APP + 1;
 
     /// How long UI Automation may take to reach an app, and then to get its answer, before the read fails and the
     /// control is Unknown. Both keep a hung app from holding up the classifications after it.
@@ -328,8 +367,8 @@ mod watch {
     }
 
     impl Watcher {
-        /// The focus moved, in `window` when the system said where: a new generation, and its answer.
-        fn answer_focus_moved(&mut self, window: Option<HWND>) {
+        /// A new generation, and its answer, for a focus change in `window` when the system said where.
+        fn answer_afresh(&mut self, window: Option<HWND>) {
             let generation = self.cell.invalidate();
             self.answer(generation, window);
         }
@@ -358,6 +397,9 @@ mod watch {
         /// The watch thread's state. The system calls the `WinEvent` callback as a plain function, so this is where it
         /// finds it.
         static WATCHER: RefCell<Option<Watcher>> = const { RefCell::new(None) };
+
+        /// The focus changes missed while [`WATCHER`] is busy, which the callback can still reach then.
+        static MISSED: RefCell<Option<MissedFocus<HWND>>> = const { RefCell::new(None) };
     }
 
     /// The watch thread: sets up, reports, and runs the message loop that delivers focus changes and rechecks until
@@ -520,12 +562,13 @@ mod watch {
         unsafe { GetWindowLongPtrW(window, GWL_STYLE) }
     }
 
-    /// The watcher, installed for this thread until the guard drops and releases it with its UI Automation objects.
-    /// The slot is the thread's own, so the guard cannot leave the thread.
+    /// The watcher and its record of missed changes, installed for this thread until the guard drops and releases them
+    /// with the UI Automation objects. The slots are the thread's own, so the guard cannot leave the thread.
     struct InstalledWatcher(PhantomData<*const ()>);
 
     impl InstalledWatcher {
         fn install(watcher: Watcher) -> Self {
+            MISSED.set(Some(MissedFocus::new(Arc::clone(&watcher.cell))));
             WATCHER.set(Some(watcher));
             Self(PhantomData)
         }
@@ -534,6 +577,7 @@ mod watch {
     impl Drop for InstalledWatcher {
         fn drop(&mut self) {
             WATCHER.set(None);
+            MISSED.set(None);
         }
     }
 
@@ -585,10 +629,35 @@ mod watch {
         _thread: u32,
         _time: u32,
     ) {
-        if !with_watcher(|watcher| watcher.answer_focus_moved(present(window))) {
-            // The handle is only an identifier here, never dereferenced, so its address is all the message carries.
-            requeue(FOCUS_MOVED_MESSAGE, WPARAM(window.0.addr()));
+        let window = present(window);
+        if !with_watcher(|watcher| watcher.answer_afresh(window)) {
+            miss_focus_change(window);
         }
+    }
+
+    /// A focus change found the watcher busy. Recording it marks the focus pending at once; the first change missed
+    /// since the last answer queues the one message that answers the latest of them.
+    fn miss_focus_change(window: Option<HWND>) {
+        if with_missed(|missed| missed.record(window)) != Some(true) {
+            return;
+        }
+        if let Err(error) = post(current_thread_id(), MISSED_FOCUS_MESSAGE, WPARAM(0)) {
+            // No message will answer the record, so it is cleared for the next missed change to queue one; until
+            // then the focus stays pending and keys pass through.
+            with_missed(MissedFocus::take);
+            tracing::warn!(error = ?error, "could not queue a missed focus change for later");
+        }
+    }
+
+    /// Runs `work` on the record of missed changes, or returns `None` when the thread's state is gone.
+    fn with_missed<T>(work: impl FnOnce(&mut MissedFocus<HWND>) -> T) -> Option<T> {
+        MISSED
+            .try_with(|slot| {
+                let mut missed = slot.try_borrow_mut().ok()?;
+                missed.as_mut().map(work)
+            })
+            .ok()
+            .flatten()
     }
 
     /// Runs `work` on the watcher and returns `true`, or returns `false` when the watcher is busy: the system called
@@ -631,29 +700,21 @@ mod watch {
         }
     }
 
-    /// Handles a message posted to the thread itself. One that finds the watcher busy goes back on the queue.
+    /// Handles a message posted to the thread itself. The message loop holds no borrow of the watcher, so it is free
+    /// here.
     fn handle_thread_message(message: u32, word: WPARAM) {
-        let handled = match message {
-            RECHECK_MESSAGE => match u64::try_from(word.0) {
-                Ok(generation) => with_watcher(|watcher| watcher.answer(generation, None)),
+        match message {
+            RECHECK_MESSAGE => {
                 // Only a generation `recheck` posted arrives here, and it always fits.
-                Err(_) => true,
-            },
-            FOCUS_MOVED_MESSAGE => {
-                let window = present(HWND(ptr::without_provenance_mut(word.0)));
-                with_watcher(|watcher| watcher.answer_focus_moved(window))
+                if let Ok(generation) = u64::try_from(word.0) {
+                    with_watcher(|watcher| watcher.answer(generation, None));
+                }
             }
-            _ => true,
-        };
-        if !handled {
-            requeue(message, word);
-        }
-    }
-
-    /// Puts a message back on this thread's queue, to be handled once the work in progress is done.
-    fn requeue(message: u32, word: WPARAM) {
-        if let Err(error) = post(current_thread_id(), message, word) {
-            tracing::warn!(error = ?error, "could not queue a focus change for later");
+            MISSED_FOCUS_MESSAGE => {
+                let window = with_missed(MissedFocus::take).flatten();
+                with_watcher(|watcher| watcher.answer_afresh(window));
+            }
+            _ => {}
         }
     }
 

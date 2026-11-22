@@ -1,8 +1,9 @@
 use std::cell::Cell;
+use std::sync::Arc;
 
 use platform_clock::Timestamp;
 
-use super::{FocusChange, app_name, app_window, log_line, next_change, request_recheck};
+use super::{FocusChange, MissedFocus, app_name, app_window, log_line, next_change, request_recheck};
 use crate::{ElementFlags, ElementProps, FocusCell, FocusClass};
 
 #[test]
@@ -90,7 +91,7 @@ fn log_line_reports_a_failed_read() {
 #[test]
 #[ignore = "drives the real UI Automation client, which needs a signed-in desktop"]
 fn the_watch_answers_a_recheck() {
-    use std::sync::{Arc, mpsc};
+    use std::sync::mpsc;
     use std::time::Duration;
 
     use platform_clock::FixedClock;
@@ -190,4 +191,40 @@ fn an_event_window_needs_no_further_lookup() {
         (Some(1), 0),
         "the system calls that find the focus in front are made only for a recheck"
     );
+}
+
+#[test]
+fn a_missed_focus_change_refuses_the_answer_in_progress() {
+    let cell = Arc::new(FocusCell::new());
+    let in_progress = cell.invalidate();
+    let mut missed = MissedFocus::new(Arc::clone(&cell));
+
+    missed.record(Some(1));
+
+    assert!(
+        !cell.set(FocusClass::Text, in_progress),
+        "the class read for the control the focus has left is refused"
+    );
+    assert_eq!(
+        cell.get(),
+        FocusClass::Pending,
+        "the hook lets keys through until the missed change is answered"
+    );
+}
+
+#[test]
+fn missed_focus_changes_queue_one_answer_for_the_latest() {
+    let mut missed = MissedFocus::new(Arc::new(FocusCell::new()));
+
+    let queued = [Some(1), Some(2), Some(3)].map(|window| missed.record(window));
+    let answered = missed.take();
+    let queued_again = missed.record(Some(4));
+
+    assert_eq!(
+        queued,
+        [true, false, false],
+        "however many changes arrive while the watcher is busy, one message answers them"
+    );
+    assert_eq!(answered, Some(3), "the answer is about the latest one");
+    assert!(queued_again, "a change missed after that answer queues a message again");
 }
