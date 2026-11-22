@@ -1,8 +1,16 @@
 use std::cell::Cell;
 use std::sync::Arc;
+#[cfg(windows)]
+use std::sync::mpsc;
+#[cfg(windows)]
+use std::time::Duration;
 
+#[cfg(windows)]
+use platform_clock::FixedClock;
 use platform_clock::Timestamp;
 
+#[cfg(windows)]
+use super::FocusWatch;
 use super::{FocusChange, MissedFocus, app_name, app_window, log_line, next_change, request_recheck};
 use crate::{ElementFlags, ElementProps, FocusCell, FocusClass};
 
@@ -87,17 +95,13 @@ fn log_line_reports_a_failed_read() {
     );
 }
 
+/// How long a test on the real desktop waits for the watch to hand on a change.
 #[cfg(windows)]
-#[test]
-#[ignore = "drives the real UI Automation client, which needs a signed-in desktop"]
-fn the_watch_answers_a_recheck() {
-    use std::sync::mpsc;
-    use std::time::Duration;
+const LIVE_WAIT: Duration = Duration::from_secs(10);
 
-    use platform_clock::FixedClock;
-
-    use super::FocusWatch;
-
+/// A watch on the real desktop, with the changes it hands on.
+#[cfg(windows)]
+fn start_live_watch() -> (Arc<FocusCell>, mpsc::Receiver<FocusChange>, FocusWatch) {
     let cell = Arc::new(FocusCell::new());
     let (changes, received) = mpsc::channel();
     let watch = FocusWatch::start(
@@ -109,11 +113,38 @@ fn the_watch_answers_a_recheck() {
         FixedClock(Timestamp::UNIX_EPOCH),
     )
     .unwrap();
+    (cell, received, watch)
+}
 
-    watch.recheck();
-    let change = received.recv_timeout(Duration::from_secs(10)).unwrap();
+#[cfg(windows)]
+#[test]
+#[ignore = "drives the real UI Automation client, which needs a signed-in desktop"]
+fn the_watch_classifies_the_focus_at_start() {
+    let (cell, received, watch) = start_live_watch();
+
+    let change = received.recv_timeout(LIVE_WAIT).unwrap();
     watch.stop().unwrap();
 
+    assert_ne!(
+        change.class,
+        FocusClass::Pending,
+        "the focus is classified without waiting for it to move or for a recheck"
+    );
+    assert_ne!(cell.get(), FocusClass::Pending, "and the class is in the cell");
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "drives the real UI Automation client, which needs a signed-in desktop"]
+fn the_watch_answers_a_recheck() {
+    let (cell, received, watch) = start_live_watch();
+    let at_start = received.recv_timeout(LIVE_WAIT).unwrap();
+
+    watch.recheck();
+    let change = received.recv_timeout(LIVE_WAIT).unwrap();
+    watch.stop().unwrap();
+
+    assert_ne!(at_start.class, FocusClass::Pending, "the start gets its own answer");
     assert_ne!(
         change.class,
         FocusClass::Pending,

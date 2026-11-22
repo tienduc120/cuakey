@@ -367,7 +367,8 @@ mod watch {
     }
 
     impl Watcher {
-        /// A new generation, and its answer, for a focus change in `window` when the system said where.
+        /// A new generation, and its answer: for a focus change, in `window` when the system said where, and for the
+        /// focus as it stands at start.
         fn answer_afresh(&mut self, window: Option<HWND>) {
             let generation = self.cell.invalidate();
             self.answer(generation, window);
@@ -410,6 +411,9 @@ mod watch {
                 // The thread has its message queue, so rechecks and the quit message from `stop` can reach it. If
                 // `start` is gone, nobody could stop the watch, so it comes down at once.
                 if ready.send(Ok(current_thread_id())).is_ok() {
+                    // Nothing else would classify the focus until it moves, and until then the hook lets every key
+                    // through.
+                    with_watcher(|watcher| watcher.answer_afresh(None));
                     pump_until_quit();
                 }
                 drop(running);
