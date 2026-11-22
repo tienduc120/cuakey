@@ -1041,6 +1041,23 @@ fn a_consonant_after_uo_with_a_horn_on_the_o_puts_one_on_the_u() {
 }
 
 #[test]
+fn half_a_horned_uo_takes_the_other_horn_once_the_syllable_goes_on() {
+    for (keys, shown) in [
+        ("ngu[if", "người"),
+        ("bwoms", "bướm"),
+        ("nwoc", "nươc"),
+        ("ngwoi", "ngươi"),
+    ] {
+        assert_eq!(
+            type_text(&mut telex(), keys),
+            shown,
+            "{keys:?}: ươ before a consonant or i"
+        );
+    }
+    assert_eq!(type_text(&mut telex(), "thu[r"), "thuở", "an open uơ stays");
+}
+
+#[test]
 fn d_strokes_the_d_that_starts_the_last_syllable() {
     assert_eq!(
         type_text(&mut telex(), "download"),

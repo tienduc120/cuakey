@@ -426,8 +426,8 @@ impl Word {
         self.keys.retain(|key| key.at < len);
     }
 
-    /// Puts the horn on the u of uơ once a Vietnamese last consonant follows: uơ ends a syllable, ươ goes before a
-    /// consonant. A quick last consonant does not count until it is written out.
+    /// Puts the missing horn on uơ or ưo once a Vietnamese last consonant or an i follows: uơ ends a syllable, ươ goes on
+    /// (bướm, người). A quick last consonant does not count until it is written out.
     fn join_horns(&mut self) {
         let as_written = Consonants {
             zwjf_first: OnOff::Off,
@@ -436,11 +436,16 @@ impl Word {
         };
         let (letters, from) = self.tail();
         let syllable = Syllable::last(&letters).after(from);
-        let horn_on_o_alone = syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn];
+        let start = syllable.vowels_start();
+        let (rest, half) = match syllable.vowels() {
+            [BaseLetter::U, BaseLetter::OHorn, rest @ ..] => (rest, Some((start, BaseLetter::UHorn))),
+            [BaseLetter::UHorn, BaseLetter::O, rest @ ..] => (rest, Some((start + 1, BaseLetter::OHorn))),
+            _ => (&[][..], None),
+        };
         let closed =
             syllable.ending() == Ending::Closed && spelling::may_end_syllable(syllable.last_consonants(), as_written);
-        if horn_on_o_alone && closed {
-            self.set_base(syllable.vowels_start(), BaseLetter::UHorn);
+        if let Some((at, horned)) = half.filter(|_| closed || rest == [BaseLetter::I]) {
+            self.set_base(at, horned);
         }
     }
 
