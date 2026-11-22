@@ -82,14 +82,6 @@ const FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 18] = [
     (BaseLetter::UHorn, BaseLetter::U),
 ];
 
-/// Pairs Vietnamese lacks that carry the tone on their first vowel in an open syllable, new style too.
-const OPEN_FIRST_VOWEL_PAIRS: [(BaseLetter, BaseLetter); 4] = [
-    (BaseLetter::I, BaseLetter::E),
-    (BaseLetter::I, BaseLetter::I),
-    (BaseLetter::O, BaseLetter::U),
-    (BaseLetter::U, BaseLetter::U),
-];
-
 /// The groups of three vowels Vietnamese writes, which carry the tone on their middle vowel.
 const VIETNAMESE_TRIPLES: [&[BaseLetter]; 11] = [
     &[BaseLetter::O, BaseLetter::A, BaseLetter::I],
@@ -262,31 +254,33 @@ fn tone_vowel(vowels: &[BaseLetter], ending: Ending, style: ToneStyle) -> Option
     }
 }
 
-/// Which vowel of a pair carries the tone: the second of oa, oe, uy before a consonant or in the new style, a vowel
-/// with a mark of its own after another, the second of oo (moóc), and the second of uo written without its marks. The
-/// other Vietnamese pairs end a syllable and carry it on their first vowel, which keeps it before a consonant only
-/// when it has a mark of its own (ưi, but uac). Pairs Vietnamese lacks carry it on the first vowel old style, and new
-/// style on the second, but for the open ie, ii, ou, and uu.
+/// Which vowel of a pair carries the tone: the second of oa, oe, uy, and of uo and oo written without their marks,
+/// before a consonant (toán, moóc) or else in the new style; a vowel with a mark of its own after another; the a of ua
+/// before a consonant. The other Vietnamese pairs end a syllable and carry it on their first vowel (múa, mái). Pairs
+/// Vietnamese lacks carry it on the first vowel old style; new style on the first before o or u, but for the o of ưo,
+/// and after i or y in an open syllable (ịo, ỷa), on the second otherwise (eá, iyá before a consonant), but for the ii of
+/// iìn.
 fn pair_tone_vowel(first: BaseLetter, second: BaseLetter, ending: Ending, style: ToneStyle) -> usize {
-    let second_in_new_style = usize::from(style == ToneStyle::New);
-    if is_glide_pair(first, second) {
-        return if ending == Ending::Closed {
-            1
-        } else {
-            second_in_new_style
-        };
+    let closed = ending == Ending::Closed;
+    let like_a_glide =
+        is_glide_pair(first, second) || matches!((first, second), (BaseLetter::U | BaseLetter::O, BaseLetter::O));
+    if like_a_glide {
+        return usize::from(closed || style == ToneStyle::New);
     }
-    if has_mark(second) || matches!((first, second), (BaseLetter::U | BaseLetter::O, BaseLetter::O)) {
+    if has_mark(second) {
         return 1;
     }
-    let open = ending == Ending::Open;
     if FIRST_VOWEL_PAIRS.contains(&(first, second)) {
-        return usize::from(!open && !has_mark(first));
+        return usize::from(closed && (first, second) == (BaseLetter::U, BaseLetter::A));
     }
-    if open && OPEN_FIRST_VOWEL_PAIRS.contains(&(first, second)) {
-        0
-    } else {
-        second_in_new_style
+    if style == ToneStyle::Old {
+        return 0;
+    }
+    match (first, second) {
+        (BaseLetter::I | BaseLetter::Y, _) => usize::from(closed && (first, second) != (BaseLetter::I, BaseLetter::I)),
+        (BaseLetter::UHorn, BaseLetter::O) => 1,
+        (_, BaseLetter::O | BaseLetter::U) => 0,
+        _ => 1,
     }
 }
 

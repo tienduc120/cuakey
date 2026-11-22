@@ -204,18 +204,40 @@ fn the_last_syllable_of_a_longer_word_starts_after_the_vowel_before() {
 }
 
 #[test]
-fn vowels_vietnamese_lacks_carry_the_tone_on_the_first_old_style_and_the_second_new_style() {
-    assert_eq!(tone_on("viet", ToneStyle::Old), Some(1), "i of viet");
-    assert_eq!(tone_on("viet", ToneStyle::New), Some(2), "e of viet");
-    assert_eq!(tone_on("nea", ToneStyle::Old), Some(1), "e of nea");
-    assert_eq!(tone_on("nea", ToneStyle::New), Some(2), "a of nea");
+fn vowels_vietnamese_lacks_carry_the_tone_on_the_first_old_style() {
+    for word in ["viet", "nea", "ya", "keu", "yan"] {
+        let first = word.chars().position(|c| "aeiouyư".contains(c)).unwrap();
+        assert_eq!(tone_on(word, ToneStyle::Old), Some(first), "{word}");
+    }
     assert_eq!(tone_on("ưo", ToneStyle::Old), Some(0), "ư of ưo");
-    assert_eq!(tone_on("ưo", ToneStyle::New), Some(1), "o of ưo");
     assert_eq!(
         tone_on("phuong", ToneStyle::Old),
         Some(3),
-        "uo, written without its marks, as ươ or uô"
+        "a closed uo, written without its marks, as ươ or uô"
     );
+}
+
+#[test]
+fn new_style_puts_it_on_the_first_before_o_or_u_and_after_an_open_i_or_y() {
+    for (word, at) in [("keu", 1), ("hou", 1), ("houn", 1), ("io", 0), ("ya", 0), ("nyo", 1)] {
+        assert_eq!(tone_on(word, ToneStyle::New), Some(at), "{word}: the first vowel");
+    }
+}
+
+#[test]
+fn new_style_puts_it_on_the_second_vowel_of_other_pairs_vietnamese_lacks() {
+    for (word, at) in [("nea", 2), ("ae", 1), ("ưo", 1), ("viet", 2), ("yan", 1), ("phuong", 3)] {
+        assert_eq!(tone_on(word, ToneStyle::New), Some(at), "{word}: the second vowel");
+    }
+}
+
+#[test]
+fn an_open_uo_or_oo_carries_the_tone_like_oa_first_old_style_second_new_style() {
+    for word in ["uo", "huo", "oo"] {
+        let last = word.chars().count() - 1;
+        assert_eq!(tone_on(word, ToneStyle::Old), Some(last - 1), "{word}: old style");
+        assert_eq!(tone_on(word, ToneStyle::New), Some(last), "{word}: new style");
+    }
 }
 
 #[test]
@@ -233,25 +255,25 @@ fn three_vowels_vietnamese_lacks_carry_it_on_the_middle_one_old_style() {
 #[test]
 fn open_ie_ou_uu_carry_the_tone_on_their_first_vowel_new_style_too() {
     assert_eq!(tone_on("tie", ToneStyle::New), Some(1), "i of tie");
-    assert_eq!(tone_on("tiet", ToneStyle::New), Some(2), "e of a closed tiet");
     assert_eq!(tone_on("hou", ToneStyle::New), Some(1), "o of hou");
     assert_eq!(tone_on("nguu", ToneStyle::New), Some(2), "the first u of uu");
 }
 
 #[test]
-fn a_pair_that_only_ends_a_syllable_carries_the_tone_on_its_second_vowel_before_a_consonant() {
-    assert_eq!(tone_on("luac", ToneStyle::Old), Some(2), "a of uac");
-    assert_eq!(tone_on("lua", ToneStyle::Old), Some(1), "u of an open ua");
-    assert_eq!(
-        tone_on("ưit", ToneStyle::Old),
-        Some(0),
-        "ư keeps it, having a mark of its own"
-    );
+fn a_pair_that_only_ends_a_syllable_keeps_the_tone_on_its_first_vowel_before_a_consonant_but_ua() {
+    for style in [ToneStyle::Old, ToneStyle::New] {
+        assert_eq!(tone_on("lua", style), Some(1), "{style:?}: u of an open ua");
+        assert_eq!(tone_on("luac", style), Some(2), "{style:?}: a of uac");
+        assert_eq!(tone_on("maim", style), Some(1), "{style:?}: a of aim");
+        assert_eq!(tone_on("leot", style), Some(1), "{style:?}: e of eot");
+        assert_eq!(tone_on("ưit", style), Some(0), "{style:?}: ư of ưit");
+    }
     assert_eq!(
         tone_on("wii", ToneStyle::New),
         Some(1),
         "an open ii keeps it on the first i, new style too"
     );
+    assert_eq!(tone_on("wiin", ToneStyle::New), Some(1), "and so does a closed one");
 }
 
 #[test]
