@@ -1,4 +1,7 @@
-use crate::{CodeTable, Hotkey, InputMethod, KeyCode, Modifier, ModifierSet, OnOff, PreferencesError, SettingChange};
+use crate::{
+    CodeTable, ConvertOptions, Hotkey, InputMethod, KeyCode, Modifier, ModifierSet, OnOff, PreferencesError,
+    SettingChange,
+};
 
 /// Declares read-only accessors for fields that are all `Copy`.
 macro_rules! getters {
@@ -211,12 +214,15 @@ impl Default for BehaviourSettings {
 pub struct ConvertSettings {
     quick_convert_hotkey: Option<Hotkey>,
     notify_when_done: OnOff,
+    /// What the conversion window last chose; quick convert reuses it.
+    options: ConvertOptions,
 }
 
 impl ConvertSettings {
     getters! {
         quick_convert_hotkey: Option<Hotkey>,
         notify_when_done: OnOff,
+        options: ConvertOptions,
     }
 }
 
@@ -225,6 +231,7 @@ impl Default for ConvertSettings {
         Self {
             quick_convert_hotkey: None,
             notify_when_done: OnOff::On,
+            options: ConvertOptions::new(CodeTable::Unicode, CodeTable::Unicode),
         }
     }
 }
@@ -310,6 +317,7 @@ impl Settings {
             SettingChange::OnlyTextBoxes(v) => self.behaviours.only_text_boxes = v,
             SettingChange::QuickConvertHotkey(v) => self.convert.quick_convert_hotkey = v,
             SettingChange::NotifyWhenConvertDone(v) => self.convert.notify_when_done = v,
+            SettingChange::ConvertOptions(v) => self.convert.options = v,
         }
     }
 

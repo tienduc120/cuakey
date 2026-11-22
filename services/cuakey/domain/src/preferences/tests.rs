@@ -2,8 +2,8 @@ use alloc::collections::{BTreeMap, BTreeSet};
 
 use super::Preferences;
 use crate::{
-    AppName, AppState, CodeTable, Hotkey, InputMethod, KeyCode, Language, Modifier, ModifierSet, OnOff,
-    PreferencesError, ProfileId, SettingChange, Settings,
+    AppName, AppState, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, KeyCode, Language, Modifier,
+    ModifierSet, OnOff, PreferencesError, ProfileId, SettingChange, Settings,
 };
 
 fn mods(list: &[Modifier]) -> ModifierSet {
@@ -304,4 +304,29 @@ fn restore_does_not_replace_stored_values_with_defaults() {
 #[test]
 fn a_blank_profile_id_is_refused() {
     assert_eq!(ProfileId::new("  "), Err(PreferencesError::EmptyId));
+}
+
+#[test]
+fn the_conversion_options_default_to_unicode_with_nothing_changed() {
+    let preferences = fresh();
+
+    let options = preferences.settings().convert().options();
+
+    assert_eq!(
+        options,
+        ConvertOptions::new(CodeTable::Unicode, CodeTable::Unicode),
+        "unicode to unicode, case and accents kept"
+    );
+}
+
+#[test]
+fn the_conversion_options_can_be_set() {
+    let mut preferences = fresh();
+    let options = ConvertOptions::new(CodeTable::VniWindows, CodeTable::Unicode)
+        .with_case(ConvertCase::Upper)
+        .with_remove_accents(OnOff::On);
+
+    preferences.update(SettingChange::ConvertOptions(options)).unwrap();
+
+    assert_eq!(preferences.settings().convert().options(), options);
 }

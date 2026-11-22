@@ -1,4 +1,4 @@
-use crate::{CodeTable, Hotkey, InputMethod, OnOff};
+use crate::{CodeTable, ConvertOptions, Hotkey, InputMethod, OnOff};
 
 /// One change to one setting. `Preferences::update` applies it only if the result is still valid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,4 +34,5 @@ pub enum SettingChange {
     OnlyTextBoxes(OnOff),
     QuickConvertHotkey(Option<Hotkey>),
     NotifyWhenConvertDone(OnOff),
+    ConvertOptions(ConvertOptions),
 }
