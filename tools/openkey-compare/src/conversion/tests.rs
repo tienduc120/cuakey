@@ -42,6 +42,7 @@ fn texts_write_line_breaks_and_invisible_characters_as_escapes() {
 fn both_engines_read_the_text_as_the_units_of_the_from_table() {
     assert_eq!(
         input("tiếng", CodeTable::VniWindows)
+            .unwrap()
             .chars()
             .map(u32::from)
             .collect::<Vec<_>>(),
@@ -51,17 +52,38 @@ fn both_engines_read_the_text_as_the_units_of_the_from_table() {
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        input("a😀", CodeTable::Tcvn3),
-        "a😀",
+        input("a😀", CodeTable::Unicode).as_deref(),
+        Some("a😀"),
         "an emoji is no unit of any table and stays itself"
     );
+}
+
+#[test]
+fn a_single_byte_table_converts_only_text_it_can_write() {
+    assert_eq!(
+        input("tiê\u{301}ng", CodeTable::Tcvn3),
+        None,
+        "TCVN3 writes no combining mark"
+    );
+    assert_eq!(
+        input("tiê\u{301}ng", CodeTable::Cp1258),
+        None,
+        "the mark is not written as a CP1258 byte"
+    );
+    assert_eq!(
+        input("a😀", CodeTable::VniWindows),
+        None,
+        "no single-byte table writes an emoji"
+    );
+    assert!(input("tiê\u{301}ng", CodeTable::UnicodeCompound).is_some());
+    assert!(input("Tiếng Việt", CodeTable::Cp1258).is_some());
 }
 
 #[test]
 fn cuakey_converts_unicode_to_vni_windows() {
     let combo = unicode_to(CodeTable::VniWindows, ConvertCase::Keep);
 
-    let output = cuakey_output(&input("Tiếng", CodeTable::Unicode), combo);
+    let output = cuakey_output(&input("Tiếng", CodeTable::Unicode).unwrap(), combo);
 
     assert_eq!(output, encode("Tiếng", CodeTable::VniWindows));
 }
@@ -71,7 +93,7 @@ fn openkey_raises_vietnamese_letters_when_converting_to_upper_case() {
     let mut engine = OpenKey::take().unwrap();
     let combo = unicode_to(CodeTable::Unicode, ConvertCase::Upper);
 
-    let output = openkey_output(&mut engine, &input("việt nam", CodeTable::Unicode), combo);
+    let output = openkey_output(&mut engine, &input("việt nam", CodeTable::Unicode).unwrap(), combo);
 
     assert_eq!(output, Some(encode("VIỆT NAM", CodeTable::Unicode)));
 }
@@ -81,7 +103,7 @@ fn openkey_gives_nothing_when_its_conversion_stops_with_an_error() {
     let mut engine = OpenKey::take().unwrap();
     let combo = unicode_to(CodeTable::VniWindows, ConvertCase::Upper);
 
-    let output = openkey_output(&mut engine, &input("nhé", CodeTable::Unicode), combo);
+    let output = openkey_output(&mut engine, &input("nhé", CodeTable::Unicode).unwrap(), combo);
 
     assert_eq!(
         output, None,

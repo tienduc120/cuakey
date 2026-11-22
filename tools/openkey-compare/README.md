@@ -34,7 +34,7 @@ The corrected host applies OpenKey's answers the way OpenKey's Windows host does
 | `sentences.txt` | Telex, Simple Telex |
 | `macros.txt` | Telex, in Vietnamese and English |
 
-Each text of `convert.txt` (Unicode; `\n` a line break, `\\` a backslash, `\u{301}` a combining mark) is written in each code table and converted by both engines to every code table, with each case option (keep, upper, lower, sentence start, each word), with and without accents: 250 settings. The outputs are compared unit for unit, and a conversion that makes OpenKey stop with an error is reported as such.
+Each text of `convert.txt` (Unicode; `\n` a line break, `\\` a backslash, `\u{301}` a combining mark) is written in each code table and converted by both engines to every code table, with each case option (keep, upper, lower, sentence start, each word), with and without accents: 250 settings. A text is converted from TCVN3, VNI Windows or CP1258 only when that table can write all of it (a combining mark or an emoji it cannot write is not text in that table). The case options are the boxes of OpenKey's conversion window, and keep is all of them unticked. The outputs are compared unit for unit, and a conversion that makes OpenKey stop with an error is reported as such.
 
 A full run takes about eight seconds, so no combination is left out. Random mode types seeded sequences of letters, mark and tone keys, Space, Backspace, punctuation, clicks, and Ctrl shortcuts, each ended by a Space and typed under random settings.
 

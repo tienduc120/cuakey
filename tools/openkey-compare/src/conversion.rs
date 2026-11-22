@@ -169,9 +169,16 @@ fn unicode_escape(rest: &mut std::str::Chars<'_>) -> Result<char, String> {
         .ok_or_else(malformed)
 }
 
-/// `text` written in `from`, one character per code unit, as both engines read it. A character no table writes in one
-/// unit (an emoji) stays itself.
-pub fn input(text: &str, from: CodeTable) -> String {
+/// `text` written in `from`, one character per code unit, as both engines read it; `None` when `from` is a
+/// single-byte table that cannot write all of it, since no text in that table holds a unit above a byte.
+pub fn input(text: &str, from: CodeTable) -> Option<String> {
+    let written = written(text, from);
+    let single_byte = matches!(from, CodeTable::Tcvn3 | CodeTable::VniWindows | CodeTable::Cp1258);
+    (!single_byte || written.chars().all(|c| u32::from(c) <= 0xff)).then_some(written)
+}
+
+/// `text` written in `from`; a character the table cannot write stays as Unicode writes it.
+fn written(text: &str, from: CodeTable) -> String {
     let mut buffer = [0; 4];
     let mut written = String::with_capacity(text.len());
     for c in text.chars() {

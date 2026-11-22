@@ -3156,42 +3156,6 @@ reason = "Keep must leave the case as it is, and OpenKey writes every letter in 
 
 [[accepted]]
 source = "convert"
-sequence = "Mai đi chơi 😀 nhé 🎉"
-settings = "from-tcvn3 to-cp1258 upper !remove-accents"
-step = 1
-expected = "004d 0041 0049 0020 00d0 0049 0020 0043 0048 00d5 0049 0020 d83d de00 0020 004e 0048 0065 00ec 0020 d83c df89"
-cuakey = "004d 0041 0049 0020 00d0 0049 0020 0043 0048 00d5 0049 0020 d83d de00 0020 004e 0048 0045 00ec 0020 d83c df89"
-reason = "Upper must raise every letter, and OpenKey leaves some marked letters in lower case (TIếNG VIệT)."
-
-[[accepted]]
-source = "convert"
-sequence = "Mai đi chơi 😀 nhé 🎉"
-settings = "from-tcvn3 to-vni-windows upper !remove-accents"
-step = 1
-expected = "004d 0041 0049 0020 00d1 0049 0020 0043 0048 00d4 0049 0020 d83d de00 0020 004e 0048 0065 00f9 0020 d83c df89"
-cuakey = "004d 0041 0049 0020 00d1 0049 0020 0043 0048 00d4 0049 0020 d83d de00 0020 004e 0048 0045 00d9 0020 d83c df89"
-reason = "Upper must raise every letter, and OpenKey leaves some marked letters in lower case (TIếNG VIệT)."
-
-[[accepted]]
-source = "convert"
-sequence = "Mai đi chơi 😀 nhé 🎉"
-settings = "from-tcvn3 to-unicode-compound upper !remove-accents"
-step = 1
-expected = "004d 0041 0049 0020 0110 0049 0020 0043 0048 01a0 0049 0020 d83d de00 0020 004e 0048 0065 0301 0020 d83c df89"
-cuakey = "004d 0041 0049 0020 0110 0049 0020 0043 0048 01a0 0049 0020 d83d de00 0020 004e 0048 0045 0301 0020 d83c df89"
-reason = "Upper must raise every letter, and OpenKey leaves some marked letters in lower case (TIếNG VIệT)."
-
-[[accepted]]
-source = "convert"
-sequence = "Mai đi chơi 😀 nhé 🎉"
-settings = "from-tcvn3 to-unicode upper !remove-accents"
-step = 1
-expected = "MAI ĐI CHƠI 😀 NHé 🎉"
-cuakey = "MAI ĐI CHƠI 😀 NHÉ 🎉"
-reason = "Upper must raise every letter, and OpenKey leaves some marked letters in lower case (TIếNG VIệT)."
-
-[[accepted]]
-source = "convert"
 sequence = "Hello World, This Is English"
 settings = "sentence-start"
 step = 1
@@ -3436,60 +3400,6 @@ reason = "Keep must leave the case as it is, and OpenKey writes every letter in 
 [[accepted]]
 source = "convert"
 sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-tcvn3 upper !remove-accents"
-step = 1
-expected = "0054 0049 0045 0302 0301 004e 0047 0020 0056 0049 0045 0323 0302 0054"
-cuakey = "0054 0049 0045 0302 0301 004e 0047 0020 0056 0049 00d1 0302 0054"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-cp1258 upper !remove-accents"
-step = 1
-expected = "0054 0049 0045 0302 0301 004e 0047 0020 0056 0049 0045 0323 0302 0054"
-cuakey = "0054 0049 0045 0302 0301 004e 0047 0020 0056 0049 0045 00f2 0302 0054"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-vni-windows upper !remove-accents"
-step = 1
-expected = "0054 0049 0045 0302 0301 004e 0047 0020 0056 0049 0045 0323 0302 0054"
-cuakey = "0054 0049 0045 0302 0301 004e 0047 0020 0056 0049 0045 00cf 0302 0054"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-cp1258 each-word !remove-accents"
-step = 1
-expected = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 0323 0302 0074"
-cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00f2 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-tcvn3 each-word !remove-accents"
-step = 1
-expected = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 0323 0302 0074"
-cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 00d1 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-vni-windows each-word !remove-accents"
-step = 1
-expected = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 0323 0302 0074"
-cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00ef 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
 settings = "from-unicode-compound to-vni-windows sentence-start !remove-accents"
 step = 1
 expected = "0054 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 00ef 0302 0074"
@@ -3504,33 +3414,6 @@ step = 1
 expected = "0054 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 00f2 0302 0074"
 cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00f2 0302 0074"
 reason = "Sentence start raises the first letter of each sentence, and OpenKey also lowers every other letter, so names such as Việt, Nam and Hà Nội lose their capitals."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-vni-windows sentence-start !remove-accents"
-step = 1
-expected = "0054 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00ef 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken; sentence start raises the first letter of each sentence, and OpenKey also lowers every other letter, so names such as Việt, Nam and Hà Nội lose their capitals."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-cp1258 sentence-start !remove-accents"
-step = 1
-expected = "0054 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00f2 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken; sentence start raises the first letter of each sentence, and OpenKey also lowers every other letter, so names such as Việt, Nam and Hà Nội lose their capitals."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-tcvn3 sentence-start !remove-accents"
-step = 1
-expected = "0054 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0054 0069 0065 0302 0301 006e 0067 0020 0056 0069 00d1 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken; sentence start raises the first letter of each sentence, and OpenKey also lowers every other letter, so names such as Việt, Nam and Hà Nội lose their capitals."
 
 [[accepted]]
 source = "convert"
@@ -3562,60 +3445,6 @@ reason = "Keep must leave the case as it is, and OpenKey writes every letter in 
 [[accepted]]
 source = "convert"
 sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-tcvn3 keep !remove-accents"
-step = 1
-expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0074 0069 0065 0302 0301 006e 0067 0020 0056 0069 00d1 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken; keep must leave the case as it is, and OpenKey writes every letter in lower case, so Hà Nội becomes hà nội."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-tcvn3 lower !remove-accents"
-step = 1
-expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 00d1 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-cp1258 lower !remove-accents"
-step = 1
-expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 00f2 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-vni-windows lower !remove-accents"
-step = 1
-expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 00ef 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-vni-windows keep !remove-accents"
-step = 1
-expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0074 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00ef 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken; keep must leave the case as it is, and OpenKey writes every letter in lower case, so Hà Nội becomes hà nội."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-cp1258 keep !remove-accents"
-step = 1
-expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 0065 0323 0302 0074"
-cuakey = "0074 0069 0065 0302 0301 006e 0067 0020 0056 0069 0065 00f2 0302 0074"
-reason = "OpenKey writes code units the target table does not define, a combining mark copied as it is or two bytes run into one, so the letters read broken; keep must leave the case as it is, and OpenKey writes every letter in lower case, so Hà Nội becomes hà nội."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
 settings = "from-unicode-compound to-tcvn3 keep !remove-accents"
 step = 1
 expected = "0074 0069 0065 0302 0301 006e 0067 0020 0076 0069 00d1 0302 0074"
@@ -3634,15 +3463,6 @@ reason = "With remove accents on, OpenKey leaves the accents written as combinin
 [[accepted]]
 source = "convert"
 sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-unicode upper !remove-accents"
-step = 1
-expected = "TIẾNG VIỆT"
-cuakey = "TIẾNG VIỆT"
-reason = "Both read the same: reading CP1258, CuaKey writes a letter and the tone mark after it as one precomposed Unicode letter, where OpenKey keeps the mark apart."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
 settings = "from-unicode-compound to-unicode each-word remove-accents"
 step = 1
 expected = "Tiếng Viêt"
@@ -3652,29 +3472,11 @@ reason = "With remove accents on, OpenKey leaves the accents written as combinin
 [[accepted]]
 source = "convert"
 sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-unicode each-word !remove-accents"
-step = 1
-expected = "Tiếng Việt"
-cuakey = "Tiếng Việt"
-reason = "Both read the same: reading CP1258, CuaKey writes a letter and the tone mark after it as one precomposed Unicode letter, where OpenKey keeps the mark apart."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
 settings = "from-unicode-compound to-unicode sentence-start remove-accents"
 step = 1
 expected = "Tiếng viêt"
 cuakey = "Tieng Viet"
 reason = "With remove accents on, OpenKey leaves the accents written as combining marks in place (tiéng viẹt); sentence start raises the first letter of each sentence, and OpenKey also lowers every other letter, so names such as Việt, Nam and Hà Nội lose their capitals."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-unicode sentence-start !remove-accents"
-step = 1
-expected = "Tiếng việt"
-cuakey = "Tiếng Việt"
-reason = "Sentence start raises the first letter of each sentence, and OpenKey also lowers every other letter, so names such as Việt, Nam and Hà Nội lose their capitals."
 
 [[accepted]]
 source = "convert"
@@ -3702,24 +3504,6 @@ step = 1
 expected = "tiếng viêt"
 cuakey = "tieng viet"
 reason = "With remove accents on, OpenKey leaves the accents written as combining marks in place (tiéng viẹt)."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-unicode keep !remove-accents"
-step = 1
-expected = "tiếng việt"
-cuakey = "tiếng Việt"
-reason = "Keep must leave the case as it is, and OpenKey writes every letter in lower case, so Hà Nội becomes hà nội."
-
-[[accepted]]
-source = "convert"
-sequence = "tie\\u{302}\\u{301}ng Vie\\u{323}\\u{302}t"
-settings = "from-cp1258 to-unicode lower !remove-accents"
-step = 1
-expected = "tiếng việt"
-cuakey = "tiếng việt"
-reason = "Both read the same: reading CP1258, CuaKey writes a letter and the tone mark after it as one precomposed Unicode letter, where OpenKey keeps the mark apart."
 
 [[accepted]]
 source = "convert"

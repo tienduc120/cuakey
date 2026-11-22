@@ -310,7 +310,9 @@ pub fn compare_conversions(
     for combo in ConvertCombo::all() {
         let tokens = combo.tokens();
         for (at, text) in texts.iter().enumerate() {
-            let input = conversion::input(&text.text, combo.from);
+            let Some(input) = conversion::input(&text.text, combo.from) else {
+                continue;
+            };
             let expected = conversion::openkey_output(engine, &input, combo).map_or(Expected::Failed, Expected::Text);
             let actual = conversion::cuakey_output(&input, combo);
             if expected == Expected::Text(actual.clone()) {
