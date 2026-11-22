@@ -1,38 +1,44 @@
-use super::{SendOp, segments, store_app_backspace_messages};
+use super::{ClipboardPlan, SendOp, clipboard_plan, store_app_backspace_messages};
 
 #[test]
-fn a_paste_starts_a_new_batch() {
+fn two_pastes_are_refused() {
     let ops = [
-        SendOp::Backspace,
         SendOp::Backspace,
         SendOp::Paste(vec![0x1ec7]),
         SendOp::Unit(0x74),
         SendOp::Paste(vec![0x0111]),
     ];
 
-    let batches: Vec<&[SendOp]> = segments(&ops).collect();
+    let plan = clipboard_plan(&ops);
 
     assert_eq!(
-        batches,
-        [&ops[..2], &ops[2..4], &ops[4..]],
-        "the keys before a paste go out before the clipboard changes for it"
+        plan,
+        ClipboardPlan::TooManyPastes,
+        "one clipboard holds one text, so a second paste would paste the wrong one"
     );
 }
 
 #[test]
-fn ops_without_a_paste_go_out_in_one_batch() {
-    let ops = [SendOp::Backspace, SendOp::Unit(0x1ec7)];
+fn a_paste_puts_its_text_on_the_clipboard() {
+    let text = [0x1ec7, 0x74];
+    let ops = [SendOp::Backspace, SendOp::Backspace, SendOp::Paste(text.to_vec())];
 
-    let batches: Vec<&[SendOp]> = segments(&ops).collect();
+    let plan = clipboard_plan(&ops);
 
-    assert_eq!(batches, [&ops[..]], "one batch, so no real key can land in the middle");
+    assert_eq!(
+        plan,
+        ClipboardPlan::Write(&text),
+        "the paste's text goes on the clipboard, before the backspaces go out"
+    );
 }
 
 #[test]
-fn nothing_to_send_is_no_batch() {
-    let batches: Vec<&[SendOp]> = segments(&[]).collect();
+fn ops_without_a_paste_leave_the_clipboard_alone() {
+    let ops = [SendOp::Backspace, SendOp::Unit(0x1ec7)];
 
-    assert!(batches.is_empty(), "an empty reply sends nothing");
+    let plan = clipboard_plan(&ops);
+
+    assert_eq!(plan, ClipboardPlan::Untouched, "the user's clipboard is kept");
 }
 
 #[test]
@@ -223,6 +229,48 @@ mod inputs {
                 unit(0x74, KEYEVENTF_KEYUP),
             ],
             "each op's keys follow the previous op's"
+        );
+    }
+}
+
+#[cfg(windows)]
+mod failures {
+    use windows::Win32::Foundation::E_ACCESSDENIED;
+
+    use crate::{ClipboardError, SendError};
+
+    fn denied() -> windows::core::Error {
+        windows::core::Error::from(E_ACCESSDENIED)
+    }
+
+    #[test]
+    fn a_failure_before_any_key_sent_nothing() {
+        let failures = [
+            SendError::Clipboard(ClipboardError::Open(denied())),
+            SendError::TooManyPastes,
+            SendError::Blocked { sent: 0, asked: 6 },
+        ];
+
+        let sent_nothing = failures.map(|failure| failure.sent_nothing());
+
+        assert_eq!(
+            sent_nothing, [true; 3],
+            "the app saw none of the replacement, so the key the user typed must reach it"
+        );
+    }
+
+    #[test]
+    fn a_failure_after_keys_went_out_sent_something() {
+        let failures = [
+            SendError::Blocked { sent: 2, asked: 6 },
+            SendError::StoreAppBackspace(denied()),
+        ];
+
+        let sent_nothing = failures.map(|failure| failure.sent_nothing());
+
+        assert_eq!(
+            sent_nothing, [false; 2],
+            "part of the replacement reached the app, so letting the key through too would type it twice"
         );
     }
 }

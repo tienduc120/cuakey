@@ -16,24 +16,28 @@ pub enum SendOp {
     ResendKey(RawKey),
 }
 
-/// The runs of `ops` that go out in one batch each. A paste starts a new run, so everything before it is typed before
-/// the clipboard changes for it.
+/// What one call to `send` does with the clipboard.
 #[cfg(any(windows, test))]
-fn segments(ops: &[SendOp]) -> impl Iterator<Item = &[SendOp]> {
-    let mut rest = ops;
-    std::iter::from_fn(move || {
-        if rest.is_empty() {
-            return None;
-        }
-        let end = rest
-            .iter()
-            .skip(1)
-            .position(|op| matches!(op, SendOp::Paste(_)))
-            .map_or(rest.len(), |at| at + 1);
-        let (segment, tail) = rest.split_at_checked(end)?;
-        rest = tail;
-        Some(segment)
-    })
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ClipboardPlan<'a> {
+    Untouched,
+    /// The text of the one paste, written before any key goes out.
+    Write(&'a [u16]),
+    /// More than one paste, which one clipboard cannot hold, so nothing is sent.
+    TooManyPastes,
+}
+
+#[cfg(any(windows, test))]
+fn clipboard_plan(ops: &[SendOp]) -> ClipboardPlan<'_> {
+    let mut pastes = ops.iter().filter_map(|op| match op {
+        SendOp::Paste(units) => Some(units.as_slice()),
+        SendOp::Backspace | SendOp::Unit(_) | SendOp::SelectPreviousChar | SendOp::ResendKey(_) => None,
+    });
+    match (pastes.next(), pastes.next()) {
+        (None, _) => ClipboardPlan::Untouched,
+        (Some(units), None) => ClipboardPlan::Write(units),
+        (Some(_), Some(_)) => ClipboardPlan::TooManyPastes,
+    }
 }
 
 /// How many `WM_CHAR` backspaces a Microsoft Store app gets on top of the keys for `ops`: two for each backspace.
@@ -58,7 +62,7 @@ mod inject {
     };
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, PostMessageW, WM_CHAR};
 
-    use super::{SendOp, segments, store_app_backspace_messages};
+    use super::{ClipboardPlan, SendOp, clipboard_plan, store_app_backspace_messages};
     use crate::{ClipboardError, INJECTED_TAG, RawKey, write_clipboard_text};
 
     /// Why a replacement did not reach the app in front.
@@ -71,22 +75,39 @@ mod inject {
         Clipboard(#[source] ClipboardError),
         #[error("could not post a backspace to the store app in front")]
         StoreAppBackspace(#[source] windows::core::Error),
+        #[error("a replacement holds more than one paste, and the clipboard holds one text")]
+        TooManyPastes,
     }
 
-    /// Types `ops` into the app in front, every event tagged with [`INJECTED_TAG`]. A paste writes the clipboard after
-    /// the keys before it are sent and before its Shift+Insert. With `store_app`, each backspace is also posted to the
-    /// window in front as a character, which Microsoft Store apps need.
+    impl SendError {
+        /// Whether the failure came before any key went out, so the app in front saw none of the replacement.
+        pub fn sent_nothing(&self) -> bool {
+            match self {
+                Self::Blocked { sent, .. } => *sent == 0,
+                Self::Clipboard(_) | Self::TooManyPastes => true,
+                Self::StoreAppBackspace(_) => false,
+            }
+        }
+    }
+
+    /// Types `ops` into the app in front, every event tagged with [`INJECTED_TAG`], in one `SendInput` call so no real
+    /// key lands in the middle. A paste's text goes on the clipboard before any key is sent, since the app reads it
+    /// only when it handles Shift+Insert, so a clipboard failure sends nothing. With `store_app`, each backspace is
+    /// also posted to the window in front as a character, which Microsoft Store apps need.
     pub fn send(ops: &[SendOp], store_app: bool) -> Result<(), SendError> {
-        // Read once, before any of these keys go out, so a Shift sent for one op is never taken for the user's.
-        let shift_held = !ops.is_empty() && shift_is_held();
-        for segment in segments(ops) {
-            if let Some(SendOp::Paste(units)) = segment.first() {
+        if ops.is_empty() {
+            return Ok(());
+        }
+        match clipboard_plan(ops) {
+            ClipboardPlan::Untouched => {}
+            ClipboardPlan::Write(units) => {
                 write_clipboard_text(&String::from_utf16_lossy(units)).map_err(SendError::Clipboard)?;
             }
-            send_inputs(&build_inputs(segment, shift_held))?;
-            if store_app {
-                post_backspace_chars(store_app_backspace_messages(segment))?;
-            }
+            ClipboardPlan::TooManyPastes => return Err(SendError::TooManyPastes),
+        }
+        send_inputs(&build_inputs(ops, shift_is_held()))?;
+        if store_app {
+            post_backspace_chars(store_app_backspace_messages(ops))?;
         }
         Ok(())
     }

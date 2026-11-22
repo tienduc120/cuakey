@@ -40,7 +40,8 @@ pub struct HookReply {
     pub swallow: bool,
     /// What to type, in order, before the next real key is handled.
     pub ops: Vec<SendOp>,
-    /// The Microsoft Store app support setting is on, so each backspace is also posted as a character.
+    /// The app in front is a Microsoft Store app and the support setting is on, so each backspace is also posted as a
+    /// character.
     pub store_app: bool,
 }
 
@@ -339,15 +340,19 @@ mod listen {
 
     /// Runs the handler on `event`, types its replacement, and says whether the event is swallowed. The replacement
     /// goes out before this returns, so it lands before the next real key, and after the handler is released, since
-    /// sending can call the hook again.
+    /// sending can call the hook again. When the replacement failed before any key went out, the event passes
+    /// through, so the user sees the plain key rather than losing it.
     fn handle(event: HookEvent) -> bool {
         let Some(reply) = dispatch(event) else {
             return false;
         };
-        if let Err(error) = send(&reply.ops, reply.store_app) {
-            tracing::warn!(error = ?error, "could not type the replacement");
+        match send(&reply.ops, reply.store_app) {
+            Ok(()) => reply.swallow,
+            Err(error) => {
+                tracing::warn!(error = ?error, "could not type the replacement");
+                reply.swallow && !error.sent_nothing()
+            }
         }
-        reply.swallow
     }
 
     /// The handler's reply to `event`, or `None` when there is no handler or it is already running because the hook
