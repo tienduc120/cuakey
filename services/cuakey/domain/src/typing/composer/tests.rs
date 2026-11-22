@@ -396,6 +396,36 @@ fn brackets_type_horned_vowels_in_telex_only() {
 }
 
 #[test]
+fn a_bracket_types_its_vowel_after_a_u() {
+    for (keys, shown) in [
+        ("ng][if", "người"),
+        ("nu[cs", "nước"),
+        ("nw[", "nươ"),
+        ("thu[r", "thuở"),
+    ] {
+        assert_eq!(
+            type_text(&mut telex(), keys),
+            shown,
+            "{keys:?}: ươ and uơ typed with brackets"
+        );
+    }
+}
+
+#[test]
+fn a_bracket_types_its_vowel_after_a_word_of_one_vowel_but_e_or_y() {
+    for (keys, shown) in [
+        ("a[", "aơ"),
+        ("i]", "iư"),
+        ("os]", "oứ"),
+        ("e[", "e["),
+        ("y]", "y]"),
+        ("nu]", "nu]"),
+    ] {
+        assert_eq!(type_text(&mut telex(), keys), shown, "{keys:?}");
+    }
+}
+
+#[test]
 fn a_key_that_types_the_same_vowel_takes_it_back() {
     assert_eq!(type_text(&mut telex(), "nw]"), "n]", "] after the ư of w");
     assert_eq!(type_text(&mut telex(), "n]w"), "nw", "w after the ư of ]");

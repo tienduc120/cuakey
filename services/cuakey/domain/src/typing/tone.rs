@@ -226,7 +226,7 @@ impl<'a> Syllable<'a> {
 }
 
 /// The plain vowel `letter` is written on, or `None` for a consonant.
-fn plain_vowel(letter: BaseLetter) -> Option<BaseLetter> {
+pub(super) fn plain_vowel(letter: BaseLetter) -> Option<BaseLetter> {
     VOWELS
         .iter()
         .find(|(vowel, _)| *vowel == letter)

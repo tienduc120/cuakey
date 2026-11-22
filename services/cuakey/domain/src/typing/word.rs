@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use super::quick;
 use super::spelling::{self, Consonants, Spelling};
-use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, has_mark, is_vowel};
+use super::tone::{Ending, MarkTarget, Syllable, ToneStyle, has_mark, is_vowel, plain_vowel};
 use super::{Effect, Mark};
 use crate::{BaseLetter, KeyCode, Letter, LetterCase, OnOff, Tone};
 
@@ -318,15 +318,24 @@ impl Word {
         }
     }
 
-    /// Types `vowel` at the end of the word, when the syllable has no vowel yet.
+    /// Types `vowel` at the end of the word: when the syllable has no vowel yet, when the word is one vowel but e or y,
+    /// and ơ after the u or ư that starts uơ and ươ.
     fn type_vowel(&mut self, syllable: &Syllable<'_>, vowel: BaseLetter, case: LetterCase) -> Outcome {
         let has_vowel = self
             .glyphs
             .iter()
             .skip(syllable.start())
             .any(|glyph| glyph.base().is_some_and(is_vowel));
+        let open = syllable.ending() == Ending::Open;
+        let lone_vowel = open
+            && syllable.starts_word()
+            && syllable.first_consonants().is_empty()
+            && matches!(syllable.vowels(), [only] if !matches!(plain_vowel(*only), Some(BaseLetter::E | BaseLetter::Y)));
+        let after_u = open
+            && vowel == BaseLetter::OHorn
+            && matches!(syllable.vowels().last(), Some(BaseLetter::U | BaseLetter::UHorn));
         match Letter::from_parts(vowel, Tone::Ngang, case) {
-            Some(letter) if !has_vowel => {
+            Some(letter) if !has_vowel || lone_vowel || after_u => {
                 self.glyphs.push(Glyph::Letter(letter));
                 Outcome::TypedVowel(self.glyphs.len() - 1)
             }
