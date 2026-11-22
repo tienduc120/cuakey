@@ -915,6 +915,15 @@ fn backspace_right_after_a_space_takes_the_word_up_again() {
 }
 
 #[test]
+fn backspace_back_across_a_word_end_takes_the_word_before_up_again() {
+    assert_eq!(
+        type_text(&mut telex(), "tieeng,x\u{8}\u{8}s"),
+        "tiếng",
+        "the x and the comma are gone, so the tone goes on the word before them"
+    );
+}
+
+#[test]
 fn backspace_right_after_punctuation_takes_the_word_up_again() {
     for (keys, shown) in [("tieeng,\u{8}s", "tiếng"), ("o,\u{8}o", "ô"), ("xu.\u{8}j", "xụ")] {
         assert_eq!(

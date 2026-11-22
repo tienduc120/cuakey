@@ -58,6 +58,9 @@ pub struct Composer {
     sentence: Sentence,
     /// Where the sentence stood when the word being typed started, for a Backspace that deletes the whole word.
     word_sentence: Sentence,
+    /// The word just before the word being typed, which Backspace takes up again once it has deleted the word being
+    /// typed and the key that ended the one before.
+    before: Option<Ended>,
     macros: MacroTable,
     /// The engine capitalised the first letter of the word being typed, which the user typed in lower case.
     raised: OnOff,
@@ -85,6 +88,7 @@ impl Composer {
             run: String::new(),
             sentence: Sentence::default(),
             word_sentence: Sentence::default(),
+            before: None,
             macros: MacroTable::default(),
             raised: OnOff::Off,
         }
@@ -105,7 +109,7 @@ impl Composer {
             return self.delete_back(ended);
         }
         match self.keystroke(key) {
-            Some(keystroke) => self.type_into_word(keystroke, key),
+            Some(keystroke) => self.type_into_word(keystroke, key, ended),
             None if self.types_itself_after_the_word(key) => {
                 self.ended = Some(Ended {
                     word: mem::take(&mut self.word),
@@ -127,6 +131,7 @@ impl Composer {
         self.word = Word::default();
         self.shown.clear();
         self.ended = None;
+        self.before = None;
         self.run.clear();
         self.sentence = Sentence::default();
     }
@@ -150,6 +155,7 @@ impl Composer {
     /// The word ends as the screen shows it, and the key goes through: a Ctrl or Alt chord is for the app, which acts on
     /// the text as the screen shows it.
     fn leave_word(&mut self) -> Edit {
+        self.before = None;
         self.raised = OnOff::Off;
         self.word = Word::default();
         self.shown.clear();
@@ -176,6 +182,7 @@ impl Composer {
         if self.word.is_empty() {
             self.sentence = self.word_sentence;
             self.raised = OnOff::Off;
+            self.ended = self.before.take();
         }
         let before = mem::replace(&mut self.shown, self.word.render());
         backspace_edit(&before, &self.shown, self.settings.typing().code_table())
@@ -200,9 +207,10 @@ impl Composer {
         })
     }
 
-    fn type_into_word(&mut self, keystroke: Keystroke, key: KeyPress) -> Edit {
+    fn type_into_word(&mut self, keystroke: Keystroke, key: KeyPress, ended: Option<Ended>) -> Edit {
         if self.word.is_empty() {
             self.word_sentence = self.sentence;
+            self.before = ended;
             let typed = typed_by(key).map(Glyph::to_char);
             self.raised = if typed.is_some_and(|c| c != keystroke.typed.to_char()) {
                 OnOff::On
@@ -220,6 +228,7 @@ impl Composer {
     /// A key that types no letter ends the word: the word may change once more, then the key follows. A digit carries
     /// what the screen shows on into the shortcut being typed.
     fn end_word(&mut self, key: KeyPress) -> Edit {
+        self.before = None;
         let word = mem::take(&mut self.word);
         let raised = mem::replace(&mut self.raised, OnOff::Off);
         let shown = mem::take(&mut self.shown);
