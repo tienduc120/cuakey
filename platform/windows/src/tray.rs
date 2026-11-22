@@ -86,9 +86,15 @@ impl Presence {
     /// The presence after the icon is offered to the notification area, which the tray does when it starts, each time
     /// Explorer says it has made the taskbar, shown or not, and on a change while pending: `add` adds the icon, and
     /// only when that fails, `update` updates it in case the notification area has it after all, so a shown icon is
-    /// never taken for a pending one. Neither working means there is no notification area yet.
-    fn after_offer(add: impl FnOnce() -> bool, update: impl FnOnce() -> bool) -> Self {
-        if add() || update() { Self::Shown } else { Self::Pending }
+    /// never taken for a pending one. Neither working means there is no notification area yet. An icon found shown
+    /// either way is asked for version-4 callbacks with `ask_version`.
+    fn after_offer(add: impl FnOnce() -> bool, update: impl FnOnce() -> bool, ask_version: impl FnOnce()) -> Self {
+        if add() || update() {
+            ask_version();
+            Self::Shown
+        } else {
+            Self::Pending
+        }
     }
 
     /// How a new icon or tooltip reaches the notification area.
@@ -609,6 +615,7 @@ mod shell {
         let presence = Presence::after_offer(
             || add(hwnd, shared),
             || notify(NIM_MODIFY, &icon_data(hwnd, shared)).is_ok(),
+            || ask_version_4(hwnd),
         );
         if presence == Presence::Pending {
             tracing::info!("the notification area is not there yet, so the icon waits for the taskbar");
@@ -616,13 +623,18 @@ mod shell {
         shared.presence.set(presence);
     }
 
-    /// Adds the icon and asks for version-4 callbacks, whose `lParam` [`callback_event`] reads; says whether the icon
-    /// was added.
+    /// Adds the icon, and says whether it was added.
     fn add(hwnd: HWND, shared: &Shared) -> bool {
-        if let Err(error) = notify(NIM_ADD, &icon_data(hwnd, shared)) {
+        let added = notify(NIM_ADD, &icon_data(hwnd, shared));
+        if let Err(error) = &added {
             tracing::debug!(error = ?error, "the notification area did not take the icon");
-            return false;
         }
+        added.is_ok()
+    }
+
+    /// Asks for version-4 callbacks, whose `lParam` [`callback_event`] reads. Without them, a right click sends no
+    /// menu request, so a failure is worth a warning.
+    fn ask_version_4(hwnd: HWND) {
         let version = NOTIFYICONDATAW {
             Anonymous: NOTIFYICONDATAW_0 {
                 uVersion: NOTIFYICON_VERSION_4,
@@ -630,9 +642,8 @@ mod shell {
             ..identity(hwnd)
         };
         if let Err(error) = notify(NIM_SETVERSION, &version) {
-            tracing::warn!(error = ?error, "the icon was added without the version-4 callbacks the tray reads");
+            tracing::warn!(error = ?error, "the notification area did not take the version-4 callbacks the tray reads");
         }
-        true
     }
 
     fn notify(message: NOTIFY_ICON_MESSAGE, data: &NOTIFYICONDATAW) -> windows::core::Result<()> {

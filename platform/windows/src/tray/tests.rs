@@ -123,10 +123,21 @@ fn tooltip_truncates_on_a_char_boundary() {
 
 #[test]
 fn the_icon_waits_for_the_taskbar_and_takes_the_changes_made_meanwhile() {
-    let added = Presence::after_offer(|| true, || panic!("an icon that was added needs no update"));
-    let kept = Presence::after_offer(|| false, || true);
-    let no_taskbar = Presence::after_offer(|| false, || false);
+    let mut asked_version = Vec::new();
 
+    let added = Presence::after_offer(
+        || true,
+        || panic!("an icon that was added needs no update"),
+        || asked_version.push("added"),
+    );
+    let kept = Presence::after_offer(|| false, || true, || asked_version.push("kept"));
+    let no_taskbar = Presence::after_offer(|| false, || false, || asked_version.push("no taskbar"));
+
+    assert_eq!(
+        asked_version,
+        ["added", "kept"],
+        "an icon found shown, by the add or by the update, is asked for version-4 callbacks, and only such an icon"
+    );
     assert_eq!(added, Presence::Shown, "an icon the notification area took is shown");
     assert_eq!(
         kept,
