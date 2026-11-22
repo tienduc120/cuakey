@@ -26,7 +26,7 @@ use platform_windows::{
 use self::window::Window;
 use crate::args::Mode;
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, take_instance, window_kind};
-use crate::stores::{OpenStoresError, Stores};
+use crate::stores::{OpenStoresError, Origin, Stores};
 
 /// The name eframe gives the app.
 const APP_NAME: &str = "CuaKey";
@@ -214,6 +214,10 @@ impl UiApp {
     /// Stores what `source` edited on top of the fresh preferences, shows the result in every window, and tells the
     /// background process. Says whether it was stored.
     fn store(&mut self, source: WindowKind, edited: PreferencesView) -> bool {
+        if !self.origin_of(source, Window::prefs_origin).may_save() {
+            self.show_error(source, Some(notice_message(Notice::SettingsUnreadNotSaved)));
+            return false;
+        }
         let stored = match self.stores.load_preferences() {
             Ok(stored) => stored,
             Err(error) => {
@@ -257,6 +261,10 @@ impl UiApp {
     }
 
     fn save_macros(&mut self, source: WindowKind, macros: &[MacroView]) {
+        if !self.origin_of(source, Window::macros_origin).may_save() {
+            self.show_error(source, Some(notice_message(Notice::MacrosUnreadNotSaved)));
+            return;
+        }
         match self.stores.save_macros(macros) {
             Ok(()) => {
                 self.show_error(source, None);
@@ -358,6 +366,14 @@ impl UiApp {
 
     fn window_mut(&mut self, kind: WindowKind) -> Option<&mut Window> {
         self.windows.iter_mut().find(|window| window.kind() == kind)
+    }
+
+    /// Where what `kind` shows came from, as `origin` reads it; a window that is gone saves nothing.
+    fn origin_of(&self, kind: WindowKind, origin: fn(&Window) -> Origin) -> Origin {
+        self.windows
+            .iter()
+            .find(|window| window.kind() == kind)
+            .map_or(Origin::Defaults, origin)
     }
 }
 

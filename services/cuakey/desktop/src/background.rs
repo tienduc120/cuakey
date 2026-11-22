@@ -33,7 +33,7 @@ use self::menu::{MenuMap, menu_app, tray_icon};
 use self::system::{SystemChanges, startup_mode, system_changes};
 use crate::args::{Mode, window_args};
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, shown_window, take_instance, window_kind};
-use crate::stores::{OpenStoresError, Stores};
+use crate::stores::{OpenStoresError, Origin, Stores};
 
 /// This process, as the single-instance functions name it; its focus log plays no part there.
 const THIS_PROCESS: Mode = Mode::Background { focus_log: None };
@@ -81,16 +81,29 @@ fn start(focus_log: Option<&Path>, args: &[String]) -> Result<(), StartError> {
     let Some(_guard) = elevate_if_asked(guard, &prefs, args)? else {
         return Ok(());
     };
-    apply_startup_mode(startup_mode(&prefs.system));
+    // The defaults in place of unread preferences are not the user's way to start, so Windows keeps its own.
+    if prefs.origin.may_save() {
+        apply_startup_mode(startup_mode(&prefs.view.system));
+    }
     serve(stores, prefs, macros, focus_log)
 }
 
-fn load_preferences(stores: &Stores) -> PreferencesView {
-    stores.load_preferences().unwrap_or_else(|error| {
+/// The preferences the background starts with, and whether they may be saved over the stored ones.
+#[derive(Debug)]
+struct Loaded {
+    view: PreferencesView,
+    origin: Origin,
+}
+
+/// The stored preferences, or the defaults after a notice when they cannot be read. The defaults are then never saved
+/// in this run, so a read that failed for a moment cannot replace what the user set.
+fn load_preferences(stores: &Stores) -> Loaded {
+    let (view, origin, error) = Origin::of(stores.load_preferences());
+    if let Some(error) = error {
         tracing::warn!(error = ?error, "could not load the preferences");
-        notify(load_error_message(&error));
-        PreferencesView::default()
-    })
+        notify(notice_message(Notice::DefaultsNotSaved));
+    }
+    Loaded { view, origin }
 }
 
 fn load_macros(stores: &Stores) -> Vec<MacroView> {
@@ -106,10 +119,10 @@ fn load_macros(stores: &Stores) -> Vec<MacroView> {
 /// carries on with normal rights, after a notice.
 fn elevate_if_asked(
     guard: SingleInstanceGuard,
-    prefs: &PreferencesView,
+    prefs: &Loaded,
     args: &[String],
 ) -> Result<Option<SingleInstanceGuard>, StartError> {
-    if prefs.system.run_as_administrator == Toggle::Off || is_elevated() {
+    if prefs.view.system.run_as_administrator == Toggle::Off || is_elevated() {
         return Ok(Some(guard));
     }
     drop(guard);
@@ -126,12 +139,8 @@ fn elevate_if_asked(
 }
 
 /// Starts the threads and the icon, and runs the message loop until a `Quit`.
-fn serve(
-    stores: Stores,
-    prefs: PreferencesView,
-    macros: Vec<MacroView>,
-    focus_log: Option<&Path>,
-) -> Result<(), StartError> {
+fn serve(stores: Stores, prefs: Loaded, macros: Vec<MacroView>, focus_log: Option<&Path>) -> Result<(), StartError> {
+    let Loaded { view: prefs, origin } = prefs;
     let session = TypingSession::new(&prefs, &macros).map_err(StartError::Session)?;
     let (updates, session_updates) = mpsc::channel();
     let (reports, session_reports) = mpsc::channel();
@@ -140,6 +149,7 @@ fn serve(
     let show_settings = prefs.system.show_settings_at_startup == Toggle::On;
     let background = Rc::new(Background {
         stores,
+        origin,
         prefs: RefCell::new(prefs),
         macros: RefCell::new(macros),
         last_app: Arc::clone(&last_app),
@@ -245,6 +255,8 @@ impl HookWorld for WindowsWorld {
 #[derive(Debug)]
 struct Background {
     stores: Stores,
+    /// Whether the preferences this run started with were read, and so may be saved, for the whole run.
+    origin: Origin,
     /// The preferences as last loaded or stored.
     prefs: RefCell<PreferencesView>,
     macros: RefCell<Vec<MacroView>>,
@@ -300,14 +312,17 @@ impl Background {
         self.keep(prefs);
     }
 
-    /// Shows the language of `prefs`, stores them, and tells the window process.
+    /// Shows the language of `prefs`, stores them, and tells the window process. A run that started on the defaults
+    /// stores nothing, as its notice said.
     fn keep(&self, prefs: PreferencesView) {
         self.show_language(prefs.language);
-        match self.stores.save_preferences(&prefs) {
-            Ok(()) => tell_window_process(AppMessage::Reload),
-            Err(error) => {
-                tracing::warn!(error = ?error, "could not save the preferences");
-                notify(save_error_message(&error));
+        if self.origin.may_save() {
+            match self.stores.save_preferences(&prefs) {
+                Ok(()) => tell_window_process(AppMessage::Reload),
+                Err(error) => {
+                    tracing::warn!(error = ?error, "could not save the preferences");
+                    notify(save_error_message(&error));
+                }
             }
         }
         *self.prefs.borrow_mut() = prefs;

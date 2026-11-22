@@ -27,6 +27,30 @@ pub(crate) enum OpenStoresError {
     Runtime(#[source] io::Error),
 }
 
+/// Where a view of stored data came from: the store, or the defaults put in place of a file that could not be read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Origin {
+    Stored,
+    Defaults,
+}
+
+impl Origin {
+    /// What a load gives: the stored value, or the defaults with the reason the store could not be read.
+    pub(crate) fn of<T: Default, E>(loaded: Result<T, E>) -> (T, Self, Option<E>) {
+        match loaded {
+            Ok(value) => (value, Self::Stored, None),
+            Err(error) => (T::default(), Self::Defaults, Some(error)),
+        }
+    }
+
+    /// Whether a save built on this view may be written. Never over a file that could not be read: the read may have
+    /// failed only for a moment, as while another program held the file, and the defaults would replace what the user
+    /// set.
+    pub(crate) const fn may_save(self) -> bool {
+        matches!(self, Self::Stored)
+    }
+}
+
 /// The preferences, the macros and the clipboard, through their use cases.
 #[derive(Debug)]
 pub(crate) struct Stores {
@@ -93,3 +117,6 @@ impl Stores {
             .block_on(QuickConvert::new(WindowsClipboard, self.preferences()).execute())
     }
 }
+
+#[cfg(test)]
+mod tests;
