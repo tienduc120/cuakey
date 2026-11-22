@@ -7,5 +7,16 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[dependencies]
+cuakey-domain = { path = "../domain" }
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[features]
+# Fakes of this crate's ports for other layers' tests; only ever a dev-dependency feature.
+test-support = []
+
 [lints]
 workspace = true
