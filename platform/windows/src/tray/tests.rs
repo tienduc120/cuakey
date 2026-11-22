@@ -1,6 +1,6 @@
 use super::{
-    MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, NIN_KEYSELECT, TIP_UNITS, TrayEvent, WM_CONTEXTMENU,
-    WM_LBUTTONDBLCLK, callback_event, menu_flags as flags_of, tooltip_units,
+    ChangeCall, MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, NIN_KEYSELECT, Presence, TIP_UNITS, TrayEvent,
+    WM_CONTEXTMENU, WM_LBUTTONDBLCLK, callback_event, menu_flags as flags_of, tooltip_units,
 };
 
 /// `NIN_SELECT`: a single click on the icon, which also comes around a double click.
@@ -108,6 +108,35 @@ fn tooltip_truncates_on_a_char_boundary() {
     );
 }
 
+#[test]
+fn the_icon_waits_for_the_taskbar_and_takes_the_changes_made_meanwhile() {
+    let added = Presence::after_offer(|| true, || panic!("an icon that was added needs no update"));
+    let kept = Presence::after_offer(|| false, || true);
+    let no_taskbar = Presence::after_offer(|| false, || false);
+
+    assert_eq!(added, Presence::Shown, "an icon the notification area took is shown");
+    assert_eq!(
+        kept,
+        Presence::Shown,
+        "an icon the notification area still had is shown"
+    );
+    assert_eq!(
+        no_taskbar,
+        Presence::Pending,
+        "with no notification area yet, the icon waits for the taskbar"
+    );
+    assert_eq!(
+        Presence::Shown.change_call(),
+        ChangeCall::Update,
+        "a change to a shown icon updates it"
+    );
+    assert_eq!(
+        Presence::Pending.change_call(),
+        ChangeCall::Offer,
+        "a change to a pending icon offers it again, carrying the change"
+    );
+}
+
 #[cfg(windows)]
 #[test]
 fn the_codes_match_the_windows_bindings() {
@@ -149,7 +178,7 @@ mod live {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use super::super::shell::{Tray, TrayError, is_shown};
+    use super::super::shell::{Tray, TrayError, notification_area_has};
     use super::{NIN_KEYSELECT, NIN_SELECT, WM_CONTEXTMENU, WM_LBUTTONDBLCLK, WM_MOUSEMOVE};
     use crate::{AppMessage, MessageWindow, TrayEvent, TrayIcon, post_to};
 
@@ -166,7 +195,7 @@ mod live {
         let class = format!("CuaKeyTest.tray.{}", std::process::id());
         let window = MessageWindow::new(&class, |_| {}).unwrap();
 
-        let shown_when_added = is_shown(tray.hwnd());
+        let shown_when_added = (notification_area_has(tray.hwnd()), tray.is_shown());
         tray.set_tooltip(&"Bộ gõ tiếng Việt CuaKey ".repeat(8)).unwrap();
         let missing_icon = tray.set_icon(TrayIcon(1));
         tray.act_out_explorer_restart().unwrap();
@@ -181,19 +210,24 @@ mod live {
         }
         post_to(&class, AppMessage::Quit).unwrap();
         window.run_loop();
-        let shown_after_restart = is_shown(tray.hwnd());
+        let shown_after_restart = (notification_area_has(tray.hwnd()), tray.is_shown());
         let hwnd = tray.hwnd();
         drop(tray);
-        let shown_after_drop = is_shown(hwnd);
+        let shown_after_drop = notification_area_has(hwnd);
 
-        assert!(shown_when_added, "adding the tray shows its icon");
+        assert_eq!(
+            shown_when_added,
+            (true, true),
+            "adding the tray shows its icon, and the tray knows it"
+        );
         assert!(
             matches!(missing_icon, Err(TrayError::LoadIcon(_))),
             "an icon the executable does not carry is refused: {missing_icon:?}"
         );
-        assert!(
+        assert_eq!(
             shown_after_restart,
-            "the tray adds its icon again when Explorer says it restarted"
+            (true, true),
+            "the tray adds its icon again when Explorer says it made the taskbar"
         );
         assert_eq!(
             *events.borrow(),

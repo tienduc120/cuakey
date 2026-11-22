@@ -59,6 +59,47 @@ const MF_SEPARATOR: u32 = 0x0800;
 #[cfg(any(windows, test))]
 const TIP_UNITS: usize = 128;
 
+/// Whether the notification area shows the icon. It does not when the app starts before Explorer has made the
+/// taskbar, as it can at sign-in. Until it does, a new icon or tooltip is kept, and the icon is added with them once
+/// Explorer says it has made the taskbar.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Presence {
+    Shown,
+    Pending,
+}
+
+/// How a new icon or tooltip reaches the notification area.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChangeCall {
+    /// The shown icon is updated, and a failure is an error.
+    Update,
+    /// The icon is offered again, with the change, and still waiting is not an error. An add that timed out while
+    /// Explorer was busy can have taken effect without a word, and no taskbar announcement may follow, so this is
+    /// how such an icon is found shown.
+    Offer,
+}
+
+#[cfg(any(windows, test))]
+impl Presence {
+    /// The presence after the icon is offered to the notification area, which the tray does when it starts, each time
+    /// Explorer says it has made the taskbar, shown or not, and on a change while pending: `add` adds the icon, and
+    /// only when that fails, `update` updates it in case the notification area has it after all, so a shown icon is
+    /// never taken for a pending one. Neither working means there is no notification area yet.
+    fn after_offer(add: impl FnOnce() -> bool, update: impl FnOnce() -> bool) -> Self {
+        if add() || update() { Self::Shown } else { Self::Pending }
+    }
+
+    /// How a new icon or tooltip reaches the notification area.
+    const fn change_call(self) -> ChangeCall {
+        match self {
+            Self::Shown => ChangeCall::Update,
+            Self::Pending => ChangeCall::Offer,
+        }
+    }
+}
+
 /// The event a version-4 notification-area callback reports in the low word of its `lParam`, or `None` for one the
 /// icon does not act on. The high word is the icon's id. A single click (`NIN_SELECT`) is not one: it also comes
 /// around every double click.
@@ -131,7 +172,9 @@ mod shell {
     use windows::Win32::UI::WindowsAndMessaging::{CopyIcon, IDI_APPLICATION, LR_SHARED, WM_KEYDOWN};
     use windows::core::{HSTRING, PCWSTR, w};
 
-    use super::{MenuItem, TIP_UNITS, TrayEvent, TrayIcon, callback_event, menu_flags, tooltip_units};
+    use super::{
+        ChangeCall, MenuItem, Presence, TIP_UNITS, TrayEvent, TrayIcon, callback_event, menu_flags, tooltip_units,
+    };
 
     /// The class of the tray's hidden window.
     const CLASS_NAME: PCWSTR = w!("CuaKey.Tray");
@@ -142,7 +185,7 @@ mod shell {
     /// The icon's id among the window's icons; it has only this one.
     const ICON_ID: u32 = 1;
 
-    /// Why the icon could not be added, changed, or its menu shown.
+    /// Why the tray could not start, change its icon, or show its menu.
     #[derive(Debug, thiserror::Error)]
     pub enum TrayError {
         #[error("could not register the taskbar message")]
@@ -155,8 +198,6 @@ mod shell {
         AllowMessage(#[source] windows::core::Error),
         #[error("could not load the icon")]
         LoadIcon(#[source] windows::core::Error),
-        #[error("could not add the icon to the notification area")]
-        Add(#[source] windows::core::Error),
         #[error("could not update the icon in the notification area")]
         Update(#[source] windows::core::Error),
         #[error("could not build the menu")]
@@ -186,9 +227,11 @@ mod shell {
     struct Shared {
         /// The registered `"TaskbarCreated"` message.
         taskbar_created: u32,
-        /// The icon and tooltip the notification area shows, to hand Explorer again after it restarts.
+        /// The icon and tooltip for the notification area, kept to add the icon with whenever Explorer makes the
+        /// taskbar.
         icon: Cell<HICON>,
         tip: Cell<[u16; TIP_UNITS]>,
+        presence: Cell<Presence>,
         on_event: RefCell<Handler>,
     }
 
@@ -197,17 +240,21 @@ mod shell {
             f.debug_struct("Shared")
                 .field("taskbar_created", &self.taskbar_created)
                 .field("icon", &self.icon.get())
+                .field("presence", &self.presence.get())
                 .finish_non_exhaustive()
         }
     }
 
     impl Tray {
-        /// Adds `icon` to the notification area with `tooltip`. The tray makes a hidden window on this thread, and
-        /// `on_event` runs there, from whichever loop pumps the thread's messages, such as
-        /// [`crate::MessageWindow::run_loop`]; the tray has no loop of its own. An event that arrives while `on_event`
-        /// is still running, as while it shows the menu, is dropped. A panic in `on_event` ends the process, since it
-        /// cannot unwind through the system's call. The window class is the same for every tray, so a process has one
-        /// at a time.
+        /// Adds `icon` to the notification area with `tooltip`. When there is no notification area yet, as when the app
+        /// starts before Explorer at sign-in, the tray still starts, and adds the icon once Explorer says it has made the
+        /// taskbar; [`Self::is_shown`] tells which. Only a window or icon that cannot be made is an error.
+        ///
+        /// The tray makes a hidden window on this thread, and `on_event` runs there, from whichever loop pumps the
+        /// thread's messages, such as [`crate::MessageWindow::run_loop`]; the tray has no loop of its own. An event that
+        /// arrives while `on_event` is still running, as while it shows the menu, is dropped. A panic in `on_event` ends
+        /// the process, since it cannot unwind through the system's call. The window class is the same for every tray,
+        /// so a process has one at a time.
         pub fn add(
             icon: TrayIcon,
             tooltip: &str,
@@ -229,10 +276,11 @@ mod shell {
                 taskbar_created,
                 icon: Cell::new(icon.0),
                 tip: Cell::new(tooltip_units(tooltip)),
+                presence: Cell::new(Presence::Pending),
                 on_event: RefCell::new(on_event),
             });
             lend(hwnd, &shared);
-            // From here a failure drops the tray, which removes the icon and destroys the window.
+            // From here a failure drops the tray, which destroys the window.
             let tray = Self {
                 hwnd,
                 instance,
@@ -240,12 +288,17 @@ mod shell {
                 icon,
             };
             allow_taskbar_created(hwnd, taskbar_created)?;
-            show(hwnd, &tray.shared).map_err(TrayError::Add)?;
+            offer(hwnd, &tray.shared);
             Ok(tray)
         }
 
-        /// Shows `icon` instead. When the notification area cannot take the change, as while Explorer restarts, the
-        /// error says so, and the icon still appears when Explorer adds it again.
+        /// Whether the notification area shows the icon, rather than the tray waiting for Explorer to make the taskbar.
+        pub fn is_shown(&self) -> bool {
+            self.shared.presence.get() == Presence::Shown
+        }
+
+        /// Shows `icon` instead. While the icon waits for the taskbar, or when the notification area cannot take the
+        /// change (which is an error), the new icon is kept, and appears when the icon is next added.
         pub fn set_icon(&mut self, icon: TrayIcon) -> Result<(), TrayError> {
             let loaded = Icon::load(IconSource::Executable(icon), self.instance).map_err(TrayError::LoadIcon)?;
             self.shared.icon.set(loaded.0);
@@ -257,8 +310,8 @@ mod shell {
         }
 
         /// Shows `text` as the tooltip, cut to the 127 UTF-16 units the notification area holds, never inside a
-        /// character. As with [`Self::set_icon`], a change the notification area cannot take still appears once
-        /// Explorer adds the icon again.
+        /// character. As with [`Self::set_icon`], a tooltip the notification area cannot take yet is kept for the next
+        /// add.
         pub fn set_tooltip(&self, text: &str) -> Result<(), TrayError> {
             self.shared.tip.set(tooltip_units(text));
             self.update()
@@ -298,14 +351,27 @@ mod shell {
             Ok(u32::try_from(chosen.0).ok().filter(|&id| id != 0))
         }
 
+        /// Hands the kept icon and tooltip to the notification area.
         fn update(&self) -> Result<(), TrayError> {
-            notify(NIM_MODIFY, &icon_data(self.hwnd, &self.shared)).map_err(TrayError::Update)
+            match self.shared.presence.get().change_call() {
+                ChangeCall::Update => {
+                    notify(NIM_MODIFY, &icon_data(self.hwnd, &self.shared)).map_err(TrayError::Update)
+                }
+                ChangeCall::Offer => {
+                    offer(self.hwnd, &self.shared);
+                    Ok(())
+                }
+            }
         }
     }
 
     impl Drop for Tray {
         fn drop(&mut self) {
-            if let Err(error) = notify(NIM_DELETE, &identity(self.hwnd)) {
+            // Removed even while pending, since an add that timed out can have taken effect; only a shown icon that
+            // cannot be removed is worth a warning.
+            if let Err(error) = notify(NIM_DELETE, &identity(self.hwnd))
+                && self.is_shown()
+            {
                 tracing::warn!(error = ?error, "could not remove the notification-area icon");
             }
             // SAFETY: the window was made on this thread, which is where the type stays, and is destroyed once, here.
@@ -525,16 +591,35 @@ mod shell {
         }
     }
 
-    /// Adds the icon and asks for version-4 callbacks, whose `lParam` [`callback_event`] reads.
-    fn show(hwnd: HWND, shared: &Shared) -> windows::core::Result<()> {
-        notify(NIM_ADD, &icon_data(hwnd, shared))?;
+    /// Offers the icon to the notification area, with the icon and tooltip kept, and records whether it is shown.
+    fn offer(hwnd: HWND, shared: &Shared) {
+        let presence = Presence::after_offer(
+            || add(hwnd, shared),
+            || notify(NIM_MODIFY, &icon_data(hwnd, shared)).is_ok(),
+        );
+        if presence == Presence::Pending {
+            tracing::info!("the notification area is not there yet, so the icon waits for the taskbar");
+        }
+        shared.presence.set(presence);
+    }
+
+    /// Adds the icon and asks for version-4 callbacks, whose `lParam` [`callback_event`] reads; says whether the icon
+    /// was added.
+    fn add(hwnd: HWND, shared: &Shared) -> bool {
+        if let Err(error) = notify(NIM_ADD, &icon_data(hwnd, shared)) {
+            tracing::debug!(error = ?error, "the notification area did not take the icon");
+            return false;
+        }
         let version = NOTIFYICONDATAW {
             Anonymous: NOTIFYICONDATAW_0 {
                 uVersion: NOTIFYICON_VERSION_4,
             },
             ..identity(hwnd)
         };
-        notify(NIM_SETVERSION, &version)
+        if let Err(error) = notify(NIM_SETVERSION, &version) {
+            tracing::warn!(error = ?error, "the icon was added without the version-4 callbacks the tray reads");
+        }
+        true
     }
 
     fn notify(message: NOTIFY_ICON_MESSAGE, data: &NOTIFYICONDATAW) -> windows::core::Result<()> {
@@ -568,9 +653,9 @@ mod shell {
             }
             true
         } else if message == shared.taskbar_created {
-            if let Err(error) = show(hwnd, shared) {
-                tracing::warn!(error = ?error, "could not add the icon again after Explorer restarted");
-            }
+            // A new taskbar, at sign-in or after Explorer restarts, has none of the icons, so the icon is offered
+            // whether or not it was shown.
+            offer(hwnd, shared);
             true
         } else {
             false
@@ -651,7 +736,7 @@ mod shell {
     /// Whether the notification area has the icon of `hwnd`: an update that changes nothing succeeds only for an icon
     /// it has.
     #[cfg(test)]
-    pub(super) fn is_shown(hwnd: HWND) -> bool {
+    pub(super) fn notification_area_has(hwnd: HWND) -> bool {
         notify(NIM_MODIFY, &identity(hwnd)).is_ok()
     }
 }
