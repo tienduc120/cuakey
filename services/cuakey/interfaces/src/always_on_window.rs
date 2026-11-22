@@ -2,7 +2,7 @@
 //! do lives in [`AlwaysOnForm`]; this file only draws it.
 
 use cuakey_application::PreferencesView;
-use egui::{Context, Ui};
+use egui::Ui;
 
 use crate::always_on_form::AlwaysOnForm;
 use crate::{UiAction, labels};
@@ -69,13 +69,11 @@ impl AlwaysOnWindow {
         self.form.show_error(message);
     }
 
-    /// Draws the window into `ctx` and returns what the user asked for this frame.
-    pub fn show(&mut self, ctx: &Context) -> Vec<UiAction> {
+    /// Draws the window into `ui`, the root ui of its viewport, and returns what the user asked for this frame.
+    pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        ctx.root_ui(|ui| {
-            egui::CentralPanel::default().show(ui, |ui| contents(ui, form, &mut actions));
-        });
+        egui::CentralPanel::default().show(ui, |ui| contents(ui, form, &mut actions));
         actions
     }
 }

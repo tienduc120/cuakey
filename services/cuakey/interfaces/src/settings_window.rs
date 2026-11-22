@@ -2,7 +2,7 @@
 //! `Save` with the whole edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it.
 
 use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView};
-use egui::{Context, Ui};
+use egui::Ui;
 
 use crate::hotkey_editor::show_hotkey;
 use crate::settings_form::{GatedControl, SettingsForm, is_on};
@@ -352,15 +352,13 @@ impl SettingsWindow {
         self.form.show_error(message);
     }
 
-    /// Draws the window into `ctx` and returns what the user asked for this frame.
-    pub fn show(&mut self, ctx: &Context) -> Vec<UiAction> {
+    /// Draws the window into `ui`, the root ui of its viewport, and returns what the user asked for this frame.
+    pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        ctx.root_ui(|ui| {
-            egui::Panel::bottom("buttons").show(ui, |ui| bottom_bar(ui, form, &mut actions));
-            egui::CentralPanel::default().show(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| all_sections(ui, form, &mut actions));
-            });
+        egui::Panel::bottom("buttons").show(ui, |ui| bottom_bar(ui, form, &mut actions));
+        egui::CentralPanel::default().show(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| all_sections(ui, form, &mut actions));
         });
         if let Some(view) = form.take_save() {
             actions.insert(0, UiAction::Save(view));

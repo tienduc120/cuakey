@@ -2,7 +2,7 @@
 //! request to convert. What the controls do lives in [`ConvertForm`]; this file only draws it.
 
 use cuakey_application::{ConvertCaseValue, HotkeyView, PreferencesView, Toggle};
-use egui::{Context, Ui};
+use egui::Ui;
 
 use crate::convert_form::ConvertForm;
 use crate::hotkey_editor::show_hotkey;
@@ -104,18 +104,16 @@ impl ConvertWindow {
         self.form.show_error(message);
     }
 
-    /// Draws the window into `ctx` and returns what the user asked for this frame. A frame that changed several
-    /// controls returns a save for each; the last holds every change.
-    pub fn show(&mut self, ctx: &Context) -> Vec<UiAction> {
+    /// Draws the window into `ui`, the root ui of its viewport, and returns what the user asked for this frame. A frame
+    /// that changed several controls returns a save for each; the last holds every change.
+    pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        ctx.root_ui(|ui| {
-            egui::CentralPanel::default().show(ui, |ui| {
-                case_boxes(ui, form, &mut actions);
-                option_boxes(ui, form, &mut actions);
-                table_row(ui, form, &mut actions);
-                bottom_bar(ui, form, &mut actions);
-            });
+        egui::CentralPanel::default().show(ui, |ui| {
+            case_boxes(ui, form, &mut actions);
+            option_boxes(ui, form, &mut actions);
+            table_row(ui, form, &mut actions);
+            bottom_bar(ui, form, &mut actions);
         });
         actions
     }

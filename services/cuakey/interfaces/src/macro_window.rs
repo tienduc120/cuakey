@@ -157,14 +157,12 @@ impl MacroWindow {
         self.form.show_error(message);
     }
 
-    /// Draws the window into `ctx` and returns what the user asked for this frame.
-    pub fn show(&mut self, ctx: &Context) -> Vec<UiAction> {
+    /// Draws the window into `ui`, the root ui of its viewport, and returns what the user asked for this frame.
+    pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        ctx.root_ui(|ui| {
-            egui::CentralPanel::default().show(ui, |ui| contents(ui, form, &mut actions));
-        });
-        import_question(ctx, form, &mut actions);
+        egui::CentralPanel::default().show(ui, |ui| contents(ui, form, &mut actions));
+        import_question(ui.ctx(), form, &mut actions);
         actions
     }
 }
