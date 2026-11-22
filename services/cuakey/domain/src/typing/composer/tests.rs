@@ -835,6 +835,23 @@ fn a_mark_typed_after_the_last_consonant_of_gieng_still_lands() {
 }
 
 #[test]
+fn uo_with_a_horn_on_the_o_is_read_as_uo_horned_before_a_quick_last_consonant() {
+    let quick_last = vietnamese().with(SettingChange::QuickLastConsonant(OnOff::On));
+    let vni_quick_last = quick_last.clone().with(SettingChange::InputMethod(InputMethod::Vni));
+    for (settings, keys, shown) in [
+        (&quick_last, "thuowg ", "thương "),
+        (&quick_last, "thuowgf ", "thường "),
+        (&vni_quick_last, "thuo7g2 ", "thường "),
+    ] {
+        assert_eq!(
+            type_text(&mut composer_with(settings), keys),
+            shown,
+            "{keys:?}: uơ before ng is ươ"
+        );
+    }
+}
+
+#[test]
 fn a_quick_last_consonant_is_written_out_only_where_that_makes_a_syllable() {
     let quick_last = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
     for (keys, shown) in [

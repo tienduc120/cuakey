@@ -196,15 +196,22 @@ pub(super) fn tone_fits_last_consonants(tone: Tone, last: &[BaseLetter]) -> bool
     !STOPS.contains(&as_pair(last)) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
 }
 
-/// The vowels of `syllable` as its rhyme is judged: ê after the glide of gi is the iê of giêng and giếc.
+/// The vowels of `syllable` as its rhyme is judged: ê after the glide of gi is the iê of giêng and giếc, and uơ before
+/// a quick last consonant is the ươ it becomes once the consonant is written out, as in thương.
 pub(super) fn rhyme_vowels(syllable: &Syllable<'_>) -> Vec<BaseLetter> {
     let vowels = syllable.vowels();
     let after_gi = syllable.first_consonants() == [G, I] && vowels.first() == Some(&ECircumflex);
-    after_gi
+    let mut rhyme: Vec<BaseLetter> = after_gi
         .then_some(I)
         .into_iter()
         .chain(vowels.iter().copied())
-        .collect()
+        .collect();
+    if matches!(syllable.last_consonants(), [G | H | K])
+        && let [first @ U, OHorn, ..] = rhyme.as_mut_slice()
+    {
+        *first = UHorn;
+    }
+    rhyme
 }
 
 /// Every vowel, to find the ones a plain vowel may be marked as.
