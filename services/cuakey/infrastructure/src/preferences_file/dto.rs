@@ -15,13 +15,35 @@ use super::hotkeys::HotkeysFile;
 /// The profile used when the file names none.
 const DEFAULT_PROFILE: &str = "default";
 
-/// Declares an enum stored by name that mirrors a domain enum variant for variant, with a conversion each way.
+/// A stored choice, read as the domain value it names.
+pub(super) trait Stored: Copy {
+    type Domain;
+
+    /// The value, or `None` for a name this version does not know (one a newer version wrote).
+    fn known(self) -> Option<Self::Domain>;
+}
+
+/// `value`, or `default` with a log line when the file held a value this version does not know.
+fn or_default<T>(setting: &str, value: Option<T>, default: T) -> T {
+    value.unwrap_or_else(|| {
+        tracing::warn!(
+            setting,
+            "the preferences file holds a value this version does not know, so the default is kept"
+        );
+        default
+    })
+}
+
+/// Declares an enum stored by name that mirrors a domain enum variant for variant. A name the enum does not list reads
+/// as `Unknown`, which is never written, so one value from a newer version cannot fail the whole file.
 macro_rules! stored_enum {
     ($name:ident mirrors $domain:ident { $($variant:ident),* $(,)? }) => {
         #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
         #[serde(rename_all = "snake_case")]
         pub(super) enum $name {
-            $($variant),*
+            $($variant,)*
+            #[serde(other)]
+            Unknown,
         }
 
         impl From<$domain> for $name {
@@ -32,10 +54,13 @@ macro_rules! stored_enum {
             }
         }
 
-        impl From<$name> for $domain {
-            fn from(value: $name) -> Self {
-                match value {
-                    $($name::$variant => Self::$variant),*
+        impl Stored for $name {
+            type Domain = $domain;
+
+            fn known(self) -> Option<$domain> {
+                match self {
+                    $(Self::$variant => Some($domain::$variant),)*
+                    Self::Unknown => None,
                 }
             }
         }
@@ -73,8 +98,19 @@ macro_rules! group {
         }
 
         impl $name {
+            /// The changes that rebuild the group; a setting holding an unknown value is left out, so it keeps its default.
             fn changes(&self) -> Vec<SettingChange> {
-                vec![$(SettingChange::$change(self.$field.into()),)*]
+                let mut changes = Vec::new();
+                $(
+                    match Stored::known(self.$field) {
+                        Some(value) => changes.push(SettingChange::$change(value)),
+                        None => tracing::warn!(
+                            setting = stringify!($field),
+                            "a setting holds a value this version does not know, so its default is kept"
+                        ),
+                    }
+                )*
+                changes
             }
         }
     };
@@ -157,19 +193,31 @@ impl From<ConvertOptions> for ConvertOptionsFile {
     }
 }
 
-impl From<ConvertOptionsFile> for ConvertOptions {
-    fn from(file: ConvertOptionsFile) -> Self {
-        Self::new(file.from.into(), file.to.into())
-            .with_case(file.case.into())
-            .with_remove_accents(file.remove_accents.into())
+impl Stored for ConvertOptionsFile {
+    type Domain = ConvertOptions;
+
+    /// Each choice that is unknown keeps its default, and the others load.
+    fn known(self) -> Option<ConvertOptions> {
+        let default = ConvertSettings::default().options();
+        let options = ConvertOptions::new(
+            or_default("convert.from", self.from.known(), default.from()),
+            or_default("convert.to", self.to.known(), default.to()),
+        )
+        .with_case(or_default("convert.case", self.case.known(), default.case()))
+        .with_remove_accents(or_default(
+            "convert.remove_accents",
+            self.remove_accents.known(),
+            default.remove_accents(),
+        ));
+        Some(options)
     }
 }
 
 /// The language and code table that were current in one app.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub(super) struct AppStateFile {
-    language: LanguageFile,
-    code_table: CodeTableFile,
+    language: Option<LanguageFile>,
+    code_table: Option<CodeTableFile>,
 }
 
 /// Everything the preferences hold, as the file stores it.
@@ -233,8 +281,8 @@ impl From<&Preferences> for PreferencesFile {
                 .iter()
                 .map(|(app, state)| {
                     let state = AppStateFile {
-                        language: state.language().into(),
-                        code_table: state.code_table().into(),
+                        language: Some(state.language().into()),
+                        code_table: Some(state.code_table().into()),
                     };
                     (app.as_str().to_owned(), state)
                 })
@@ -265,18 +313,32 @@ impl PreferencesFile {
             .app_memory
             .iter()
             .filter_map(|(name, state)| {
-                let state = AppState::new(state.language.into(), state.code_table.into());
+                let state = known_state(name, *state)?;
                 app_name(name).map(|app| (app, state))
             })
             .collect();
         Ok(Preferences::restore(
             id,
             settings,
-            self.language.into(),
+            or_default("language", self.language.known(), Language::Vietnamese),
             always_on,
             app_memory,
         ))
     }
+}
+
+/// What an app last used, or `None` when the entry lacks a value or holds one this version does not know.
+fn known_state(app: &str, stored: AppStateFile) -> Option<AppState> {
+    let language = stored.language.and_then(Stored::known);
+    let code_table = stored.code_table.and_then(Stored::known);
+    if let (Some(language), Some(code_table)) = (language, code_table) {
+        return Some(AppState::new(language, code_table));
+    }
+    tracing::warn!(
+        app,
+        "an app memory entry is incomplete or holds an unknown value and was left out"
+    );
+    None
 }
 
 /// The app a stored name stands for, or `None` for a name that holds no file name.

@@ -12,6 +12,9 @@ enum ModifierFile {
     Alt,
     Win,
     Shift,
+    /// A modifier a newer version wrote. It is never written, and a hotkey holding it is invalid.
+    #[serde(other)]
+    Unknown,
 }
 
 const MODIFIERS: [(Modifier, ModifierFile); 4] = [
@@ -21,13 +24,14 @@ const MODIFIERS: [(Modifier, ModifierFile); 4] = [
     (Modifier::Shift, ModifierFile::Shift),
 ];
 
-impl From<ModifierFile> for Modifier {
-    fn from(file: ModifierFile) -> Self {
-        match file {
-            ModifierFile::Ctrl => Self::Ctrl,
-            ModifierFile::Alt => Self::Alt,
-            ModifierFile::Win => Self::Win,
-            ModifierFile::Shift => Self::Shift,
+impl ModifierFile {
+    const fn known(self) -> Option<Modifier> {
+        match self {
+            Self::Ctrl => Some(Modifier::Ctrl),
+            Self::Alt => Some(Modifier::Alt),
+            Self::Win => Some(Modifier::Win),
+            Self::Shift => Some(Modifier::Shift),
+            Self::Unknown => None,
         }
     }
 }
@@ -68,10 +72,17 @@ impl HotkeyFile {
                 return None;
             }
         };
-        let modifiers = self
-            .modifiers
-            .iter()
-            .fold(ModifierSet::empty(), |set, modifier| set.with((*modifier).into()));
+        let mut modifiers = ModifierSet::empty();
+        for stored in &self.modifiers {
+            let Some(modifier) = stored.known() else {
+                tracing::warn!(
+                    hotkey = which,
+                    "a hotkey holds a modifier this version does not know, so its default is used"
+                );
+                return None;
+            };
+            modifiers = modifiers.with(modifier);
+        }
         match Hotkey::new(modifiers, key) {
             Ok(hotkey) => Some(hotkey),
             Err(error) => {

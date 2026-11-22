@@ -159,18 +159,82 @@ async fn corrupt_file_kept_aside() {
 }
 
 #[tokio::test]
-async fn an_unknown_choice_is_a_corrupt_file_not_a_silent_reset() {
-    let dir = TestDir::new("unknown_choice");
-    write_settings(&dir, r#"{"typing":{"input_method":"morse"}}"#);
-
-    let loaded = store(&dir).load().await.unwrap();
-
-    assert!(loaded.is_none());
-    assert_eq!(
-        dir.file_names(),
-        ["settings.corrupt-1700000000.json"],
-        "the user's file is kept"
+async fn an_unknown_code_table_keeps_every_other_setting() {
+    let dir = TestDir::new("unknown_code_table");
+    write_settings(
+        &dir,
+        r#"{"typing":{"input_method":"vni","code_table":"from_a_newer_version"},"macros":{"use_macros":"off"}}"#,
     );
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    let settings = loaded.settings();
+    assert_eq!(
+        settings.typing().code_table(),
+        CodeTable::Unicode,
+        "the unknown value keeps the default"
+    );
+    assert_eq!(
+        settings.typing().input_method(),
+        InputMethod::Vni,
+        "its neighbours load"
+    );
+    assert_eq!(settings.macros().use_macros(), OnOff::Off, "so do other groups");
+    assert_eq!(dir.file_names(), ["settings.json"], "the file is not set aside");
+}
+
+#[tokio::test]
+async fn an_unknown_language_or_conversion_choice_keeps_the_rest() {
+    let dir = TestDir::new("unknown_language");
+    write_settings(
+        &dir,
+        r#"{"language":"klingon","convert":{"options":{"from":"cp1258","to":"from_a_newer_version"}}}"#,
+    );
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert_eq!(loaded.language(), Language::Vietnamese);
+    let options = loaded.settings().convert().options();
+    assert_eq!(options.from(), CodeTable::Cp1258, "the known half of the options loads");
+    assert_eq!(options.to(), CodeTable::Unicode, "the unknown half keeps its default");
+}
+
+#[tokio::test]
+async fn a_hotkey_with_an_unknown_modifier_falls_back_to_its_default() {
+    let got = hotkeys_after_loading(
+        "unknown_modifier",
+        r#"{"switch":{"modifiers":["hyper"],"key":"Z"},"settings":{"modifiers":["alt"],"key":"Y"}}"#,
+    )
+    .await;
+
+    assert_eq!(
+        got.0,
+        hotkeys_of(&Settings::default()).0,
+        "the unknown modifier is an invalid hotkey"
+    );
+    assert_eq!(
+        got.1,
+        hotkey(&[Modifier::Alt], Some(KeyCode::Y)),
+        "the other hotkey loads"
+    );
+}
+
+#[tokio::test]
+async fn an_app_memory_entry_with_an_unknown_or_missing_value_is_dropped() {
+    let dir = TestDir::new("app_memory");
+    write_settings(
+        &dir,
+        r#"{"app_memory":{
+            "good.exe":{"language":"english","code_table":"unicode"},
+            "unknown.exe":{"language":"klingon","code_table":"unicode"},
+            "missing.exe":{"language":"english"}
+        }}"#,
+    );
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    let apps: Vec<&str> = loaded.app_memory().keys().map(AppName::as_str).collect();
+    assert_eq!(apps, ["good.exe"], "only the complete, known entry stays");
 }
 
 type Hotkeys = (Hotkey, Hotkey, Option<Hotkey>);
