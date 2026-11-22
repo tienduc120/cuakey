@@ -237,10 +237,18 @@ impl Word {
         if letter_before {
             return Spelling::Foreign;
         }
-        spelling::spelling(
-            letters_of(self.glyphs.get(from..).unwrap_or_default()).as_deref(),
-            rules.consonants,
-        )
+        let letters = letters_of(self.glyphs.get(from..).unwrap_or_default());
+        let spelled = spelling::spelling(letters.as_deref(), rules.consonants);
+        if spelled == Spelling::Syllable && !self.tone_fits() {
+            // A falling tone typed before a stop: removing the tone makes a syllable again.
+            return Spelling::Start;
+        }
+        spelled
+    }
+
+    /// Whether the tone of the last syllable fits its last consonants: a stop takes only the acute or the dot below.
+    fn tone_fits(&self) -> bool {
+        tone_fits(&self.glyphs)
     }
 
     /// The letters after the last digit or symbol of the word, which marks and tones go on, and where they start.
@@ -562,19 +570,20 @@ fn write_last_pair(glyphs: &mut Vec<Glyph>) -> bool {
     let mut written = glyphs.clone();
     written.pop();
     written.extend(pair.iter().filter_map(|base| letter_glyph(*base, last.case())));
-    let fits = letters_of(&written).is_none_or(|letters| {
-        let syllable = Syllable::last(&letters);
-        if syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn] {
-            let at = syllable.vowels_start();
-            if let Some(Glyph::Letter(u)) = written.get_mut(at)
-                && let Some(horned) = Letter::from_parts(BaseLetter::UHorn, u.tone(), u.case())
-            {
-                *u = horned;
+    let fits = tone_fits(&written)
+        && letters_of(&written).is_none_or(|letters| {
+            let syllable = Syllable::last(&letters);
+            if syllable.vowels() == [BaseLetter::U, BaseLetter::OHorn] {
+                let at = syllable.vowels_start();
+                if let Some(Glyph::Letter(u)) = written.get_mut(at)
+                    && let Some(horned) = Letter::from_parts(BaseLetter::UHorn, u.tone(), u.case())
+                {
+                    *u = horned;
+                }
+                return true;
             }
-            return true;
-        }
-        spelling::rhyme_fits(syllable.vowels(), syllable.last_consonants())
-    });
+            spelling::rhyme_fits(syllable.vowels(), syllable.last_consonants())
+        });
     if fits {
         *glyphs = written;
     }
@@ -602,6 +611,23 @@ fn write_first_pair(glyphs: &mut Vec<Glyph>) -> bool {
 
 fn letter_glyph(base: BaseLetter, case: LetterCase) -> Option<Glyph> {
     Letter::from_parts(base, Tone::Ngang, case).map(Glyph::Letter)
+}
+
+/// Whether the tone of the last syllable of `glyphs` fits its last consonants: a stop takes only the acute or the dot
+/// below.
+fn tone_fits(glyphs: &[Glyph]) -> bool {
+    let from = tail_start(glyphs);
+    let tail = glyphs.get(from..).unwrap_or_default();
+    let Some(letters) = letters_of(tail) else {
+        return true;
+    };
+    let syllable = Syllable::last(&letters);
+    tail.iter()
+        .skip(syllable.start())
+        .filter_map(|glyph| glyph.letter())
+        .map(Letter::tone)
+        .find(|tone| *tone != Tone::Ngang)
+        .is_none_or(|tone| spelling::tone_fits_last_consonants(tone, syllable.last_consonants()))
 }
 
 /// Where the letters after the last character of `glyphs` that is no letter start.

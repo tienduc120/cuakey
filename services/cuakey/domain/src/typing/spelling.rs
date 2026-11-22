@@ -71,9 +71,8 @@ const LAST_CONSONANTS: [&[BaseLetter]; 8] = [&[C], &[C, H], &[M], &[N], &[N, G],
 
 const QUICK_LAST: [&[BaseLetter]; 3] = [&[G], &[H], &[K]];
 
-/// The last consonants that stop the syllable short, which then takes only the acute or the dot below. A p lets every
-/// tone through, so a tone typed after it still lands, as in the ẻp of express.
-const STOPS: [&[BaseLetter]; 3] = [&[C], &[C, H], &[T]];
+/// The last consonants that stop the syllable short, which then takes only the acute or the dot below.
+const STOPS: [&[BaseLetter]; 4] = [&[C], &[C, H], &[P], &[T]];
 
 /// The vowel groups of Vietnamese syllables.
 const VOWEL_GROUPS: [&[BaseLetter]; 55] = [
@@ -189,8 +188,8 @@ pub(super) fn may_end_syllable(last: &[BaseLetter], consonants: Consonants) -> b
     last.is_empty() || last_consonants(consonants).any(|c| c.starts_with(last))
 }
 
-/// Whether a syllable ending in `last` consonants can carry `tone`: after c, ch, or t only the acute and the dot below,
-/// as in mát and học.
+/// Whether a syllable ending in `last` consonants can carry `tone`: after c, ch, p, or t only the acute and the dot
+/// below, as in mát, học, and hạp.
 pub(super) fn tone_fits_last_consonants(tone: Tone, last: &[BaseLetter]) -> bool {
     !STOPS.contains(&last) || matches!(tone, Tone::Sac | Tone::Nang | Tone::Ngang)
 }

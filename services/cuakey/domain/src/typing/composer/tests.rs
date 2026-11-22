@@ -989,22 +989,33 @@ fn without_spell_check_a_word_typed_as_it_is_stays_so_after_backspace() {
 }
 
 #[test]
-fn a_syllable_ending_in_c_ch_or_t_takes_only_the_acute_or_the_dot_below() {
-    for (keys, shown) in [("matf", "matf"), ("hocr", "hocr"), ("sachx", "sachx")] {
+fn a_syllable_ending_in_c_ch_p_or_t_takes_only_the_acute_or_the_dot_below() {
+    for (keys, shown) in [("matf", "matf"), ("hocr", "hocr"), ("sachx", "sachx"), ("hapf", "hapf")] {
         assert_eq!(
             type_text(&mut telex(), keys),
             shown,
             "{keys:?}: no Vietnamese syllable reads so"
         );
     }
-    for (keys, shown) in [("mats", "mát"), ("hocj", "học"), ("sachs", "sách"), ("hapf", "hàp")] {
-        assert_eq!(
-            type_text(&mut telex(), keys),
-            shown,
-            "{keys:?}: a stop takes these two, and p any tone"
-        );
+    for (keys, shown) in [("mats", "mát"), ("hocj", "học"), ("sachs", "sách"), ("hapj", "hạp")] {
+        assert_eq!(type_text(&mut telex(), keys), shown, "{keys:?}: a stop takes these two");
     }
     assert_eq!(type_text(&mut vni(), "mat4"), "mat4", "VNI alike");
+}
+
+#[test]
+fn a_falling_tone_typed_before_a_stop_keeps_the_word_from_being_a_syllable() {
+    let quick_last = settings().with(SettingChange::QuickLastConsonant(OnOff::On));
+    assert_eq!(
+        type_text(&mut composer_with(&quick_last), "axk "),
+        "ãk ",
+        "ãch is no syllable, so the quick k is not written out"
+    );
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "hofc "),
+        "hofc ",
+        "hòc is no syllable, so restore gives the keys back"
+    );
 }
 
 #[test]
