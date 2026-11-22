@@ -82,6 +82,8 @@ struct TypedKey {
     typed: Glyph,
     /// The place of the character the key typed or changed.
     at: usize,
+    /// The key put a tone on that character, so its place moves with the tone.
+    tone: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -100,6 +102,8 @@ enum State {
 enum Outcome {
     /// Changed the character at this place.
     Done(usize),
+    /// Put a tone on the character at this place.
+    Toned(usize),
     /// Turned the d at this place into đ, which alone does not make the word one to restore.
     Stroked(usize),
     /// Typed a vowel by itself at this place.
@@ -132,6 +136,7 @@ impl Word {
                 code: KeyCode::Other,
                 typed: *typed,
                 at,
+                tone: false,
             })
             .collect();
         Self {
@@ -156,6 +161,7 @@ impl Word {
             code: key.code,
             typed: key.typed,
             at: self.glyphs.len(),
+            tone: false,
         });
         match self.state {
             State::AsTyped { .. } => self.glyphs.push(key.typed),
@@ -188,6 +194,12 @@ impl Word {
                 self.changed_at(at);
             }
             Some(Outcome::Done(at)) => self.changed_at(at),
+            Some(Outcome::Toned(at)) => {
+                self.changed_at(at);
+                if let Some(last) = self.keys.last_mut() {
+                    last.tone = true;
+                }
+            }
             Some(Outcome::Stroked(at)) => self.typed_at(at),
             Some(Outcome::NotHere) | None => self.glyphs.push(key.typed),
         }
@@ -294,7 +306,7 @@ impl Word {
             Some((_, had)) if had == tone => Outcome::TakenBack,
             _ => {
                 self.set_tone(at, tone);
-                Outcome::Done(at)
+                Outcome::Toned(at)
             }
         }
     }
@@ -350,6 +362,7 @@ impl Word {
             code: key.code,
             typed: key.typed,
             at: self.glyphs.len(),
+            tone: false,
         });
         self.type_as_typed(key.typed);
     }
@@ -437,6 +450,9 @@ impl Word {
         if from != to {
             self.set_tone(from, Tone::Ngang);
             self.set_tone(to, tone);
+            for key in self.keys.iter_mut().filter(|key| key.tone && key.at == from) {
+                key.at = to;
+            }
         }
     }
 

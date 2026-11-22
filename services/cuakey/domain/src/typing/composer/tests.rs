@@ -915,6 +915,15 @@ fn only_backspace_right_after_the_space_takes_the_word_up() {
 }
 
 #[test]
+fn a_restored_word_keeps_the_tone_key_of_a_tone_that_moved() {
+    assert_eq!(
+        type_text(&mut composer_with(&vietnamese()), "hoans\u{8}\u{8}k "),
+        "hosk ",
+        "Backspace moved the tone onto the o, so the s still shows"
+    );
+}
+
+#[test]
 fn a_restored_word_is_taken_up_as_it_was_typed() {
     assert_eq!(
         type_text(&mut composer_with(&vietnamese()), "ass \u{8}s"),
