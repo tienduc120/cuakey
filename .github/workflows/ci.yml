@@ -64,7 +64,7 @@ jobs:
   # (ADR-0014).
   verify-windows:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -83,6 +83,10 @@ jobs:
 
       - name: Verify
         run: cargo xtask verify --full
+
+      # Fetches OpenKey at its pinned commit and builds it locally; nothing of it is committed.
+      - name: Compare with OpenKey
+        run: cargo xtask compare-openkey
 
       - name: Clean worktree
         shell: bash

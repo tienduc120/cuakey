@@ -1,0 +1,41 @@
+# Protected. Builds and publishes the Windows zip when a version tag is pushed.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show
+
+      # No build cache here: a release must not restore a cache other workflows can write.
+      - name: Build
+        run: cargo build --release --locked -p cuakey-desktop
+
+      - name: Package
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $dir = "cuakey-$env:TAG-windows-x64"
+          New-Item -ItemType Directory -Path $dir | Out-Null
+          Copy-Item target/release/cuakey.exe, README.md, LICENSE -Destination $dir
+          Compress-Archive -Path "$dir/*" -DestinationPath "$dir.zip"
+
+      - name: Publish
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$env:TAG" "cuakey-$env:TAG-windows-x64.zip" --generate-notes
