@@ -268,25 +268,38 @@ impl Composer {
             self.run.push_str(ending.as_deref().unwrap_or(&shown));
             self.run.push(digit);
         }
-        if let Some(c) = text {
-            let (word, shown) = match ending {
-                // Enter and Tab may do more than type one character (send, submit, indent, move on), so a Backspace
-                // after them takes the sentence back but no word.
-                _ if c.is_control() => (Word::default(), String::new()),
-                Some(text) => (Word::as_typed(&text), text),
-                None => (word, shown),
-            };
-            self.remember(Ended {
-                word,
-                shown,
-                sentence,
-                word_sentence: self.word_sentence,
-                raised,
-                run: run_before,
-            });
-        } else {
-            // A key that types nothing, such as an arrow, may move the caret away from the words before.
-            self.history.clear();
+        match text {
+            // Enter and Tab may do more than type one character (send, submit, indent, move on): nothing before them
+            // is taken up again, and a Backspace after them takes only the sentence back.
+            Some(c) if c.is_control() => {
+                self.history.clear();
+                self.remember(Ended {
+                    word: Word::default(),
+                    shown: String::new(),
+                    sentence,
+                    word_sentence: sentence,
+                    raised: OnOff::Off,
+                    run: String::new(),
+                });
+            }
+            Some(_) => {
+                let (word, shown) = match ending {
+                    Some(text) => (Word::as_typed(&text), text),
+                    None => (word, shown),
+                };
+                self.remember(Ended {
+                    word,
+                    shown,
+                    sentence,
+                    word_sentence: self.word_sentence,
+                    raised,
+                    run: run_before,
+                });
+            }
+            None => {
+                // A key that types nothing, such as an arrow, may move the caret away from the words before.
+                self.history.clear();
+            }
         }
         edit
     }

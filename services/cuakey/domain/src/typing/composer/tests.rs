@@ -993,6 +993,28 @@ fn backspace_right_after_punctuation_takes_the_word_up_again() {
 }
 
 #[test]
+fn nothing_before_enter_or_tab_is_taken_up_by_backspace() {
+    for end in [
+        "
+", "	",
+    ] {
+        let mut composer = composer_with(&vietnamese());
+        let mut screen = type_text(&mut composer, &format!("tooi awn{end}"));
+
+        let edit = composer.press(KeyPress::new(KeyCode::S, KeyMods::none()));
+        apply(edit.clone(), &mut screen, Some('s'));
+
+        assert_eq!(edit, Edit::PassThrough, "{end:?}: s starts a word of its own");
+        assert_eq!(screen, "tôi ăs", "{end:?}: the ă before the deleted n stays as it is");
+        assert_eq!(
+            type_text(&mut composer_with(&vietnamese()), &format!("chaof banj{end}n ")),
+            "chào bạn ",
+            "{end:?}: chào stays untouched"
+        );
+    }
+}
+
+#[test]
 fn backspace_after_enter_or_tab_takes_no_word_up() {
     for code in [KeyCode::Enter, KeyCode::Tab] {
         let mut composer = composer_with(&vietnamese());
