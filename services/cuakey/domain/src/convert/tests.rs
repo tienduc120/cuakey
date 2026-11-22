@@ -88,12 +88,28 @@ fn sentence_start_leaves_the_other_letters_alone() {
 }
 
 #[test]
-fn each_word_only_raises() {
-    assert_eq!(
-        convert("hELLO wORLD", unicode_with(ConvertCase::EachWord)),
-        "HELLO WORLD",
-        "each word only raises"
-    );
+fn each_word_writes_every_word_with_one_capital() {
+    for (text, cased) in [
+        ("hELLO wORLD", "Hello World"),
+        ("TIẾNG VIỆT", "Tiếng Việt"),
+        (
+            "tie\u{302}\u{301}ng vie\u{323}\u{302}t",
+            "Tie\u{302}\u{301}ng Vie\u{323}\u{302}t",
+        ),
+    ] {
+        assert_eq!(convert(text, unicode_with(ConvertCase::EachWord)), cased, "{text:?}");
+    }
+}
+
+#[test]
+fn each_word_raises_only_the_first_letter_after_a_space() {
+    for (text, cased) in [
+        ("gửi nam@example.com nhé", "Gửi Nam@example.com Nhé"),
+        (r"a\b và c/d", r"A\b Và C/d"),
+        ("giá (3 cái)", "Giá (3 Cái)"),
+    ] {
+        assert_eq!(convert(text, unicode_with(ConvertCase::EachWord)), cased, "{text:?}");
+    }
 }
 
 #[test]

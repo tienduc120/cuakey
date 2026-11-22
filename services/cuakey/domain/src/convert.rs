@@ -16,7 +16,7 @@ pub enum ConvertCase {
     Lower,
     /// Raises the first letter of each sentence; the other letters stay as they are.
     SentenceStart,
-    /// Raises the first letter of each word; the other letters stay as they are.
+    /// Writes each word with one capital, its first letter.
     EachWord,
 }
 
@@ -207,17 +207,18 @@ fn raise_sentence_starts(text: &str) -> String {
     out
 }
 
-/// Raises the first letter of each word, a word being a run of letters and digits.
+/// Writes each word with one capital, its first letter: a word is what spaces part, so nam@example.com is one word and
+/// the letter after a combining mark is not its first.
 fn raise_word_starts(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    let mut in_word = false;
+    let mut after_space = true;
     for c in text.chars() {
-        if c.is_alphabetic() && !in_word {
+        if c.is_alphabetic() && after_space {
             out.extend(c.to_uppercase());
         } else {
-            out.push(c);
+            out.extend(c.to_lowercase());
         }
-        in_word = c.is_alphanumeric();
+        after_space = c.is_whitespace();
     }
     out
 }
