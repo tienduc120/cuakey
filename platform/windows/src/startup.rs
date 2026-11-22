@@ -4,7 +4,7 @@
 use std::path::Path;
 
 /// The name of the `Run` value and of the scheduled task.
-const ENTRY_NAME: &str = "CuaKey";
+pub(crate) const ENTRY_NAME: &str = "CuaKey";
 
 /// How `CuaKey` starts when the user signs in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,72 +12,98 @@ pub enum StartupMode {
     Off,
     /// With the user's normal rights.
     Normal,
-    /// With the highest rights, through a scheduled task. Creating it needs an elevated process.
+    /// With the highest rights, through a scheduled task. Changing the task needs an elevated process.
     Elevated,
 }
 
-/// What to do with the `Run` value.
+/// One change to the ways `CuaKey` starts.
 #[cfg(any(windows, test))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RunEntry {
-    Set,
-    Remove,
+enum Step {
+    SetRunValue,
+    DeleteRunValue,
+    CreateTask,
+    DeleteTask,
 }
 
-/// What to do with the scheduled task.
+/// The two changes that make `mode` the one way `CuaKey` starts. The one that touches the task goes first, since it is
+/// the one that can be refused for want of rights, and a refusal then leaves the previous state as it was.
 #[cfg(any(windows, test))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TaskEntry {
-    Create,
-    Remove,
-}
-
-/// What a mode asks of the `Run` value and the task.
-#[cfg(any(windows, test))]
-#[derive(Debug, Clone, Copy)]
-struct Plan {
-    run: RunEntry,
-    task: TaskEntry,
-}
-
-#[cfg(any(windows, test))]
-const fn plan(mode: StartupMode) -> Plan {
+const fn steps(mode: StartupMode) -> [Step; 2] {
     match mode {
-        StartupMode::Off => Plan {
-            run: RunEntry::Remove,
-            task: TaskEntry::Remove,
-        },
-        StartupMode::Normal => Plan {
-            run: RunEntry::Set,
-            task: TaskEntry::Remove,
-        },
-        StartupMode::Elevated => Plan {
-            run: RunEntry::Remove,
-            task: TaskEntry::Create,
-        },
+        StartupMode::Off => [Step::DeleteTask, Step::DeleteRunValue],
+        StartupMode::Normal => [Step::DeleteTask, Step::SetRunValue],
+        StartupMode::Elevated => [Step::CreateTask, Step::DeleteRunValue],
     }
 }
 
-/// The program as the `Run` value and the task's command line name it: the path in quotes, so spaces do not split it.
+/// When the task starts.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Trigger {
+    /// When the current user signs in.
+    AtLogon,
+}
+
+/// The rights the task runs with.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RunLevel {
+    Highest,
+}
+
+/// What the task does when a second start comes while it runs.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Instances {
+    IgnoreNew,
+}
+
+/// How the task treats running on battery.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BatteryRules {
+    /// Do not start while on battery.
+    pub(crate) disallow_start: bool,
+    /// Stop when the computer leaves mains power.
+    pub(crate) stop_when_leaving_mains: bool,
+}
+
+/// What the scheduled task is registered with.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TaskSpec {
+    pub(crate) trigger: Trigger,
+    pub(crate) run_level: RunLevel,
+    pub(crate) battery: BatteryRules,
+    /// An ISO 8601 duration; `PT0S` means no limit.
+    pub(crate) time_limit: &'static str,
+    /// The process priority class level, where 4 is normal.
+    pub(crate) priority: i32,
+    pub(crate) instances: Instances,
+}
+
+/// The task suits a typing app that runs all session: it starts and keeps running on battery, has no time limit, and
+/// runs at normal priority.
+#[cfg(any(windows, test))]
+pub(crate) const fn task_spec() -> TaskSpec {
+    TaskSpec {
+        trigger: Trigger::AtLogon,
+        run_level: RunLevel::Highest,
+        battery: BatteryRules {
+            disallow_start: false,
+            stop_when_leaving_mains: false,
+        },
+        time_limit: "PT0S",
+        priority: 4,
+        instances: Instances::IgnoreNew,
+    }
+}
+
+/// The program as the `Run` value and the task action name it: the path in quotes, so spaces do not split it.
 #[must_use]
 pub fn run_value(exe: &Path) -> String {
     format!("\"{}\"", exe.display())
-}
-
-/// The `schtasks` arguments that create the task running `exe` at logon with the highest rights.
-#[must_use]
-pub fn schtasks_create_args(exe: &Path) -> Vec<String> {
-    ["/create", "/sc", "onlogon", "/tn", ENTRY_NAME, "/rl", "highest", "/tr"]
-        .into_iter()
-        .map(String::from)
-        .chain([run_value(exe), "/f".to_owned()])
-        .collect()
-}
-
-/// The `schtasks` arguments that delete the task without asking.
-#[must_use]
-pub fn schtasks_delete_args() -> Vec<String> {
-    ["/delete", "/tn", ENTRY_NAME, "/f"].map(String::from).to_vec()
 }
 
 #[cfg(windows)]
@@ -86,19 +112,17 @@ pub use self::system::{StartupError, apply};
 #[cfg(windows)]
 mod system {
     use std::io;
-    use std::os::windows::process::CommandExt;
     use std::path::Path;
-    use std::process::Command;
 
-    use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
+    use windows::Win32::Foundation::{E_ACCESSDENIED, ERROR_FILE_NOT_FOUND};
     use windows::Win32::System::Registry::{
         HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ, RegCloseKey, RegCreateKeyExW,
         RegDeleteValueW, RegOpenKeyExW, RegSetValueExW,
     };
     use windows::core::{HSTRING, PCWSTR, w};
 
-    use super::{ENTRY_NAME, Plan, RunEntry, StartupMode, TaskEntry, plan, run_value};
-    use crate::elevation::is_elevated;
+    use super::{ENTRY_NAME, StartupMode, Step, run_value, steps};
+    use crate::task_scheduler;
 
     /// Why the way `CuaKey` starts could not be changed.
     #[derive(Debug, thiserror::Error)]
@@ -111,31 +135,55 @@ mod system {
             #[source]
             source: windows::core::Error,
         },
-        #[error("could not run schtasks")]
-        Schtasks(#[source] io::Error),
-        /// A task with the highest rights can only be created by an elevated process.
-        #[error("starting with the highest rights needs CuaKey to run as administrator")]
+        #[error("could not {action} the startup task")]
+        Task {
+            action: &'static str,
+            #[source]
+            source: windows::core::Error,
+        },
+        /// The startup task can only be changed by an elevated process.
+        #[error("changing the startup task needs `CuaKey` to run as administrator")]
         NeedsElevation,
-        #[error("schtasks failed with exit code {code:?}")]
-        TaskFailed { code: Option<i32> },
     }
 
-    /// Makes `mode` the one way `CuaKey` starts with Windows. What is to be added goes in before what is to be removed,
-    /// so a failure leaves `CuaKey` starting one way or the other.
+    /// Makes `mode` the one way `CuaKey` starts with Windows.
     pub fn apply(mode: StartupMode) -> Result<(), StartupError> {
         let exe = std::env::current_exe().map_err(StartupError::CurrentExe)?;
-        let Plan { run, task } = plan(mode);
-        if task == TaskEntry::Create {
-            create_task(&exe)?;
-        }
-        match run {
-            RunEntry::Set => set_run_value(ENTRY_NAME, &exe)?,
-            RunEntry::Remove => delete_run_value(ENTRY_NAME)?,
-        }
-        if task == TaskEntry::Remove {
-            delete_task()?;
+        for step in steps(mode) {
+            match step {
+                Step::SetRunValue => set_run_value(ENTRY_NAME, &exe)?,
+                Step::DeleteRunValue => delete_run_value(ENTRY_NAME)?,
+                Step::CreateTask => task_scheduler::create(&exe).map_err(create_task_error)?,
+                Step::DeleteTask => task_scheduler::delete().or_else(delete_task_error)?,
+            }
         }
         Ok(())
+    }
+
+    /// What a failure to create the task means: a refusal for want of rights, or a failure.
+    pub(super) fn create_task_error(source: windows::core::Error) -> StartupError {
+        if source.code() == E_ACCESSDENIED {
+            StartupError::NeedsElevation
+        } else {
+            StartupError::Task {
+                action: "create",
+                source,
+            }
+        }
+    }
+
+    /// What a failure to delete the task means: no task is already as wanted.
+    pub(super) fn delete_task_error(source: windows::core::Error) -> Result<(), StartupError> {
+        if source.code() == ERROR_FILE_NOT_FOUND.to_hresult() {
+            Ok(())
+        } else if source.code() == E_ACCESSDENIED {
+            Err(StartupError::NeedsElevation)
+        } else {
+            Err(StartupError::Task {
+                action: "delete",
+                source,
+            })
+        }
     }
 
     const RUN_KEY: PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Run");
@@ -218,42 +266,6 @@ mod system {
             return Ok(());
         }
         result.ok().map_err(|source| registry_error("delete", source))
-    }
-
-    /// The `CREATE_NO_WINDOW` flag, so running `schtasks` does not flash a console.
-    const NO_WINDOW: u32 = 0x0800_0000;
-
-    /// Runs `schtasks` with `args` and returns its exit code, or `None` when a signal ended it.
-    fn schtasks(args: &[String]) -> Result<Option<i32>, StartupError> {
-        let output = Command::new("schtasks.exe")
-            .args(args)
-            .creation_flags(NO_WINDOW)
-            .output()
-            .map_err(StartupError::Schtasks)?;
-        Ok(output.status.code())
-    }
-
-    fn create_task(exe: &Path) -> Result<(), StartupError> {
-        match schtasks(&super::schtasks_create_args(exe))? {
-            Some(0) => Ok(()),
-            code if !is_elevated() => {
-                tracing::debug!(?code, "creating the startup task failed without elevation");
-                Err(StartupError::NeedsElevation)
-            }
-            code => Err(StartupError::TaskFailed { code }),
-        }
-    }
-
-    /// Deletes the task when there is one.
-    fn delete_task() -> Result<(), StartupError> {
-        let query = ["/query", "/tn", ENTRY_NAME].map(String::from);
-        if schtasks(&query)? != Some(0) {
-            return Ok(());
-        }
-        match schtasks(&super::schtasks_delete_args())? {
-            Some(0) => Ok(()),
-            code => Err(StartupError::TaskFailed { code }),
-        }
     }
 
     /// The text of the `Run` value `name`, or `None` when it is not there.

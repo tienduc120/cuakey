@@ -3,13 +3,11 @@
 use std::io;
 use std::path::Path;
 
-use windows::Win32::Foundation::RPC_E_CHANGED_MODE;
-use windows::Win32::System::Com::{
-    CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile,
-};
+use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile};
 use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
 use windows::core::{HSTRING, Interface};
 
+use crate::com::ComScope;
 use crate::known_folder::{self, KnownFolderError};
 
 /// The file name of the shortcut on the desktop.
@@ -64,35 +62,6 @@ fn remove_shortcut_at(path: &Path) -> Result<(), ShortcutError> {
     match std::fs::remove_file(path) {
         Err(error) if error.kind() != io::ErrorKind::NotFound => Err(ShortcutError::Remove(error)),
         Ok(()) | Err(_) => Ok(()),
-    }
-}
-
-/// COM initialised for this thread until the scope drops. A thread that already initialised COM, in either
-/// apartment kind, is left as it was.
-struct ComScope {
-    /// Whether this scope's call succeeded and so has to be balanced with an uninitialise.
-    initialised: bool,
-}
-
-impl ComScope {
-    fn enter() -> windows::core::Result<Self> {
-        // SAFETY: the call takes no pointers; a success, including "already initialised", is balanced in `drop`.
-        let result = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
-        if result == RPC_E_CHANGED_MODE {
-            // The thread already runs COM in another apartment kind, which serves this use as well.
-            return Ok(Self { initialised: false });
-        }
-        result.ok()?;
-        Ok(Self { initialised: true })
-    }
-}
-
-impl Drop for ComScope {
-    fn drop(&mut self) {
-        if self.initialised {
-            // SAFETY: this scope's `CoInitializeEx` succeeded on this thread, so this balances it once.
-            unsafe { CoUninitialize() };
-        }
     }
 }
 

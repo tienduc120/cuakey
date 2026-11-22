@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{RunEntry, StartupMode, TaskEntry, plan, run_value, schtasks_create_args, schtasks_delete_args};
+use super::{BatteryRules, Instances, RunLevel, StartupMode, Step, Trigger, run_value, steps, task_spec};
 
 #[test]
 fn run_value_quotes_path() {
@@ -13,54 +13,77 @@ fn run_value_quotes_path() {
 }
 
 #[test]
-fn schtasks_args_exact() {
-    let create = schtasks_create_args(Path::new(r"C:\Program Files\CuaKey\cuakey.exe"));
-    let delete = schtasks_delete_args();
+fn task_settings_suit_a_long_running_typing_app() {
+    let spec = task_spec();
 
+    assert_eq!(spec.trigger, Trigger::AtLogon, "the task starts when the user signs in");
     assert_eq!(
-        create,
-        [
-            "/create",
-            "/sc",
-            "onlogon",
-            "/tn",
-            "CuaKey",
-            "/rl",
-            "highest",
-            "/tr",
-            r#""C:\Program Files\CuaKey\cuakey.exe""#,
-            "/f",
-        ],
-        "the task runs the quoted program at logon with the highest rights"
+        spec.run_level,
+        RunLevel::Highest,
+        "the task runs with the highest rights"
     );
     assert_eq!(
-        delete,
-        ["/delete", "/tn", "CuaKey", "/f"],
-        "the task is deleted without asking"
+        spec.battery,
+        BatteryRules {
+            disallow_start: false,
+            stop_when_leaving_mains: false,
+        },
+        "the task starts on battery and keeps running on it"
     );
+    assert_eq!(spec.time_limit, "PT0S", "the task is never stopped for running long");
+    assert_eq!(spec.priority, 4, "the task runs at normal priority");
+    assert_eq!(spec.instances, Instances::IgnoreNew, "a second start is ignored");
 }
 
 #[test]
-fn exactly_one_way_to_start_is_active() {
-    let off = plan(StartupMode::Off);
-    let normal = plan(StartupMode::Normal);
-    let elevated = plan(StartupMode::Elevated);
+fn the_step_that_can_need_elevation_goes_first() {
+    assert_eq!(
+        steps(StartupMode::Off),
+        [Step::DeleteTask, Step::DeleteRunValue],
+        "off removes both, task first"
+    );
+    assert_eq!(
+        steps(StartupMode::Normal),
+        [Step::DeleteTask, Step::SetRunValue],
+        "a normal start drops the task before it adds the registry value"
+    );
+    assert_eq!(
+        steps(StartupMode::Elevated),
+        [Step::CreateTask, Step::DeleteRunValue],
+        "an elevated start creates the task before it drops the registry value"
+    );
+}
 
-    assert_eq!(
-        (off.run, off.task),
-        (RunEntry::Remove, TaskEntry::Remove),
-        "off removes both"
-    );
-    assert_eq!(
-        (normal.run, normal.task),
-        (RunEntry::Set, TaskEntry::Remove),
-        "a normal start uses the registry value only"
-    );
-    assert_eq!(
-        (elevated.run, elevated.task),
-        (RunEntry::Remove, TaskEntry::Create),
-        "an elevated start uses the scheduled task only"
-    );
+#[cfg(windows)]
+mod task_errors {
+    use windows::Win32::Foundation::{E_ACCESSDENIED, E_FAIL, ERROR_FILE_NOT_FOUND};
+
+    use super::super::system::{StartupError, create_task_error, delete_task_error};
+
+    #[test]
+    fn denied_task_change_needs_elevation() {
+        let denied = || windows::core::Error::from(E_ACCESSDENIED);
+
+        assert!(matches!(create_task_error(denied()), StartupError::NeedsElevation));
+        assert!(matches!(delete_task_error(denied()), Err(StartupError::NeedsElevation)));
+    }
+
+    #[test]
+    fn deleting_a_missing_task_is_success() {
+        let missing = windows::core::Error::from(ERROR_FILE_NOT_FOUND.to_hresult());
+
+        assert!(
+            delete_task_error(missing).is_ok(),
+            "there is no task, which is the wanted state"
+        );
+    }
+
+    #[test]
+    fn other_task_failures_keep_their_cause() {
+        let error = windows::core::Error::from(E_FAIL);
+
+        assert!(matches!(delete_task_error(error), Err(StartupError::Task { .. })));
+    }
 }
 
 #[cfg(windows)]
