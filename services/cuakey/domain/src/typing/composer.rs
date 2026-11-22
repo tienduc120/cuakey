@@ -268,8 +268,11 @@ impl Composer {
             self.run.push_str(ending.as_deref().unwrap_or(&shown));
             self.run.push(digit);
         }
-        if text.is_some() {
+        if let Some(c) = text {
             let (word, shown) = match ending {
+                // Enter and Tab may do more than type one character (send, submit, indent, move on), so a Backspace
+                // after them takes the sentence back but no word.
+                _ if c.is_control() => (Word::default(), String::new()),
                 Some(text) => (Word::as_typed(&text), text),
                 None => (word, shown),
             };

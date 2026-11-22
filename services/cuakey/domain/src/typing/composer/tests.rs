@@ -993,6 +993,25 @@ fn backspace_right_after_punctuation_takes_the_word_up_again() {
 }
 
 #[test]
+fn backspace_after_enter_or_tab_takes_no_word_up() {
+    for code in [KeyCode::Enter, KeyCode::Tab] {
+        let mut composer = composer_with(&vietnamese());
+        type_text(&mut composer, "chaof");
+        composer.press(KeyPress::new(code, KeyMods::none()));
+
+        composer.press(KeyPress::new(KeyCode::Backspace, KeyMods::none()));
+        let edit = composer.press(KeyPress::new(KeyCode::S, KeyMods::none()));
+
+        assert_eq!(
+            composer.word(),
+            "s",
+            "{code:?}: the key may have done more than type one character"
+        );
+        assert_eq!(edit, Edit::PassThrough, "{code:?}: s starts a word of its own");
+    }
+}
+
+#[test]
 fn backspace_over_any_key_that_ended_a_word_takes_the_sentence_back() {
     let capitals = settings().with(SettingChange::CapitalizeSentences(OnOff::On));
     for (keys, shown) in [
