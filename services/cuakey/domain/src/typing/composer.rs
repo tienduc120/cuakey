@@ -107,6 +107,13 @@ impl Composer {
         match self.keystroke(key) {
             Some(keystroke) => self.type_into_word(keystroke, key),
             None if self.types_itself_after_the_word(key) => {
+                self.ended = Some(Ended {
+                    word: mem::take(&mut self.word),
+                    shown: self.shown.clone(),
+                    sentence: self.sentence,
+                    word_sentence: self.word_sentence,
+                    raised: self.raised,
+                });
                 self.sentence = text_of(key).map_or(self.sentence, |c| self.sentence.after(c));
                 self.leave_word()
             }

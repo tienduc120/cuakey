@@ -752,6 +752,17 @@ fn a_chord_ends_the_sentence_as_far_as_capitals_go() {
 }
 
 #[test]
+fn backspace_after_a_simple_telex_bracket_takes_the_word_up_again() {
+    let simple = settings().with(SettingChange::InputMethod(InputMethod::SimpleTelex));
+
+    assert_eq!(
+        type_text(&mut composer_with(&simple), "ana[\u{8}r"),
+        "ẩn",
+        "the hook goes on the word before the deleted bracket"
+    );
+}
+
+#[test]
 fn simple_telex_brackets_end_the_word_as_it_shows() {
     let quick = settings()
         .with(SettingChange::InputMethod(InputMethod::SimpleTelex))
