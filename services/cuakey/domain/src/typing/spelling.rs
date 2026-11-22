@@ -220,6 +220,9 @@ pub(super) fn is_vowel_group(vowels: &[BaseLetter]) -> bool {
 /// The vowels ch and nh follow: a, ê, and i, and the groups built on them (sách, bếch, thích, oách, khuếch, huých).
 const BEFORE_CH_NH: [&[BaseLetter]; 7] = [&[A], &[ECircumflex], &[I], &[Y], &[O, A], &[U, ECircumflex], &[U, Y]];
 
+/// The vowels c and ng never follow: ê and i take ch and nh instead (bếch, thích), and ơ takes neither.
+const NOT_BEFORE_C_NG: [&[BaseLetter]; 4] = [&[ECircumflex], &[I], &[Y], &[OHorn]];
+
 /// The vowel groups that end a syllable themselves, in a semivowel (mai, kêu, tuổi) or as ia, ua, ưa, and uơ do: no
 /// last consonant follows them.
 const ENDING_GROUPS: [&[BaseLetter]; 30] = [
@@ -256,12 +259,14 @@ const ENDING_GROUPS: [&[BaseLetter]; 30] = [
 ];
 
 /// Whether `vowels` are a Vietnamese vowel group that `last` consonants may follow: a group that ends a syllable takes
-/// none, and ch and nh follow only the vowels that take them. A quick last consonant counts as the pair it stands for.
+/// none, ch and nh follow only the vowels that take them, and c and ng never follow ê, i, or ơ. A quick last consonant
+/// counts as the pair it stands for.
 pub(super) fn rhyme_fits(vowels: &[BaseLetter], last: &[BaseLetter]) -> bool {
     let fits_last = match as_pair(last) {
         [] => true,
         _ if ENDING_GROUPS.contains(&vowels) => false,
         [C | N, H] => BEFORE_CH_NH.contains(&vowels),
+        [C] | [N, G] => !NOT_BEFORE_C_NG.contains(&vowels),
         _ => true,
     };
     is_vowel_group(vowels) && fits_last

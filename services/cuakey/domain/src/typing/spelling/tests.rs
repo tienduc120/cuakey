@@ -141,3 +141,17 @@ fn a_quick_last_consonant_is_judged_as_the_pair_it_stands_for() {
         );
     }
 }
+
+#[test]
+fn c_and_ng_never_follow_e_circumflex_i_or_o_horn() {
+    for word in ["xinh", "ích", "ênh", "ơn", "ưng", "xẻng"] {
+        assert_eq!(spelled(word, VIETNAMESE), Spelling::Syllable, "{word}");
+    }
+    for word in ["ing", "ic", "êng", "ơng", "ơc"] {
+        assert_ne!(
+            spelled(word, VIETNAMESE),
+            Spelling::Syllable,
+            "{word}: no Vietnamese syllable ends so"
+        );
+    }
+}
