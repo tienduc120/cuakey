@@ -101,7 +101,14 @@ fn notepad_edit() {
         value_read_only: Some(false),
         ..element(EDIT, "notepad.exe", "Edit")
     };
-    let document = element(DOCUMENT, "notepad.exe", "RichEditD2DPT");
+    let document = ElementProps {
+        flags: ElementFlags {
+            text_edit: true,
+            ..ENABLED
+        },
+        value_read_only: Some(false),
+        ..element(DOCUMENT, "notepad.exe", "RichEditD2DPT")
+    };
 
     assert_eq!(
         classify(&classic),
@@ -111,7 +118,33 @@ fn notepad_edit() {
     assert_eq!(
         classify(&document),
         FocusClass::Text,
-        "a document that does not say it is read-only takes typing"
+        "the new Notepad's document says it is writable and takes typing"
+    );
+}
+
+#[test]
+fn only_a_document_needs_evidence_of_editing() {
+    let silent_document = element(DOCUMENT, "firefox.exe", "");
+    let writable_document = ElementProps {
+        value_read_only: Some(false),
+        ..element(DOCUMENT, "winword.exe", "")
+    };
+    let silent_edit = element(EDIT, "notepad.exe", "Edit");
+
+    assert_eq!(
+        classify(&silent_document),
+        FocusClass::NotText,
+        "a document with no Value pattern and no text-edit pattern shows nothing that takes typing"
+    );
+    assert_eq!(
+        classify(&writable_document),
+        FocusClass::Text,
+        "a document whose value is writable takes typing"
+    );
+    assert_eq!(
+        classify(&silent_edit),
+        FocusClass::Text,
+        "an edit box takes typing unless it says it is read-only"
     );
 }
 

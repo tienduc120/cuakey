@@ -28,12 +28,6 @@ pub struct ElementFlags {
     pub text_edit: bool,
 }
 
-impl ElementProps {
-    fn read_only(&self) -> bool {
-        self.value_read_only == Some(true)
-    }
-}
-
 // UI Automation control type ids.
 const EDIT: i32 = 50004;
 const DATA_ITEM: i32 = 50029;
@@ -57,9 +51,10 @@ pub fn classify(props: &ElementProps) -> FocusClass {
         return FocusClass::Text;
     }
     let editable = match props.control_type {
-        EDIT => !props.read_only(),
-        // A rich editor's value can say read-only while its text-edit pattern shows it takes typing.
-        DOCUMENT => !props.read_only() || props.flags.text_edit,
+        EDIT => props.value_read_only != Some(true),
+        // A web page's body is a document too, so a document must show it takes typing: a writable value, or the
+        // text-edit pattern, which a rich editor offers even when its value says read-only.
+        DOCUMENT => props.value_read_only == Some(false) || props.flags.text_edit,
         _ => false,
     };
     if editable {
