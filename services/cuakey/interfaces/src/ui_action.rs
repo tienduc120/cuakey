@@ -1,6 +1,8 @@
 //! What the settings window asks the desktop to do, in values the desktop reads.
 
-use cuakey_application::PreferencesView;
+use std::path::PathBuf;
+
+use cuakey_application::{ImportMode, MacroView, PreferencesView};
 
 /// The system the window runs on. Options only Windows has are hidden elsewhere.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +31,19 @@ pub enum UiAction {
     /// Put every preference back to its default.
     Reset,
     Open(WindowKind),
+    /// The macro table the user edited, to be stored now.
+    SaveMacros(Vec<MacroView>),
+    /// Read the macro file at `path` into the stored macros.
+    ImportMacros {
+        path: PathBuf,
+        mode: ImportMode,
+    },
+    /// Write the stored macros to the file at `path`.
+    ExportMacros {
+        path: PathBuf,
+    },
+    /// Convert the clipboard with these options: store the view first, then convert with what is stored.
+    Convert(PreferencesView),
     /// Close this window.
     Close,
 }

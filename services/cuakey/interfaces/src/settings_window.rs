@@ -14,7 +14,7 @@ const INPUT_METHODS: [(InputMethodValue, &str); 3] = [
     (InputMethodValue::SimpleTelex, labels::INPUT_METHOD_SIMPLE_TELEX),
 ];
 
-const CODE_TABLES: [(CodeTableValue, &str); 5] = [
+pub(crate) const CODE_TABLES: [(CodeTableValue, &str); 5] = [
     (CodeTableValue::Unicode, labels::CODE_TABLE_UNICODE),
     (CodeTableValue::Tcvn3, labels::CODE_TABLE_TCVN3),
     (CodeTableValue::VniWindows, labels::CODE_TABLE_VNI_WINDOWS),
@@ -28,7 +28,7 @@ const LANGUAGES: [(LanguageValue, &str); 2] = [
 ];
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
-fn checkbox(ui: &mut Ui, label: &str, current: cuakey_application::Toggle) -> Option<bool> {
+pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: cuakey_application::Toggle) -> Option<bool> {
     let mut on = is_on(current);
     ui.checkbox(&mut on, label).changed().then_some(on)
 }
@@ -49,7 +49,7 @@ fn gated_checkbox(
 }
 
 /// A drop-down of choices. Returns the new choice when the user picked another.
-fn combo<T: Copy + PartialEq>(ui: &mut Ui, id_salt: &str, current: T, choices: &[(T, &str)]) -> Option<T> {
+pub(crate) fn combo<T: Copy + PartialEq>(ui: &mut Ui, id_salt: &str, current: T, choices: &[(T, &str)]) -> Option<T> {
     let mut selected = current;
     let shown = choices
         .iter()

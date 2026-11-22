@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 cuakey-application = { path = "../application" }
 egui = { workspace = true }
+rfd = { workspace = true }
 thiserror = { workspace = true, features = ["std"] }
 
 [lints]
