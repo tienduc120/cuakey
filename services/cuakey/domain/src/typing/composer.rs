@@ -49,15 +49,29 @@ pub struct Composer {
     word: Word,
     /// The word as the screen shows it, kept so `word` can lend it out.
     shown: String,
-    /// The word a Space or punctuation just ended, as the screen shows it: a Backspace right after deletes that
-    /// character and takes the word up again.
-    ended: Option<(Word, String)>,
+    /// The word a Space or punctuation just ended: a Backspace right after deletes that character and takes the word up
+    /// again.
+    ended: Option<Ended>,
     /// What the screen shows before the word since the last key that ended a word other than a digit: Telex ends the
     /// word at a digit, yet a shortcut such as vn1 is looked up whole.
     run: String,
     sentence: Sentence,
+    /// Where the sentence stood when the word being typed started, for a Backspace that deletes the whole word.
+    word_sentence: Sentence,
     macros: MacroTable,
     /// The engine capitalised the first letter of the word being typed, which the user typed in lower case.
+    raised: OnOff,
+}
+
+/// A word a key just ended, with what the composer knew of it then.
+#[derive(Debug)]
+struct Ended {
+    word: Word,
+    /// The word as the screen shows it.
+    shown: String,
+    /// Where the sentence stood after the word, before the key that ended it.
+    sentence: Sentence,
+    word_sentence: Sentence,
     raised: OnOff,
 }
 
@@ -70,6 +84,7 @@ impl Composer {
             ended: None,
             run: String::new(),
             sentence: Sentence::default(),
+            word_sentence: Sentence::default(),
             macros: MacroTable::default(),
             raised: OnOff::Off,
         }
@@ -134,17 +149,25 @@ impl Composer {
     }
 
     /// Backspace deletes the last character of the word; with no word, the key goes through, and right after a Space or
-    /// punctuation takes up the word it ended.
-    fn delete_back(&mut self, ended: Option<(Word, String)>) -> Edit {
+    /// punctuation takes up the word it ended. The sentence goes back to where it stood before the text Backspace takes
+    /// away.
+    fn delete_back(&mut self, ended: Option<Ended>) -> Edit {
         if self.word.is_empty() {
             self.run.pop();
-            if let Some((word, shown)) = ended {
-                self.word = word;
-                self.shown = shown;
+            if let Some(ended) = ended {
+                self.word = ended.word;
+                self.shown = ended.shown;
+                self.sentence = ended.sentence;
+                self.word_sentence = ended.word_sentence;
+                self.raised = ended.raised;
             }
             return Edit::PassThrough;
         }
         self.word.delete_last(self.rules());
+        if self.word.is_empty() {
+            self.sentence = self.word_sentence;
+            self.raised = OnOff::Off;
+        }
         let before = mem::replace(&mut self.shown, self.word.render());
         backspace_edit(&before, &self.shown, self.settings.typing().code_table())
     }
@@ -170,6 +193,7 @@ impl Composer {
 
     fn type_into_word(&mut self, keystroke: Keystroke, key: KeyPress) -> Edit {
         if self.word.is_empty() {
+            self.word_sentence = self.sentence;
             let typed = typed_by(key).map(Glyph::to_char);
             self.raised = if typed.is_some_and(|c| c != keystroke.typed.to_char()) {
                 OnOff::On
@@ -191,6 +215,7 @@ impl Composer {
         let raised = mem::replace(&mut self.raised, OnOff::Off);
         let shown = mem::take(&mut self.shown);
         let text = text_of(key);
+        let sentence = self.sentence;
         if let Some(c) = text {
             self.sentence = self.sentence.after(c);
         }
@@ -218,9 +243,16 @@ impl Composer {
             self.run.push(digit);
         }
         if text.is_some_and(|c| !c.is_control() && digit.is_none()) {
-            self.ended = Some(match ending {
+            let (word, shown) = match ending {
                 Some(text) => (Word::as_typed(&text), text),
                 None => (word, shown),
+            };
+            self.ended = Some(Ended {
+                word,
+                shown,
+                sentence,
+                word_sentence: self.word_sentence,
+                raised,
             });
         }
         edit

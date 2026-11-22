@@ -882,6 +882,28 @@ fn backspace_right_after_punctuation_takes_the_word_up_again() {
 }
 
 #[test]
+fn taking_a_word_up_again_takes_its_sentence_back() {
+    let capitals = settings().with(SettingChange::CapitalizeSentences(OnOff::On));
+
+    assert_eq!(
+        type_text(&mut composer_with(&capitals), "tooi.\u{8} ban"),
+        "tôi ban",
+        "the full stop is gone, so no sentence starts after it"
+    );
+}
+
+#[test]
+fn a_first_letter_deleted_at_a_sentence_start_is_raised_again_when_retyped() {
+    let capitals = settings().with(SettingChange::CapitalizeSentences(OnOff::On));
+
+    assert_eq!(
+        type_text(&mut composer_with(&capitals), "tooi. k\u{8}ko"),
+        "tôi. Ko",
+        "the sentence still starts with the word typed again"
+    );
+}
+
+#[test]
 fn only_backspace_right_after_the_space_takes_the_word_up() {
     let mut composer = telex();
 

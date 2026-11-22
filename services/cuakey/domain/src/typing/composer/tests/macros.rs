@@ -437,6 +437,17 @@ fn a_macro_fires_on_the_first_word_of_a_sentence_the_engine_capitalised() {
 }
 
 #[test]
+fn a_raised_word_taken_up_again_after_a_space_is_still_raised() {
+    let mut composer = composer_for(&capitalising(OnOff::Off), Language::Vietnamese, &[("ko", "không")]);
+
+    assert_eq!(
+        type_text(&mut composer, "tooi. kop \u{8}\u{8} "),
+        "tôi. Không ",
+        "Backspace took Kop up again and deleted its p; the engine had raised its k"
+    );
+}
+
+#[test]
 fn a_macro_fires_on_a_capitalised_first_word_with_match_caps_on() {
     let mut composer = composer_for(&capitalising(OnOff::On), Language::Vietnamese, &[("ko", "không")]);
 
