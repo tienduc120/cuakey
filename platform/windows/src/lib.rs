@@ -13,14 +13,30 @@
     )
 )]
 
+mod app_message;
+#[cfg(windows)]
+mod beep;
 #[cfg(windows)]
 mod clipboard;
+#[cfg(windows)]
+mod elevation;
 mod focus_cell;
 mod focus_rules;
 mod focus_watch;
 mod hook;
 mod keyboard_layout;
+#[cfg(windows)]
+mod known_folder;
+#[cfg(windows)]
+mod message_window;
+#[cfg(windows)]
+mod notify;
 mod send;
+#[cfg(windows)]
+mod shortcut;
+#[cfg(windows)]
+mod single_instance;
+mod startup;
 
 #[cfg(windows)]
 pub use clipboard::{ClipboardError, read_clipboard_text, write_clipboard_text};
@@ -38,6 +54,25 @@ pub use keyboard_layout::{is_english, may_have_ime};
 pub use send::SendOp;
 #[cfg(windows)]
 pub use send::{SendError, send};
+
+pub use app_message::{AppMessage, WindowKind};
+#[cfg(windows)]
+pub use beep::beep;
+#[cfg(windows)]
+pub use elevation::{RelaunchError, is_elevated, relaunch_elevated};
+#[cfg(windows)]
+pub use known_folder::{KnownFolderError, roaming_app_data};
+#[cfg(windows)]
+pub use message_window::{CreateMessageWindowError, MessageWindow, PostError, post_to};
+#[cfg(windows)]
+pub use notify::show as show_notice;
+#[cfg(windows)]
+pub use shortcut::{ShortcutError, set_desktop_shortcut};
+#[cfg(windows)]
+pub use single_instance::{Guard as SingleInstanceGuard, SingleInstanceError};
+#[cfg(windows)]
+pub use startup::{StartupError, apply as apply_startup};
+pub use startup::{StartupMode, run_value, schtasks_create_args, schtasks_delete_args};
 
 /// The `dwExtraInfo` tag on every input the app sends ("CUKY" in ASCII), so its own keyboard hook can tell that input
 /// from the user's and let it through untouched.
