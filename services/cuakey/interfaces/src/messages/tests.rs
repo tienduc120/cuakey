@@ -1,11 +1,12 @@
 use cuakey_application::{
-    ClipboardError, ExportMacrosError, ImportMacrosError, InvalidMacro, LoadMacrosError, QuickConvertError,
-    ResetPreferencesError, SaveMacrosError, SavePreferencesError, StoreError, UpdateError,
+    ClipboardError, ExportMacrosError, ImportMacrosError, InvalidMacro, LoadMacrosError, LoadPreferencesError,
+    QuickConvertError, ResetPreferencesError, SaveMacrosError, SavePreferencesError, StoreError, UpdateError,
 };
 
 use super::{
-    convert_error_message, error_message, export_macros_error_message, import_macros_error_message,
-    load_macros_error_message, macro_error_message, reset_error_message, save_error_message, save_macros_error_message,
+    Notice, convert_error_message, error_message, export_macros_error_message, import_macros_error_message,
+    load_error_message, load_macros_error_message, macro_error_message, notice_message, reset_error_message,
+    save_error_message, save_macros_error_message,
 };
 
 const ALL_UPDATE_ERRORS: [UpdateError; 6] = [
@@ -123,6 +124,39 @@ fn each_quick_convert_failure_has_its_own_message() {
         ))),
         convert_error_message(&QuickConvertError::Storage(storage_error())),
     ];
+    for (index, message) in messages.iter().enumerate() {
+        assert_ne!(*message, "");
+        assert!(!messages[..index].contains(message), "{message} repeats");
+    }
+}
+
+#[test]
+fn a_failed_load_says_the_defaults_are_used() {
+    assert_eq!(
+        load_error_message(&LoadPreferencesError::Storage(storage_error())),
+        "Không đọc được cài đặt, CuaKey dùng cài đặt gốc"
+    );
+}
+
+const ALL_NOTICES: [Notice; 8] = [
+    Notice::ConvertDone,
+    Notice::ElevationRefused,
+    Notice::ElevationFailed,
+    Notice::StartupNeedsAdministrator,
+    Notice::StartupNotChanged,
+    Notice::ShortcutNotChanged,
+    Notice::NotStarted,
+    Notice::WindowNotOpened,
+];
+
+#[test]
+fn a_finished_quick_convert_says_so() {
+    assert_eq!(notice_message(Notice::ConvertDone), "Chuyển mã thành công!");
+}
+
+#[test]
+fn every_notice_has_its_own_message() {
+    let messages: Vec<&str> = ALL_NOTICES.into_iter().map(notice_message).collect();
     for (index, message) in messages.iter().enumerate() {
         assert_ne!(*message, "");
         assert!(!messages[..index].contains(message), "{message} repeats");

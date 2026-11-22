@@ -25,8 +25,9 @@ pub use hotkey_editor::{key_from_egui, key_label, key_to_egui, press_key};
 pub use macro_form::MacroForm;
 pub use macro_window::MacroWindow;
 pub use messages::{
-    convert_error_message, error_message, export_macros_error_message, import_macros_error_message,
-    load_macros_error_message, macro_error_message, reset_error_message, save_error_message, save_macros_error_message,
+    Notice, convert_error_message, error_message, export_macros_error_message, import_macros_error_message,
+    load_error_message, load_macros_error_message, macro_error_message, notice_message, reset_error_message,
+    save_error_message, save_macros_error_message,
 };
 pub use settings_form::{GatedControl, SettingsForm};
 pub use settings_window::SettingsWindow;

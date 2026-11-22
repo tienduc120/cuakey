@@ -2,6 +2,9 @@
 
 pub const WINDOW_TITLE: &str = concat!("CuaKey ", env!("CARGO_PKG_VERSION"), " - Bộ gõ Tiếng Việt");
 
+/// The title of every notice the app shows outside its windows.
+pub const NOTICE_TITLE: &str = "CuaKey";
+
 pub const SECTION_CONTROL: &str = "Điều khiển";
 pub const SECTION_TYPING: &str = "Bộ gõ";
 pub const SECTION_MACROS: &str = "Gõ tắt";

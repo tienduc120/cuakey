@@ -2,11 +2,51 @@
 //! exhaustive, so a new outcome cannot reach the user unworded.
 
 use cuakey_application::{
-    ExportMacrosError, ImportMacrosError, InvalidMacro, LoadMacrosError, QuickConvertError, ResetPreferencesError,
-    SaveMacrosError, SavePreferencesError, UpdateError,
+    ExportMacrosError, ImportMacrosError, InvalidMacro, LoadMacrosError, LoadPreferencesError, QuickConvertError,
+    ResetPreferencesError, SaveMacrosError, SavePreferencesError, UpdateError,
 };
 
 const SETTINGS_NOT_SAVED: &str = "Không lưu được cài đặt";
+
+/// What the app tells the user about itself and the system, rather than about one setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Notice {
+    /// Quick convert put the converted text on the clipboard.
+    ConvertDone,
+    /// The user refused the administrator prompt, so the app runs with normal rights.
+    ElevationRefused,
+    /// The app could not start itself again as administrator.
+    ElevationFailed,
+    /// Starting with Windows as administrator can only be changed by an app that runs as administrator.
+    StartupNeedsAdministrator,
+    StartupNotChanged,
+    ShortcutNotChanged,
+    /// The app could not start at all.
+    NotStarted,
+    WindowNotOpened,
+}
+
+#[must_use]
+pub const fn notice_message(notice: Notice) -> &'static str {
+    match notice {
+        Notice::ConvertDone => "Chuyển mã thành công!",
+        Notice::ElevationRefused => "Không được cấp quyền Admin, CuaKey chạy với quyền thường",
+        Notice::ElevationFailed => "Không khởi động lại được CuaKey với quyền Admin",
+        Notice::StartupNeedsAdministrator => "Cần chạy CuaKey với quyền Admin để đổi cách khởi động cùng Windows",
+        Notice::StartupNotChanged => "Không đổi được cài đặt khởi động cùng Windows",
+        Notice::ShortcutNotChanged => "Không đổi được biểu tượng trên Desktop",
+        Notice::NotStarted => "Không khởi động được CuaKey",
+        Notice::WindowNotOpened => "Không mở được cửa sổ CuaKey",
+    }
+}
+
+/// Why the stored preferences could not be read; the app then carries on with the defaults.
+#[must_use]
+pub const fn load_error_message(error: &LoadPreferencesError) -> &'static str {
+    match error {
+        LoadPreferencesError::Storage(_) => "Không đọc được cài đặt, CuaKey dùng cài đặt gốc",
+    }
+}
 
 #[must_use]
 pub const fn error_message(error: UpdateError) -> &'static str {
