@@ -871,6 +871,17 @@ fn backspace_right_after_a_space_takes_the_word_up_again() {
 }
 
 #[test]
+fn backspace_right_after_punctuation_takes_the_word_up_again() {
+    for (keys, shown) in [("tieeng,\u{8}s", "tiếng"), ("o,\u{8}o", "ô"), ("xu.\u{8}j", "xụ")] {
+        assert_eq!(
+            type_text(&mut telex(), keys),
+            shown,
+            "{keys:?}: the tone goes on the word before"
+        );
+    }
+}
+
+#[test]
 fn only_backspace_right_after_the_space_takes_the_word_up() {
     let mut composer = telex();
 

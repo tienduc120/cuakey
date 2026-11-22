@@ -49,8 +49,8 @@ pub struct Composer {
     word: Word,
     /// The word as the screen shows it, kept so `word` can lend it out.
     shown: String,
-    /// The word a Space just ended, as the screen shows it: a Backspace right after deletes the Space and takes the
-    /// word up again.
+    /// The word a Space or punctuation just ended, as the screen shows it: a Backspace right after deletes that
+    /// character and takes the word up again.
     ended: Option<(Word, String)>,
     /// What the screen shows before the word since the last key that ended a word other than a digit: Telex ends the
     /// word at a digit, yet a shortcut such as vn1 is looked up whole.
@@ -133,8 +133,8 @@ impl Composer {
         Edit::PassThrough
     }
 
-    /// Backspace deletes the last character of the word; with no word, the key goes through, and right after a Space
-    /// takes up the word the Space ended.
+    /// Backspace deletes the last character of the word; with no word, the key goes through, and right after a Space or
+    /// punctuation takes up the word it ended.
     fn delete_back(&mut self, ended: Option<(Word, String)>) -> Edit {
         if self.word.is_empty() {
             self.run.pop();
@@ -217,7 +217,7 @@ impl Composer {
             self.run.push_str(ending.as_deref().unwrap_or(&shown));
             self.run.push(digit);
         }
-        if key.code() == KeyCode::Space {
+        if text.is_some_and(|c| !c.is_control() && digit.is_none()) {
             self.ended = Some(match ending {
                 Some(text) => (Word::as_typed(&text), text),
                 None => (word, shown),
