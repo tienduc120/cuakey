@@ -4498,15 +4498,6 @@ reason = "With spell check a word that can no longer be Vietnamese stays as type
 
 [[accepted]]
 source = "random"
-sequence = "o<bs>oe/y<bs><bs><bs>3<click>o "
-settings = "vni cp1258 vietnamese spell-check !restore !modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
-step = 10
-expected = "006f 00d2"
-cuakey = "006f 0033"
-reason = "Random keys: three Backspaces delete the y, the / and the e, back into the word before; OpenKey goes on with the o left of it, while CuaKey takes a word up again only with a Backspace right after the key that ended it, so the 3 types itself. No typist types this sequence."
-
-[[accepted]]
-source = "random"
 sequence = "Aa gsokO<click>m d "
 settings = "telex unicode vietnamese !spell-check restore !modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
 step = 8
@@ -4531,15 +4522,6 @@ step = 4
 expected = "0065 0061 006f 00d2"
 cuakey = "0065 0061 00d2 006f"
 reason = "Random keys: eao is no Vietnamese syllable, so its tone has no right place, and no typist types it."
-
-[[accepted]]
-source = "random"
-sequence = "Uuuupx "
-settings = "telex vni-windows vietnamese spell-check restore !modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
-step = 6
-expected = "0055 0075 0075 0075 0070 0078"
-cuakey = "0055 0075 00f5 0075 0075 0070"
-reason = "Random keys: neither Uuuupx nor Uũuup is a Vietnamese word, and no typist types this sequence."
 
 [[accepted]]
 source = "random"
@@ -4594,15 +4576,6 @@ step = 4
 expected = "00ee 0061 0079"
 cuakey = "0079 0061 00ef 0079"
 reason = "Random keys: yay is no Vietnamese syllable, so its tone has no right place, and no typist types it."
-
-[[accepted]]
-source = "random"
-sequence = "eiOpk<bs>rxd "
-settings = "telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 7
-expected = "0065 0069 004f 0309 0070"
-cuakey = "0065 0069 0309 004f 0070"
-reason = "Random keys: eiop is no Vietnamese syllable, so its tone has no right place, and no typist types it."
 
 [[accepted]]
 source = "random"
@@ -4755,7 +4728,7 @@ settings = "telex unicode vietnamese !spell-check restore modern-tones quick-tel
 step = 4
 expected = ";,NG"
 cuakey = ";,nG"
-reason = "Random keys: ng is no Vietnamese syllable, so its tone has no right place, and no typist types it."
+reason = "Quick Telex: n then a capital N types the g of ng as the key typed it, giving nG; OpenKey raises the n typed before it as well. No typist types n then a capital N."
 
 [[accepted]]
 source = "random"
@@ -4792,15 +4765,6 @@ step = 7
 expected = "e oyé"
 cuakey = "e oýe"
 reason = "Random keys: oye is no Vietnamese syllable, so its tone has no right place, and no typist types it."
-
-[[accepted]]
-source = "random"
-sequence = " w-t<bs><bs>aj "
-settings = "simple-telex cp1258 vietnamese spell-check !restore !modern-tones quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 8
-expected = "0020 0077 0061 006a"
-cuakey = "0020 0077 0061 00f2"
-reason = "Random keys: neither waj nor wạ is a Vietnamese word, and no typist types this sequence."
 
 [[accepted]]
 source = "random"
@@ -4908,7 +4872,7 @@ settings = "simple-telex cp1258 vietnamese !spell-check restore modern-tones qui
 step = 2
 expected = "006b 0068"
 cuakey = "004b 0068"
-reason = "Random keys: kh is no Vietnamese syllable, so its tone has no right place, and no typist types it."
+reason = "Quick Telex: K then k types Kh, keeping the capital the typist typed; OpenKey writes kh, lowering it."
 
 [[accepted]]
 source = "random"
@@ -5394,7 +5358,7 @@ settings = "simple-telex unicode-compound vietnamese spell-check !restore !moder
 step = 7
 expected = "0075 002c 0074 006e 0067"
 cuakey = "0075 002c 0074 004e 0067"
-reason = "Random keys: tng is no Vietnamese syllable, so its tone has no right place, and no typist types it."
+reason = "Quick Telex: a capital N then n types Ng, keeping the capital the typist typed; OpenKey writes ng, lowering it."
 
 [[accepted]]
 source = "random"
@@ -5961,7 +5925,7 @@ settings = "vni tcvn3 vietnamese !spell-check !restore modern-tones quick-telex 
 step = 5
 expected = "0037 004b 0048"
 cuakey = "0037 006b 0048"
-reason = "Random keys: kh is no Vietnamese syllable, so its tone has no right place, and no typist types it."
+reason = "Quick Telex: K then k types Kh, keeping the capital the typist typed; OpenKey writes kh, lowering it."
 
 [[accepted]]
 source = "random"
@@ -6271,15 +6235,6 @@ reason = "With quick last consonant on, g, h and k stand for ng, nh and ch, and 
 
 [[accepted]]
 source = "random"
-sequence = "eiOpk<bs>rxd "
-settings = "telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 8
-expected = "0065 0069 004f 0303 0070"
-cuakey = "0065 0069 0303 004f 0070"
-reason = "Random keys: eiop is no Vietnamese syllable, so its tone has no right place, and no typist types it."
-
-[[accepted]]
-source = "random"
 sequence = "aajatskoaesa "
 settings = "simple-telex tcvn3 vietnamese !spell-check !restore modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
 step = 5
@@ -6573,7 +6528,7 @@ settings = "vni unicode-compound vietnamese spell-check !restore modern-tones qu
 step = 8
 expected = "0036 0069 0079 0303 0069 0061 0061 0034"
 cuakey = "0036 0069 0079 0069 0061 0061 0034"
-reason = "Random keys:  is no Vietnamese syllable, so its tone has no right place, and no typist types it."
+reason = "Random keys: 6iyiaa4 puts a tilde on iyiaa, no Vietnamese vowel group; OpenKey marks the y, where CuaKey types the 4 as a digit, and no typist types this."
 
 [[accepted]]
 source = "random"
@@ -7000,15 +6955,6 @@ reason = "Random keys: yi2e/ mixes letters with digits and punctuation; where th
 
 [[accepted]]
 source = "random"
-sequence = "Uuuupx "
-settings = "telex vni-windows vietnamese spell-check restore !modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
-step = 7
-expected = "0055 0075 00f5 0075 0075 0070 0020"
-cuakey = "0055 0075 0075 0075 0070 0078 0020"
-reason = "Random keys: Uuuupx mixes letters with spaces; where the texts part OpenKey shows Uũuup and CuaKey Uuuupx, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
 sequence = "yo7 "
 settings = "vni vni-windows vietnamese !spell-check !restore !modern-tones !quick-telex quick-first !quick-last !capitals macros !macros-in-english !match-caps"
 step = 3
@@ -7042,15 +6988,6 @@ step = 12
 expected = "0069 0073 0079 0078 0020 0069 006a 006b 0020"
 cuakey = "0069 0073 0079 0078 0020 0069 0067 0069 006b 0020"
 reason = "Random keys: isyxu<bs> i<click>jk mixes letters with spaces, Backspace and clicks; where the texts part OpenKey shows ijk and CuaKey igik, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
-sequence = "<bs>o <bs>ipx "
-settings = "simple-telex unicode-compound vietnamese spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 8
-expected = "006f 0069 0070 0078 0020"
-cuakey = "006f 0303 0069 0070 0020"
-reason = "Random keys: <bs>o <bs>ipx mixes letters with spaces and Backspace; where the texts part OpenKey shows oipx and CuaKey õip, neither a Vietnamese word, so no typist types this."
 
 [[accepted]]
 source = "random"
@@ -7090,15 +7027,6 @@ reason = "Random keys: <caps>uey<bs>aur mixes letters with Backspace and Caps Lo
 
 [[accepted]]
 source = "random"
-sequence = "ut<click> uBroKr "
-settings = "simple-telex unicode vietnamese !spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 11
-expected = "ut uBrỏK "
-cuakey = "ut uBrỏCH "
-reason = "Random keys: ut<click> uBroKr mixes letters with spaces and clicks; where the texts part OpenKey shows uBrỏK and CuaKey uBrỏCH, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
 sequence = "<click>]e'o<click><bs>em<bs>qj "
 settings = "telex unicode-compound vietnamese spell-check restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
 step = 4
@@ -7126,15 +7054,6 @@ reason = "Random keys: aEe2 mixes letters with digits; where the texts part Open
 
 [[accepted]]
 source = "random"
-sequence = "eonwRyyRauha "
-settings = "simple-telex cp1258 vietnamese !spell-check restore !modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 13
-expected = "0065 00f5 00d2 006e 0079 0079 0052 00e2 0075 0068 0020"
-cuakey = "0065 00f5 00d2 006e 0079 0079 0052 00e2 0075 006e 0068 0020"
-reason = "Random keys: eonwRyyRauha mixes letters with spaces; where the texts part OpenKey shows eởnyyRâuh and CuaKey eởnyyRâunh, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
 sequence = "osd]Mry "
 settings = "telex tcvn3 vietnamese spell-check restore modern-tones quick-telex !quick-first !quick-last !capitals macros !macros-in-english !match-caps"
 step = 8
@@ -7150,15 +7069,6 @@ step = 8
 expected = "0067 0050 0020"
 cuakey = "0075 0066 0067 0050 0020"
 reason = "Random keys: <bs>uf;<bs>gP mixes letters with punctuation, spaces and Backspace; where the texts part OpenKey shows gP and CuaKey ufgP, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
-sequence = "ytduv<ctrl-c>sahw "
-settings = "simple-telex cp1258 vietnamese spell-check restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 11
-expected = "0079 0074 0064 0075 0076 0073 00e3 0068 0020"
-cuakey = "0079 0074 0064 0075 0076 0073 00e3 006e 0068 0020"
-reason = "Random keys: ytduv<ctrl-c>sahw mixes letters with spaces and Ctrl chords; where the texts part OpenKey shows ytduvsăh and CuaKey ytduvsănh, neither a Vietnamese word, so no typist types this."
 
 [[accepted]]
 source = "random"
@@ -7234,15 +7144,6 @@ reason = "Random keys: p<bs><click>a74 mixes letters with digits, Backspace and 
 
 [[accepted]]
 source = "random"
-sequence = "ybauxkj jd<click> "
-settings = "simple-telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 8
-expected = "0079 0062 0061 0323 0075 006b 0020"
-cuakey = "0079 0062 0061 0323 0075 0063 0068 0020"
-reason = "Random keys: ybauxkj mixes letters with spaces; where the texts part OpenKey shows ybạuk and CuaKey ybạuch, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
 sequence = "b7ti o5oae4 "
 settings = "vni tcvn3 vietnamese spell-check restore modern-tones !quick-telex !quick-first !quick-last capitals macros !macros-in-english !match-caps"
 step = 11
@@ -7279,15 +7180,6 @@ reason = "Random keys: yl eu7 mixes letters with digits and spaces; where the te
 
 [[accepted]]
 source = "random"
-sequence = "srpba<ctrl-s><ctrl-c><ctrl-s>aroN "
-settings = "telex unicode vietnamese spell-check restore modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 13
-expected = "srpbaaroN "
-cuakey = "srpbaảoN "
-reason = "Random keys: srpba<ctrl-s><ctrl-c><ctrl-s>aroN mixes letters with spaces and Ctrl chords; where the texts part OpenKey shows srpbaaroN and CuaKey srpbaảoN, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
 sequence = "[e'o ;<bs>dyO, "
 settings = "telex unicode-compound vietnamese spell-check restore !modern-tones !quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
 step = 3
@@ -7312,15 +7204,6 @@ step = 3
 expected = "01b0 0079 003b"
 cuakey = "0077 0079 003b"
 reason = "Random keys: wy; mixes letters with punctuation; where the texts part OpenKey shows ưy; and CuaKey wy;, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
-sequence = "faa eey<bs>ut "
-settings = "telex cp1258 vietnamese spell-check restore modern-tones !quick-telex !quick-first !quick-last capitals macros !macros-in-english !match-caps"
-step = 11
-expected = "0066 0061 0061 0020 0065 0065 0075 0074 0020"
-cuakey = "0066 0061 0061 0020 00ea 0075 0074 0020"
-reason = "Random keys: faa eey<bs>ut mixes letters with spaces and Backspace; where the texts part OpenKey shows eeut and CuaKey êut, neither a Vietnamese word, so no typist types this."
 
 [[accepted]]
 source = "random"
@@ -7540,15 +7423,6 @@ reason = "Random keys: <bs>ie-Ejli[<bs>; mixes letters with brackets, punctuatio
 
 [[accepted]]
 source = "random"
-sequence = "x<click>eqAea<ctrl-s>uhx "
-settings = "simple-telex cp1258 vietnamese !spell-check !restore modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 12
-expected = "0078 0065 0071 0041 0065 0061 0075 00de 0068 0020"
-cuakey = "0078 0065 0071 0041 0065 0061 0075 00de 006e 0068 0020"
-reason = "Random keys: x<click>eqAea<ctrl-s>uhx mixes letters with spaces, clicks and Ctrl chords; where the texts part OpenKey shows xeqAeaũh and CuaKey xeqAeaũnh, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
 sequence = "iauh<bs>2<bs>Oat0 "
 settings = "vni unicode-compound vietnamese spell-check !restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
 step = 11
@@ -7591,15 +7465,6 @@ step = 9
 expected = "0071 0079 0061 00ef 0065 0079 006c 0061 0020"
 cuakey = "0071 0079 0061 0065 0079 006a 006c 0061 0020"
 reason = "Random keys: qyaeyjla mixes letters with spaces; where the texts part OpenKey shows qyạeyla and CuaKey qyaeyjla, neither a Vietnamese word, so no typist types this."
-
-[[accepted]]
-source = "random"
-sequence = "]din,eUHr "
-settings = "telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 10
-expected = "01b0 0064 0069 006e 002c 0065 0309 0055 0048 0020"
-cuakey = "01b0 0064 0069 006e 002c 0065 0309 0055 004e 0048 0020"
-reason = "Random keys: ]din,eUHr mixes letters with brackets, punctuation and spaces; where the texts part OpenKey shows ưdin,ẻUH and CuaKey ưdin,ẻUNH, neither a Vietnamese word, so no typist types this."
 
 [[accepted]]
 source = "random"
@@ -7684,15 +7549,6 @@ reason = "Random keys: 6nyeaa4 mixes letters with digits and spaces; where the t
 
 [[accepted]]
 source = "random"
-sequence = "/ uhf aeo<click> "
-settings = "telex unicode-compound vietnamese !spell-check !restore modern-tones !quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 6
-expected = "002f 0020 0075 0300 0068 0020"
-cuakey = "002f 0020 0075 0300 006e 0068 0020"
-reason = "With quick last consonant on and spell check off, CuaKey writes the h after ù out as nh at the word end, where OpenKey leaves it after a tone; neither ùh nor ùnh is a Vietnamese word, as nh follows only a, ê and i, and no typist types uhf."
-
-[[accepted]]
-source = "random"
 sequence = "<bs>1u9' my2e0 "
 settings = "vni tcvn3 vietnamese spell-check restore !modern-tones quick-telex quick-first !quick-last !capitals macros !macros-in-english !match-caps"
 step = 12
@@ -7720,30 +7576,12 @@ reason = "With spell check on, och is no Vietnamese syllable, as ch follows only
 
 [[accepted]]
 source = "random"
-sequence = "uos<ctrl-s>D[aka o/ "
-settings = "simple-telex cp1258 vietnamese spell-check restore !modern-tones quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
-step = 10
-expected = "0075 00ec 006f 0044 005b 00e2 006b 0020"
-cuakey = "0075 00ec 006f 0044 005b 00e2 0063 0068 0020"
-reason = "âch is no Vietnamese syllable, as ch follows only a, ê and i; CuaKey's spell check does not know which vowels take ch and writes the quick last k out, where OpenKey leaves âk. No typist types aka for a word."
-
-[[accepted]]
-source = "random"
 sequence = "<ctrl-c>ux 'p aYf[ "
 settings = "telex unicode vietnamese spell-check restore !modern-tones !quick-telex !quick-first !quick-last capitals macros !macros-in-english !match-caps"
 step = 12
 expected = "ũ 'p àY[ "
 cuakey = "ũ 'p aYf[ "
 reason = "Random keys: aYf[ puts a grave on an a written before a capital Y and then a bracket; OpenKey shows àY[ and CuaKey goes back to the keys aYf[, and no typist types this."
-
-[[accepted]]
-source = "random"
-sequence = "ak7<bs>4q<bs>  "
-settings = "vni unicode vietnamese spell-check restore modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
-step = 8
-expected = "ãk "
-cuakey = "ãch "
-reason = "A syllable ending in ch takes only the acute or the dot below, so ãch is no Vietnamese syllable; CuaKey still writes the quick last k out as ch, where OpenKey leaves ãk. No typist puts a tilde on ak."
 
 [[accepted]]
 source = "random"
@@ -7797,7 +7635,7 @@ settings = "simple-telex vni-windows vietnamese spell-check restore !modern-tone
 step = 6
 expected = "0020 006a 0074 003b"
 cuakey = "0020 0067 0069 0074 003b"
-reason = "With quick first consonant on, CuaKey writes the j of jt out as gi at the semicolon, giving git, where OpenKey leaves jt; neither is a Vietnamese word, and no typist types jt."
+reason = "With quick first consonant on, the j of jt is written out as gi at the semicolon, giving git, spelled as gìn is; OpenKey leaves jt. No typist types jt."
 
 [[accepted]]
 source = "random"
@@ -7818,10 +7656,2377 @@ cuakey = "0053 0061 00d2 002d 0075 0075 0066 0072 0069 002c"
 reason = "Random keys: uufri puts a hook on uui, no Vietnamese vowel group; at the comma CuaKey restores the keys uufri, where OpenKey keeps uủi, and no typist types this."
 
 [[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "!spell-check quick-last"
+step = 7
+expected = "thuơng "
+cuakey = "thương "
+reason = "With quick last consonant on, thuơg is written out as thương, the u of uơ taking its horn before ng; OpenKey writes thuơng, which no Vietnamese word spells."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check !restore quick-last"
+step = 7
+expected = "thuơg "
+cuakey = "thương "
+reason = "With quick last consonant on, thuơg is thương, the u of uơ taking its horn before ng; OpenKey with spell check leaves thuơg."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "facebôch "
+cuakey = "facebôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "phacebôch "
+cuakey = "phacebôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 4
+expected = "ẻp"
+cuakey = "ẽpr"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "vni"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "facebooch "
+cuakey = "facebook "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "vni"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "phacebooch "
+cuakey = "phacebook "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "look"
+settings = "quick-last"
+step = 5
+expected = "lôch "
+cuakey = "lôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving lôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "look"
+settings = "vni quick-last"
+step = 5
+expected = "looch "
+cuakey = "look "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving looch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex quick-first quick-last"
+step = 5
+expected = "quỏch "
+cuakey = "quỏk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving quỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex !spell-check !quick-first quick-last"
+step = 5
+expected = "wỏch "
+cuakey = "wỏk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving wỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check modern-tones quick-last"
+step = 5
+expected = "ưỏch "
+cuakey = "ưỏk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check !modern-tones quick-last"
+step = 5
+expected = "ửoch "
+cuakey = "ửok "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ửoch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "facebôch "
+cuakey = "facebôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "phacebôch "
+cuakey = "phacebôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "vni !spell-check !quick-first quick-last"
+step = 9
+expected = "facebooch "
+cuakey = "facebook "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "vni !spell-check quick-first quick-last"
+step = 9
+expected = "phacebooch "
+cuakey = "phacebook "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 4
+expected = "ẻp"
+cuakey = "ẽpr"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "book"
+settings = "quick-last"
+step = 5
+expected = "bôch "
+cuakey = "bôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving bôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "book"
+settings = "vni quick-last"
+step = 5
+expected = "booch "
+cuakey = "book "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving booch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "telex !spell-check quick-last"
+step = 5
+expected = "ưêch "
+cuakey = "ưêk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưêch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "vni !spell-check quick-first quick-last"
+step = 5
+expected = "queech "
+cuakey = "queek "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving queech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "vni !spell-check !quick-first quick-last"
+step = 5
+expected = "weech "
+cuakey = "week "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving weech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "Facebôch "
+cuakey = "Facebôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "Phacebôch "
+cuakey = "Phacebôk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "vni !spell-check !quick-first quick-last"
+step = 9
+expected = "Facebooch "
+cuakey = "Facebook "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "vni !spell-check quick-first quick-last"
+step = 9
+expected = "Phacebooch "
+cuakey = "Phacebook "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "OK"
+settings = "quick-last"
+step = 3
+expected = "OCH "
+cuakey = "OK "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving OCH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check !quick-first quick-last"
+step = 43
+expected = "Toi đang dùng Gôgle Chrome và Facebôch."
+cuakey = "Toi đang dùng Gôgle Chrome và Facebôk."
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check quick-first quick-last"
+step = 43
+expected = "Toi đang dùng Gôgle Chrome và Phacebôch."
+cuakey = "Toi đang dùng Gôgle Chrome và Phacebôk."
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "OK, deal nhes."
+settings = "quick-last"
+step = 3
+expected = "OCH,"
+cuakey = "OK,"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving OCH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Tooi ddi hocj<bs><bs>j luacs 7 giowf."
+settings = "spell-check restore"
+step = 23
+expected = "Tôi đi hj luác "
+cuakey = "Tôi đi hj luacs "
+reason = "ua ends a syllable, as in lúa and múa, and takes no last consonant, so luác is no Vietnamese word, and with restore on CuaKey gives back the keys; OpenKey keeps luác."
+
+[[accepted]]
 source = "random"
-sequence = "<bs> aha  oo<bs> "
-settings = "simple-telex vni-windows vietnamese !spell-check restore modern-tones !quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+sequence = "v,j<bs>w oH "
+settings = "telex tcvn3 vietnamese !spell-check restore !modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 9
+expected = "0076 002c 00ad 0020 006f 004e 0048 0020"
+cuakey = "0076 002c 00ad 0020 006f 0048 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving oNH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "[j hso<bs>oh, "
+settings = "telex unicode vietnamese !spell-check !restore !modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "ợ hsonh,"
+cuakey = "ợ hsoh,"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving hsonh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "sghyvyp ok "
+settings = "simple-telex cp1258 vietnamese !spell-check !restore !modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 11
+expected = "0073 0067 0068 0079 0076 0079 0070 0020 006f 0063 0068 0020"
+cuakey = "0073 0067 0068 0079 0076 0079 0070 0020 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving och; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "erk,jk "
+settings = "simple-telex cp1258 vietnamese spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "0065 00d2 0063 0068 002c"
+cuakey = "0065 00d2 006b 002c"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ẻch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "xnp<bs>Ah /d<bs>ok "
+settings = "simple-telex unicode-compound vietnamese spell-check !restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 13
+expected = "0078 006e 0041 0068 0020 002f 006f 0063 0068 0020"
+cuakey = "0078 006e 0041 0068 0020 002f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving och; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>o <bs>ipx "
+settings = "simple-telex unicode-compound vietnamese spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "006f 0303 0069 0070"
+cuakey = "006f 0069 0070 0078"
+reason = "Random keys: neither õip nor oipx is a Vietnamese word, and no typist types this sequence."
+
+[[accepted]]
+source = "random"
+sequence = "<caps><ctrl-s>oh,<ctrl-s>3 <click><bs>  "
+settings = "vni unicode-compound vietnamese !spell-check restore !modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "004f 004e 0048 002c"
+cuakey = "004f 0048 002c"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ONH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = " norh i<bs>a "
+settings = "simple-telex unicode vietnamese spell-check !restore !modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
 step = 6
-expected = "0020 0061 00e2 0068 0020"
-cuakey = "0020 0061 00e2 006e 0068 0020"
-reason = "With quick last consonant on and spell check off, CuaKey writes the h of âh out as nh, where OpenKey leaves it; neither âh nor ânh is a Vietnamese word, as nh follows only a, ê and i, and no typist types aha."
+expected = " nỏnh "
+cuakey = " nỏh "
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving nỏnh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = " <bs>dw<bs><bs><bs><ctrl-s><click>[h "
+settings = "telex vni-windows vietnamese !spell-check !restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 12
+expected = "00f4 006e 0068 0020"
+cuakey = "00f4 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ơnh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "oaag l1Q<click>vh "
+settings = "vni vni-windows vietnamese !spell-check restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "006f 0061 0061 006e 0067 0020"
+cuakey = "006f 0061 0061 0067 0020"
+reason = "With quick last consonant on, OpenKey writes the g out as ng even where no Vietnamese syllable reads so, giving oaang; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<click>okc<bs> cop; "
+settings = "vni cp1258 vietnamese spell-check restore modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "006f 0063 0068 0020"
+cuakey = "006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving och; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>]rH ]<bs>y' "
+settings = "telex tcvn3 vietnamese spell-check !restore !modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "00f6 004e 0048 0020"
+cuakey = "00f6 0048 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ửNH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>rqx eh "
+settings = "simple-telex tcvn3 vietnamese !spell-check restore modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0072 0071 0078 0020 0065 006e 0068 0020"
+cuakey = "0072 0071 0078 0020 0065 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving enh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "i[ik "
+settings = "telex unicode-compound vietnamese !spell-check !restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "0069 01a1 0069 0063 0068 0020"
+cuakey = "0069 01a1 0069 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving iơich; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "a <bs>eh4;d4 "
+settings = "vni unicode-compound vietnamese !spell-check restore !modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "0061 0303 0065 006e 0068 003b"
+cuakey = "0061 0303 0065 0068 003b"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ãenh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "aah p "
+settings = "telex vni-windows vietnamese !spell-check !restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "0061 00e2 006e 0068 0020"
+cuakey = "0061 00e2 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ânh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = " <click>x v uh  <click> "
+settings = "simple-telex unicode-compound vietnamese !spell-check !restore !modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 9
+expected = "0020 0078 0020 0076 0020 0075 006e 0068 0020"
+cuakey = "0020 0078 0020 0076 0020 0075 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving unh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "Xr  d<bs>'Eih "
+settings = "simple-telex unicode-compound vietnamese !spell-check restore modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 11
+expected = "0058 0072 0020 0020 0027 0045 0069 006e 0068 0020"
+cuakey = "0058 0072 0020 0020 0027 0045 0069 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving Einh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "ei eag "
+settings = "vni unicode-compound vietnamese !spell-check !restore !modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "0065 0069 0020 0065 0061 006e 0067 0020"
+cuakey = "0065 0069 0020 0065 0061 0067 0020"
+reason = "With quick last consonant on, OpenKey writes the g out as ng even where no Vietnamese syllable reads so, giving eang; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>no<click> ;vuoH  "
+settings = "simple-telex tcvn3 vietnamese spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 11
+expected = "006e 006f 0020 003b 0076 0075 006f 004e 0048 0020"
+cuakey = "006e 006f 0020 003b 0076 0075 006f 0048 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving vuoNH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "aBUk  "
+settings = "simple-telex unicode-compound vietnamese !spell-check !restore !modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "0061 0042 0055 0063 0068 0020"
+cuakey = "0061 0042 0055 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving aBUch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "v xyeipr<click> "
+settings = "simple-telex cp1258 vietnamese !spell-check restore !modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0076 0020 0078 0079 0065 00d2 0069 0070"
+cuakey = "0076 0020 0078 0079 0065 0069 0070 0072"
+reason = "Random keys: neither xyẻip nor xyeipr is a Vietnamese word, and no typist types this sequence."
+
+[[accepted]]
+source = "random"
+sequence = "isce]y i<bs>iek "
+settings = "telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 13
+expected = "0069 0301 0063 0065 005d 0079 0020 0069 0065 0063 0068 0020"
+cuakey = "0069 0301 0063 0065 005d 0079 0020 0069 0065 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving iech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<click>r<click>w/]km<bs> ej "
+settings = "telex unicode-compound vietnamese spell-check !restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0072 01b0 002f 01b0 0063 0068 0020"
+cuakey = "0072 01b0 002f 01b0 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<ctrl-s><bs>qsoiH lee "
+settings = "simple-telex vni-windows vietnamese !spell-check !restore modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0071 0073 006f 0069 004e 0048 0020"
+cuakey = "0071 0073 006f 0069 0048 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving qsoiNH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "  <click>ytkyeh "
+settings = "simple-telex vni-windows vietnamese !spell-check !restore modern-tones quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0020 0020 0079 0074 006b 0079 0065 006e 0068 0020"
+cuakey = "0020 0020 0079 0074 006b 0079 0065 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ytkyenh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "iig "
+settings = "simple-telex unicode vietnamese !spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "iing "
+cuakey = "iig "
+reason = "With quick last consonant on, OpenKey writes the g out as ng even where no Vietnamese syllable reads so, giving iing; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "qipr <bs>x <ctrl-c> "
+settings = "simple-telex tcvn3 vietnamese !spell-check !restore modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "0071 00d8 0070"
+cuakey = "0071 0069 0070 0072"
+reason = "Random keys: neither qỉp nor qipr is a Vietnamese word, and no typist types this sequence."
+
+[[accepted]]
+source = "random"
+sequence = " oh "
+settings = "telex unicode-compound vietnamese spell-check !restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "0020 006f 006e 0068 0020"
+cuakey = "0020 006f 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving onh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "u<ctrl-c>i<ctrl-s>up3<bs> "
+settings = "vni unicode vietnamese spell-check restore modern-tones !quick-telex !quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "uiủp"
+cuakey = "uiup3"
+reason = "Random keys: u<ctrl-c>i<ctrl-s>up3 mixes letters with digits and Ctrl chords; where the texts part OpenKey shows uiủp and CuaKey uiup3, neither a Vietnamese word, so no typist types this."
+
+[[accepted]]
+source = "random"
+sequence = "uh "
+settings = "simple-telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "0075 006e 0068 0020"
+cuakey = "0075 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving unh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = " uakv<bs> "
+settings = "telex tcvn3 vietnamese !spell-check !restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "0020 0075 0061 0063 0068 0020"
+cuakey = "0020 0075 0061 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving uach; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "um<click>aproG]ue "
+settings = "telex unicode-compound vietnamese spell-check !restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "0075 006d 0061 0309 0070"
+cuakey = "0075 006d 0061 0070 0072"
+reason = "Random keys: neither umảp nor umapr is a Vietnamese word, and no typist types this sequence."
+
+[[accepted]]
+source = "random"
+sequence = "<caps>6m/<ctrl-s>liuek "
+settings = "vni cp1258 vietnamese !spell-check restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0036 004d 002f 004c 0049 0055 0045 0043 0048 0020"
+cuakey = "0036 004d 002f 004c 0049 0055 0045 004b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving LIUECH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "ok "
+settings = "telex cp1258 vietnamese spell-check !restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "006f 0063 0068 0020"
+cuakey = "006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving och; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>/ ru-duh <bs> "
+settings = "simple-telex tcvn3 vietnamese spell-check restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "002f 0020 0072 0075 002d 0064 0075 006e 0068 0020"
+cuakey = "002f 0020 0072 0075 002d 0064 0075 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving dunh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "ok-<bs> Y o<bs><click><click><bs> "
+settings = "simple-telex vni-windows vietnamese !spell-check restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "006f 0063 0068 002d"
+cuakey = "006f 006b 002d"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving och; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "le <bs> oeh'ode "
+settings = "simple-telex tcvn3 vietnamese !spell-check !restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 9
+expected = "006c 0065 0020 006f 0065 006e 0068 0027"
+cuakey = "006c 0065 0020 006f 0065 0068 0027"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving oenh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<ctrl-c>l b<bs>p<bs> oh e "
+settings = "vni unicode vietnamese spell-check restore !modern-tones quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 11
+expected = "l  onh "
+cuakey = "l  oh "
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving onh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "y2p<click>e <bs>ah "
+settings = "vni unicode-compound vietnamese !spell-check !restore modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0079 0300 0070 0065 0061 006e 0068 0020"
+cuakey = "0079 0300 0070 0065 0061 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving ỳpeanh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "xj<bs>xd<bs>oc<click>kuK "
+settings = "simple-telex cp1258 vietnamese !spell-check !restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 13
+expected = "0078 0078 006f 0063 006b 0075 0043 0048 0020"
+cuakey = "0078 0078 006f 0063 006b 0075 004b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving xxockuCH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "o<bs>aor<bs>egs "
+settings = "telex vni-windows vietnamese !spell-check !restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0061 0065 00f9 006e 0067 0020"
+cuakey = "0061 0065 00f9 0067 0020"
+reason = "With quick last consonant on, OpenKey writes the g out as ng even where no Vietnamese syllable reads so, giving aéng; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "hinnoehxsf "
+settings = "telex vni-windows vietnamese !spell-check !restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 11
+expected = "0068 0069 006e 006e 006f 0065 00f8 006e 0068 0020"
+cuakey = "0068 0069 006e 006e 006f 0065 00f8 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving hinnoènh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "u<ctrl-c>hlnopr "
+settings = "telex vni-windows vietnamese !spell-check !restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0075 0068 006c 006e 006f 00fb 0070"
+cuakey = "0075 0068 006c 006e 006f 0070 0072"
+reason = "Random keys: neither uhlnỏp nor uhlnopr is a Vietnamese word, and no typist types this sequence."
+
+[[accepted]]
+source = "random"
+sequence = "ek/cn "
+settings = "telex unicode-compound vietnamese !spell-check !restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "0065 0063 0068 002f"
+cuakey = "0065 006b 002f"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "h,<bs>uh,pee "
+settings = "vni vni-windows vietnamese !spell-check restore modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "0068 0075 006e 0068 002c"
+cuakey = "0068 0075 0068 002c"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving hunh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "]<bs><ctrl-s>ue<bs>asah "
+settings = "simple-telex unicode-compound vietnamese spell-check restore modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 11
+expected = "0075 00e2 0301 006e 0068 0020"
+cuakey = "0075 00e2 0301 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving uấnh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<click>m<bs><bs>oug "
+settings = "telex unicode vietnamese !spell-check restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "oung "
+cuakey = "oug "
+reason = "With quick last consonant on, OpenKey writes the g out as ng even where no Vietnamese syllable reads so, giving oung; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "maauG e "
+settings = "simple-telex unicode vietnamese !spell-check restore !modern-tones quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "mâuNG "
+cuakey = "mâuG "
+reason = "With quick last consonant on, OpenKey writes the g out as ng even where no Vietnamese syllable reads so, giving mâuNG; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "m;gek "
+settings = "telex vni-windows vietnamese spell-check !restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "006d 003b 0067 0065 0063 0068 0020"
+cuakey = "006d 003b 0067 0065 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving gech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "j ivI<click>cok "
+settings = "simple-telex unicode vietnamese !spell-check restore !modern-tones !quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "j ivIcoch "
+cuakey = "j ivIcok "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ivIcoch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<caps><bs> xok "
+settings = "telex cp1258 vietnamese !spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "0020 0058 004f 0043 0048 0020"
+cuakey = "0020 0058 004f 004b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving XOCH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "l<click>uh,<ctrl-c>f "
+settings = "simple-telex unicode vietnamese spell-check restore !modern-tones !quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "lunh,"
+cuakey = "luh,"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving lunh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "m<click>i<bs>EK <bs> "
+settings = "simple-telex vni-windows vietnamese spell-check !restore !modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "006d 0045 0043 0048 0020"
+cuakey = "006d 0045 004b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving mECH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "B <bs>a<click>wha<bs> "
+settings = "telex cp1258 vietnamese !spell-check !restore !modern-tones quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0042 0061 00fd 006e 0068 0020"
+cuakey = "0042 0061 00fd 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving Baưnh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>uyo <click>ixk "
+settings = "telex unicode vietnamese !spell-check !restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "uyo ĩch "
+cuakey = "uyo ĩk "
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ĩch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "random"
+sequence = "edy<bs>,<bs>he<bs>uh "
+settings = "telex vni-windows vietnamese !spell-check restore !modern-tones quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 12
+expected = "0065 0064 0068 0075 006e 0068 0020"
+cuakey = "0065 0064 0068 0075 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving edhunh; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "!spell-check quick-last"
+step = 7
+expected = "0074 0068 0075 00ac 006e 0067 0020"
+cuakey = "0074 0068 00ad 00ac 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is written out as thương, the u of uơ taking its horn before ng; OpenKey writes thuơng, which no Vietnamese word spells."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check !restore quick-last"
+step = 7
+expected = "0074 0068 0075 00ac 0067 0020"
+cuakey = "0074 0068 00ad 00ac 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is thương, the u of uơ taking its horn before ng; OpenKey with spell check leaves thuơg."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 00ab 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 00ab 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 4
+expected = "00ce 0070"
+cuakey = "00cf 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "vni"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 006f 006f 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "vni"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 006f 006f 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "look"
+settings = "quick-last"
+step = 5
+expected = "006c 00ab 0063 0068 0020"
+cuakey = "006c 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving lôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "look"
+settings = "vni quick-last"
+step = 5
+expected = "006c 006f 006f 0063 0068 0020"
+cuakey = "006c 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving looch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex quick-first quick-last"
+step = 5
+expected = "0071 0075 00e1 0063 0068 0020"
+cuakey = "0071 0075 00e1 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving quỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex !spell-check !quick-first quick-last"
+step = 5
+expected = "0077 00e1 0063 0068 0020"
+cuakey = "0077 00e1 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving wỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check modern-tones quick-last"
+step = 5
+expected = "00ad 00e1 0063 0068 0020"
+cuakey = "00ad 00e1 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check !modern-tones quick-last"
+step = 5
+expected = "00f6 006f 0063 0068 0020"
+cuakey = "00f6 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ửoch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 00ab 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 00ab 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "vni !spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 006f 006f 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "vni !spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 006f 006f 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 4
+expected = "00ce 0070"
+cuakey = "00cf 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "book"
+settings = "quick-last"
+step = 5
+expected = "0062 00ab 0063 0068 0020"
+cuakey = "0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving bôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "book"
+settings = "vni quick-last"
+step = 5
+expected = "0062 006f 006f 0063 0068 0020"
+cuakey = "0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving booch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "telex !spell-check quick-last"
+step = 5
+expected = "00ad 00aa 0063 0068 0020"
+cuakey = "00ad 00aa 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưêch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "vni !spell-check quick-first quick-last"
+step = 5
+expected = "0071 0075 0065 0065 0063 0068 0020"
+cuakey = "0071 0075 0065 0065 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving queech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "vni !spell-check !quick-first quick-last"
+step = 5
+expected = "0077 0065 0065 0063 0068 0020"
+cuakey = "0077 0065 0065 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving weech; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0046 0061 0063 0065 0062 00ab 0063 0068 0020"
+cuakey = "0046 0061 0063 0065 0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0050 0068 0061 0063 0065 0062 00ab 0063 0068 0020"
+cuakey = "0050 0068 0061 0063 0065 0062 00ab 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "vni !spell-check !quick-first quick-last"
+step = 9
+expected = "0046 0061 0063 0065 0062 006f 006f 0063 0068 0020"
+cuakey = "0046 0061 0063 0065 0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "vni !spell-check quick-first quick-last"
+step = 9
+expected = "0050 0068 0061 0063 0065 0062 006f 006f 0063 0068 0020"
+cuakey = "0050 0068 0061 0063 0065 0062 006f 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebooch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "OK"
+settings = "quick-last"
+step = 3
+expected = "004f 0043 0048 0020"
+cuakey = "004f 004b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving OCH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check !quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 00ae 0061 006e 0067 0020 0064 00ef 006e 0067 0020 0047 00ab 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 00b5 0020 0046 0061 0063 0065 0062 00ab 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 00ae 0061 006e 0067 0020 0064 00ef 006e 0067 0020 0047 00ab 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 00b5 0020 0046 0061 0063 0065 0062 00ab 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 00ae 0061 006e 0067 0020 0064 00ef 006e 0067 0020 0047 00ab 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 00b5 0020 0050 0068 0061 0063 0065 0062 00ab 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 00ae 0061 006e 0067 0020 0064 00ef 006e 0067 0020 0047 00ab 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 00b5 0020 0050 0068 0061 0063 0065 0062 00ab 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "OK, deal nhes."
+settings = "quick-last"
+step = 3
+expected = "004f 0043 0048 002c"
+cuakey = "004f 004b 002c"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving OCH; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Tooi ddi hocj<bs><bs>j luacs 7 giowf."
+settings = "spell-check restore"
+step = 23
+expected = "0054 00ab 0069 0020 00ae 0069 0020 0068 006a 0020 006c 0075 00b8 0063 0020"
+cuakey = "0054 00ab 0069 0020 00ae 0069 0020 0068 006a 0020 006c 0075 0061 0063 0073 0020"
+reason = "ua ends a syllable, as in lúa and múa, and takes no last consonant, so luác is no Vietnamese word, and with restore on CuaKey gives back the keys; OpenKey keeps luác."
+
+[[accepted]]
+source = "random"
+sequence = "qipr <bs>x <ctrl-c> "
+settings = "simple-telex tcvn3 vietnamese !spell-check !restore modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "0071 0069 00dc 0070"
+cuakey = "0071 0069 0070 0072 0078"
+reason = "Random keys: neither qiĩp nor qiprx is a Vietnamese word, and no typist types this sequence."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "!spell-check quick-last"
+step = 7
+expected = "0074 0068 0075 00f4 006e 0067 0020"
+cuakey = "0074 0068 00f6 00f4 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is written out as thương, the u of uơ taking its horn before ng; OpenKey writes thuơng, which no Vietnamese word spells."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check !restore quick-last"
+step = 7
+expected = "0074 0068 0075 00f4 0067 0020"
+cuakey = "0074 0068 00f6 00f4 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is thương, the u of uơ taking its horn before ng; OpenKey with spell check leaves thuơg."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 006f 00e2 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 006f 00e2 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 4
+expected = "0065 00fb 0070"
+cuakey = "0065 00f5 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "look"
+settings = "quick-last"
+step = 5
+expected = "006c 006f 00e2 0063 0068 0020"
+cuakey = "006c 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving lôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex quick-first quick-last"
+step = 5
+expected = "0071 0075 006f 00fb 0063 0068 0020"
+cuakey = "0071 0075 006f 00fb 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving quỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex !spell-check !quick-first quick-last"
+step = 5
+expected = "0077 006f 00fb 0063 0068 0020"
+cuakey = "0077 006f 00fb 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving wỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check modern-tones quick-last"
+step = 5
+expected = "00f6 006f 00fb 0063 0068 0020"
+cuakey = "00f6 006f 00fb 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check !modern-tones quick-last"
+step = 5
+expected = "00f6 00fb 006f 0063 0068 0020"
+cuakey = "00f6 00fb 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ửoch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 006f 00e2 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 006f 00e2 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 4
+expected = "0065 00fb 0070"
+cuakey = "0065 00f5 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "book"
+settings = "quick-last"
+step = 5
+expected = "0062 006f 00e2 0063 0068 0020"
+cuakey = "0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving bôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "telex !spell-check quick-last"
+step = 5
+expected = "00f6 0065 00e2 0063 0068 0020"
+cuakey = "00f6 0065 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưêch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0046 0061 0063 0065 0062 006f 00e2 0063 0068 0020"
+cuakey = "0046 0061 0063 0065 0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0050 0068 0061 0063 0065 0062 006f 00e2 0063 0068 0020"
+cuakey = "0050 0068 0061 0063 0065 0062 006f 00e2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check !quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 00f1 0061 006e 0067 0020 0064 0075 00f8 006e 0067 0020 0047 006f 00e2 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00f8 0020 0046 0061 0063 0065 0062 006f 00e2 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 00f1 0061 006e 0067 0020 0064 0075 00f8 006e 0067 0020 0047 006f 00e2 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00f8 0020 0046 0061 0063 0065 0062 006f 00e2 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 00f1 0061 006e 0067 0020 0064 0075 00f8 006e 0067 0020 0047 006f 00e2 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00f8 0020 0050 0068 0061 0063 0065 0062 006f 00e2 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 00f1 0061 006e 0067 0020 0064 0075 00f8 006e 0067 0020 0047 006f 00e2 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00f8 0020 0050 0068 0061 0063 0065 0062 006f 00e2 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Tooi ddi hocj<bs><bs>j luacs 7 giowf."
+settings = "spell-check restore"
+step = 23
+expected = "0054 006f 00e2 0069 0020 00f1 0069 0020 0068 006a 0020 006c 0075 0061 00f9 0063 0020"
+cuakey = "0054 006f 00e2 0069 0020 00f1 0069 0020 0068 006a 0020 006c 0075 0061 0063 0073 0020"
+reason = "ua ends a syllable, as in lúa and múa, and takes no last consonant, so luác is no Vietnamese word, and with restore on CuaKey gives back the keys; OpenKey keeps luác."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "!spell-check quick-last"
+step = 7
+expected = "0074 0068 0075 01a1 006e 0067 0020"
+cuakey = "0074 0068 01b0 01a1 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is written out as thương, the u of uơ taking its horn before ng; OpenKey writes thuơng, which no Vietnamese word spells."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "spell-check !restore quick-last"
+step = 7
+expected = "0074 0068 0075 01a1 0067 0020"
+cuakey = "0074 0068 01b0 01a1 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is thương, the u of uơ taking its horn before ng; OpenKey with spell check leaves thuơg."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 00f4 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 00f4 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 4
+expected = "0065 0309 0070"
+cuakey = "0065 0303 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "look"
+settings = "quick-last"
+step = 5
+expected = "006c 00f4 0063 0068 0020"
+cuakey = "006c 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving lôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex quick-first quick-last"
+step = 5
+expected = "0071 0075 006f 0309 0063 0068 0020"
+cuakey = "0071 0075 006f 0309 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving quỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex !spell-check !quick-first quick-last"
+step = 5
+expected = "0077 006f 0309 0063 0068 0020"
+cuakey = "0077 006f 0309 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving wỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check modern-tones quick-last"
+step = 5
+expected = "01b0 006f 0309 0063 0068 0020"
+cuakey = "01b0 006f 0309 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex !spell-check !modern-tones quick-last"
+step = 5
+expected = "01b0 0309 006f 0063 0068 0020"
+cuakey = "01b0 0309 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ửoch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0066 0061 0063 0065 0062 00f4 0063 0068 0020"
+cuakey = "0066 0061 0063 0065 0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0070 0068 0061 0063 0065 0062 00f4 0063 0068 0020"
+cuakey = "0070 0068 0061 0063 0065 0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 4
+expected = "0065 0309 0070"
+cuakey = "0065 0303 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "book"
+settings = "quick-last"
+step = 5
+expected = "0062 00f4 0063 0068 0020"
+cuakey = "0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving bôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "telex !spell-check quick-last"
+step = 5
+expected = "01b0 00ea 0063 0068 0020"
+cuakey = "01b0 00ea 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưêch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check !quick-first quick-last"
+step = 9
+expected = "0046 0061 0063 0065 0062 00f4 0063 0068 0020"
+cuakey = "0046 0061 0063 0065 0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "Facebook"
+settings = "!spell-check quick-first quick-last"
+step = 9
+expected = "0050 0068 0061 0063 0065 0062 00f4 0063 0068 0020"
+cuakey = "0050 0068 0061 0063 0065 0062 00f4 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check !quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 0111 0061 006e 0067 0020 0064 0075 0300 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 0300 0020 0046 0061 0063 0065 0062 00f4 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 0111 0061 006e 0067 0020 0064 0075 0300 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 0300 0020 0046 0061 0063 0065 0062 00f4 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "!spell-check quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 0111 0061 006e 0067 0020 0064 0075 0300 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 0300 0020 0050 0068 0061 0063 0065 0062 00f4 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 0111 0061 006e 0067 0020 0064 0075 0300 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 0300 0020 0050 0068 0061 0063 0065 0062 00f4 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Tooi ddi hocj<bs><bs>j luacs 7 giowf."
+settings = "spell-check restore"
+step = 23
+expected = "0054 00f4 0069 0020 0111 0069 0020 0068 006a 0020 006c 0075 0061 0301 0063 0020"
+cuakey = "0054 00f4 0069 0020 0111 0069 0020 0068 006a 0020 006c 0075 0061 0063 0073 0020"
+reason = "ua ends a syllable, as in lúa and múa, and takes no last consonant, so luác is no Vietnamese word, and with restore on CuaKey gives back the keys; OpenKey keeps luác."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "cp1258 !spell-check quick-last"
+step = 7
+expected = "0074 0068 0075 00f5 006e 0067 0020"
+cuakey = "0074 0068 00fd 00f5 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is written out as thương, the u of uơ taking its horn before ng; OpenKey writes thuơng, which no Vietnamese word spells."
+
+[[accepted]]
+source = "telex"
+sequence = "thuowg"
+settings = "cp1258 spell-check !restore quick-last"
+step = 7
+expected = "0074 0068 0075 00f5 0067 0020"
+cuakey = "0074 0068 00fd 00f5 006e 0067 0020"
+reason = "With quick last consonant on, thuơg is thương, the u of uơ taking its horn before ng; OpenKey with spell check leaves thuơg."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258"
+step = 4
+expected = "0065 00d2 0070"
+cuakey = "0065 00de 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex cp1258 quick-first quick-last"
+step = 5
+expected = "0071 0075 006f 00d2 0063 0068 0020"
+cuakey = "0071 0075 006f 00d2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving quỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "simple-telex cp1258 !spell-check !quick-first quick-last"
+step = 5
+expected = "0077 006f 00d2 0063 0068 0020"
+cuakey = "0077 006f 00d2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving wỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex cp1258 !spell-check modern-tones quick-last"
+step = 5
+expected = "00fd 006f 00d2 0063 0068 0020"
+cuakey = "00fd 006f 00d2 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưỏch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "work"
+settings = "telex cp1258 !spell-check !modern-tones quick-last"
+step = 5
+expected = "00fd 00d2 006f 0063 0068 0020"
+cuakey = "00fd 00d2 006f 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ửoch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258"
+step = 4
+expected = "0065 00d2 0070"
+cuakey = "0065 00de 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and the r types itself in CuaKey; OpenKey writes ẻp."
+
+[[accepted]]
+source = "english"
+sequence = "week"
+settings = "telex cp1258 !spell-check quick-last"
+step = 5
+expected = "00fd 00ea 0063 0068 0020"
+cuakey = "00fd 00ea 006b 0020"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving ưêch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "cp1258 !spell-check !quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 00f0 0061 006e 0067 0020 0064 0075 00cc 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00cc 0020 0046 0061 0063 0065 0062 00f4 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 00f0 0061 006e 0067 0020 0064 0075 00cc 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00cc 0020 0046 0061 0063 0065 0062 00f4 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Facebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Toi ddang dungf Google Chrome vaf Facebook."
+settings = "cp1258 !spell-check quick-first quick-last"
+step = 43
+expected = "0054 006f 0069 0020 00f0 0061 006e 0067 0020 0064 0075 00cc 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00cc 0020 0050 0068 0061 0063 0065 0062 00f4 0063 0068 002e"
+cuakey = "0054 006f 0069 0020 00f0 0061 006e 0067 0020 0064 0075 00cc 006e 0067 0020 0047 00f4 0067 006c 0065 0020 0043 0068 0072 006f 006d 0065 0020 0076 0061 00cc 0020 0050 0068 0061 0063 0065 0062 00f4 006b 002e"
+reason = "With quick last consonant on, OpenKey writes the k out as ch even where no Vietnamese syllable reads so, giving Phacebôch; CuaKey writes a quick last consonant out only where that makes a syllable."
+
+[[accepted]]
+source = "sentences"
+sequence = "Tooi ddi hocj<bs><bs>j luacs 7 giowf."
+settings = "cp1258 spell-check restore"
+step = 23
+expected = "0054 00f4 0069 0020 00f0 0069 0020 0068 006a 0020 006c 0075 0061 00ec 0063 0020"
+cuakey = "0054 00f4 0069 0020 00f0 0069 0020 0068 006a 0020 006c 0075 0061 0063 0073 0020"
+reason = "ua ends a syllable, as in lúa and múa, and takes no last consonant, so luác is no Vietnamese word, and with restore on CuaKey gives back the keys; OpenKey keeps luác."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 5
+expected = "ẽểp"
+cuakey = "ẽpre"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 5
+expected = "ẽểp"
+cuakey = "ẽpre"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "random"
+sequence = "opf<bs>]dq "
+settings = "simple-telex cp1258 vietnamese !spell-check !restore !modern-tones !quick-telex !quick-first !quick-last !capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "006f 00cc 0070"
+cuakey = "006f 0070 0066"
+reason = "A syllable ending in p takes only the acute or the dot below, so òp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes òp."
+
+[[accepted]]
+source = "random"
+sequence = "apxOdb "
+settings = "telex unicode-compound vietnamese !spell-check restore !modern-tones !quick-telex quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "0061 0303 0070"
+cuakey = "0061 0070 0078"
+reason = "A syllable ending in p takes only the acute or the dot below, so ãp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ãp."
+
+[[accepted]]
+source = "random"
+sequence = "<ctrl-s>eprvs "
+settings = "telex vni-windows vietnamese spell-check restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 4
+expected = "0065 00fb 0070"
+cuakey = "0065 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ẻp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ẻp."
+
+[[accepted]]
+source = "random"
+sequence = "oo capf;Q<bs>u  "
+settings = "telex vni-windows vietnamese spell-check restore !modern-tones !quick-telex !quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "006f 00e2 0020 0063 0061 00f8 0070"
+cuakey = "006f 00e2 0020 0063 0061 0070 0066"
+reason = "A syllable ending in p takes only the acute or the dot below, so càp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes càp."
+
+[[accepted]]
+source = "random"
+sequence = "usooh xapfo "
+settings = "telex vni-windows vietnamese spell-check restore !modern-tones quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 10
+expected = "0075 0073 006f 006f 0068 0020 0078 0061 00f8 0070"
+cuakey = "0075 0073 006f 006f 0068 0020 0078 0061 0070 0066"
+reason = "A syllable ending in p takes only the acute or the dot below, so xàp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes xàp."
+
+[[accepted]]
+source = "random"
+sequence = "ipd<bs>r<click>dafu. "
+settings = "telex tcvn3 vietnamese !spell-check !restore !modern-tones quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "00d8 0070"
+cuakey = "0069 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ỉp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ỉp."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>,x[ eepr "
+settings = "telex tcvn3 vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 9
+expected = "002c 0078 00ac 0020 00d3 0070"
+cuakey = "002c 0078 00ac 0020 00aa 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ểp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ểp."
+
+[[accepted]]
+source = "random"
+sequence = "apx[<bs><bs>u<click> <click>c "
+settings = "simple-telex cp1258 vietnamese spell-check !restore modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "0061 00de 0070"
+cuakey = "0061 0070 0078"
+reason = "A syllable ending in p takes only the acute or the dot below, so ãp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ãp."
+
+[[accepted]]
+source = "random"
+sequence = "opryaV l "
+settings = "telex tcvn3 vietnamese !spell-check !restore !modern-tones quick-telex quick-first !quick-last !capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "00e1 0070"
+cuakey = "006f 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so ỏp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ỏp."
+
+[[accepted]]
+source = "random"
+sequence = "opx u[a "
+settings = "simple-telex cp1258 vietnamese !spell-check !restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 3
+expected = "006f 00de 0070"
+cuakey = "006f 0070 0078"
+reason = "A syllable ending in p takes only the acute or the dot below, so õp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes õp."
+
+[[accepted]]
+source = "random"
+sequence = " [.ap <bs>xr d "
+settings = "telex cp1258 vietnamese spell-check !restore modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0020 00f5 002e 0061 00de 0070"
+cuakey = "0020 00f5 002e 0061 0070 0078"
+reason = "A syllable ending in p takes only the acute or the dot below, so ãp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ãp."
+
+[[accepted]]
+source = "random"
+sequence = "ajzPx "
+settings = "telex cp1258 vietnamese !spell-check !restore !modern-tones quick-telex !quick-first !quick-last !capitals macros !macros-in-english !match-caps"
+step = 5
+expected = "0061 00de 0050"
+cuakey = "0061 0050 0078"
+reason = "A syllable ending in p takes only the acute or the dot below, so ãP is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes ãP."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 5
+expected = "00cf 00d3 0070"
+cuakey = "00cf 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 5
+expected = "00cf 00d3 0070"
+cuakey = "00cf 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "random"
+sequence = "<ctrl-s>eprvs "
+settings = "telex vni-windows vietnamese spell-check restore !modern-tones !quick-telex quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "0065 0065 0070 0072 0076 0073 0020"
+cuakey = "0065 0070 0072 0076 0073 0020"
+reason = "Random keys: <ctrl-s>eprvs mixes letters with spaces and Ctrl chords; where the texts part OpenKey shows eeprvs and CuaKey eprvs, neither a Vietnamese word, so no typist types this."
+
+[[accepted]]
+source = "random"
+sequence = "usooh xapfo "
+settings = "telex vni-windows vietnamese spell-check restore !modern-tones quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 12
+expected = "0075 0073 006f 006f 0068 0020 0078 0078 0061 0070 0066 006f 0020"
+cuakey = "0075 0073 006f 006f 0068 0020 0078 0061 0070 0066 006f 0020"
+reason = "Random keys: usooh xapfo mixes letters with spaces; where the texts part OpenKey shows xxapfo and CuaKey xapfo, neither a Vietnamese word, so no typist types this."
+
+[[accepted]]
+source = "random"
+sequence = " [.ap <bs>xr d "
+settings = "telex cp1258 vietnamese spell-check !restore modern-tones !quick-telex quick-first !quick-last capitals macros !macros-in-english !match-caps"
+step = 9
+expected = "0020 00f5 002e 0061 0061 00d2 0070"
+cuakey = "0020 00f5 002e 0061 0070 0078 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so aảp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes aảp."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 5
+expected = "0065 00f5 0065 00e5 0070"
+cuakey = "0065 00f5 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 5
+expected = "0065 00f5 0065 00e5 0070"
+cuakey = "0065 00f5 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = ""
+step = 5
+expected = "0065 0303 00ea 0309 0070"
+cuakey = "0065 0303 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = ""
+step = 5
+expected = "0065 0303 00ea 0309 0070"
+cuakey = "0065 0303 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258"
+step = 5
+expected = "0065 00de 00ea 00d2 0070"
+cuakey = "0065 00de 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258"
+step = 5
+expected = "0065 00de 00ea 00d2 0070"
+cuakey = "0065 00de 0070 0072 0065"
+reason = "After the hook it should not have put on ẻp, OpenKey writes ẽểp for expre, which no Vietnamese word spells; CuaKey keeps the e it types as a letter."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "ẽpếp"
+cuakey = "ẽpres"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "ẽpếp"
+cuakey = "ẽpré"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "ẽpếp"
+cuakey = "ẽpres"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "ẽpếp"
+cuakey = "ẽpré"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "random"
+sequence = ";<bs>axC uu<bs><click> "
+settings = "simple-telex unicode-compound vietnamese spell-check restore modern-tones !quick-telex !quick-first !quick-last !capitals macros !macros-in-english !match-caps"
+step = 6
+expected = "0061 0303 0043 0020"
+cuakey = "0061 0078 0043 0020"
+reason = "A syllable ending in c takes only the acute or the dot below, so ãC is no Vietnamese syllable, and with restore on CuaKey gives back the keys axC at the Space; OpenKey keeps ãC."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "00cf 0070 00d5 0070"
+cuakey = "00cf 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "00cf 0070 00d5 0070"
+cuakey = "00cf 0070 0072 00d0"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode spell-check"
+step = 7
+expected = "ẽprêps"
+cuakey = "ẽpress"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode !spell-check"
+step = 7
+expected = "ẽpêps"
+cuakey = "ẽpres"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "00cf 0070 00d5 0070"
+cuakey = "00cf 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "00cf 0070 00d5 0070"
+cuakey = "00cf 0070 0072 00d0"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode spell-check"
+step = 7
+expected = "ẽprêps"
+cuakey = "ẽpress"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode !spell-check"
+step = 7
+expected = "ẽpêps"
+cuakey = "ẽpres"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "0065 00f5 0070 0065 00e1 0070"
+cuakey = "0065 00f5 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "0065 00f5 0070 0065 00e1 0070"
+cuakey = "0065 00f5 0070 0072 0065 00f9"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "tcvn3 spell-check"
+step = 7
+expected = "00cf 0070 0072 00aa 0070 0073"
+cuakey = "00cf 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "tcvn3 !spell-check"
+step = 7
+expected = "00cf 0070 00aa 0070 0073"
+cuakey = "00cf 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode !spell-check restore"
+step = 8
+expected = "ẽpexpres "
+cuakey = "expres "
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode spell-check restore"
+step = 8
+expected = "ẽprexpres "
+cuakey = "express "
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "0065 00f5 0070 0065 00e1 0070"
+cuakey = "0065 00f5 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "0065 00f5 0070 0065 00e1 0070"
+cuakey = "0065 00f5 0070 0072 0065 00f9"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "tcvn3 spell-check"
+step = 7
+expected = "00cf 0070 0072 00aa 0070 0073"
+cuakey = "00cf 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "tcvn3 !spell-check"
+step = 7
+expected = "00cf 0070 00aa 0070 0073"
+cuakey = "00cf 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode !spell-check restore"
+step = 8
+expected = "ẽpexpres "
+cuakey = "expres "
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode spell-check restore"
+step = 8
+expected = "ẽprexpres "
+cuakey = "express "
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "0065 0303 0070 00ea 0301 0070"
+cuakey = "0065 0303 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "0065 0303 0070 00ea 0301 0070"
+cuakey = "0065 0303 0070 0072 0065 0301"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "vni-windows spell-check"
+step = 7
+expected = "0065 00f5 0070 0072 0065 00e2 0070 0073"
+cuakey = "0065 00f5 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "vni-windows !spell-check"
+step = 7
+expected = "0065 00f5 0070 0065 00e2 0070 0073"
+cuakey = "0065 00f5 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "tcvn3 !spell-check restore"
+step = 8
+expected = "00cf 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "tcvn3 spell-check restore"
+step = 8
+expected = "00cf 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "spell-check"
+step = 6
+expected = "0065 0303 0070 00ea 0301 0070"
+cuakey = "0065 0303 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "!spell-check"
+step = 6
+expected = "0065 0303 0070 00ea 0301 0070"
+cuakey = "0065 0303 0070 0072 0065 0301"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "vni-windows spell-check"
+step = 7
+expected = "0065 00f5 0070 0072 0065 00e2 0070 0073"
+cuakey = "0065 00f5 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "vni-windows !spell-check"
+step = 7
+expected = "0065 00f5 0070 0065 00e2 0070 0073"
+cuakey = "0065 00f5 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "tcvn3 !spell-check restore"
+step = 8
+expected = "00cf 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "tcvn3 spell-check restore"
+step = 8
+expected = "00cf 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258 spell-check"
+step = 6
+expected = "0065 00de 0070 00ea 00ec 0070"
+cuakey = "0065 00de 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258 !spell-check"
+step = 6
+expected = "0065 00de 0070 00ea 00ec 0070"
+cuakey = "0065 00de 0070 0072 0065 00ec"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode-compound spell-check"
+step = 7
+expected = "0065 0303 0070 0072 00ea 0070 0073"
+cuakey = "0065 0303 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode-compound !spell-check"
+step = 7
+expected = "0065 0303 0070 00ea 0070 0073"
+cuakey = "0065 0303 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "vni-windows !spell-check restore"
+step = 8
+expected = "0065 00f5 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "vni-windows spell-check restore"
+step = 8
+expected = "0065 00f5 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258 spell-check"
+step = 6
+expected = "0065 00de 0070 00ea 00ec 0070"
+cuakey = "0065 00de 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258 !spell-check"
+step = 6
+expected = "0065 00de 0070 00ea 00ec 0070"
+cuakey = "0065 00de 0070 0072 0065 00ec"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpếp, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode-compound spell-check"
+step = 7
+expected = "0065 0303 0070 0072 00ea 0070 0073"
+cuakey = "0065 0303 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode-compound !spell-check"
+step = 7
+expected = "0065 0303 0070 00ea 0070 0073"
+cuakey = "0065 0303 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "vni-windows !spell-check restore"
+step = 8
+expected = "0065 00f5 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "vni-windows spell-check restore"
+step = 8
+expected = "0065 00f5 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258 spell-check"
+step = 7
+expected = "0065 00de 0070 0072 00ea 0070 0073"
+cuakey = "0065 00de 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258 !spell-check"
+step = 7
+expected = "0065 00de 0070 00ea 0070 0073"
+cuakey = "0065 00de 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode-compound !spell-check restore"
+step = 8
+expected = "0065 0303 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "unicode-compound spell-check restore"
+step = 8
+expected = "0065 0303 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258 spell-check"
+step = 7
+expected = "0065 00de 0070 0072 00ea 0070 0073"
+cuakey = "0065 00de 0070 0072 0065 0073 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258 !spell-check"
+step = 7
+expected = "0065 00de 0070 00ea 0070 0073"
+cuakey = "0065 00de 0070 0072 0065 0073"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpêps, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode-compound !spell-check restore"
+step = 8
+expected = "0065 0303 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "unicode-compound spell-check restore"
+step = 8
+expected = "0065 0303 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258 !spell-check restore"
+step = 8
+expected = "0065 00de 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "telex"
+sequence = "express"
+settings = "cp1258 spell-check restore"
+step = 8
+expected = "0065 00de 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258 !spell-check restore"
+step = 8
+expected = "0065 00de 0070 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽpexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "english"
+sequence = "express"
+settings = "cp1258 spell-check restore"
+step = 8
+expected = "0065 00de 0070 0072 0065 0078 0070 0072 0065 0073 0020"
+cuakey = "0065 0078 0070 0072 0065 0073 0073 0020"
+reason = "After the hook it should not have put on ẻp, OpenKey goes on marking the letters typed after it, giving ẽprexpres, which no Vietnamese word spells; CuaKey keeps them as typed."
+
+[[accepted]]
+source = "random"
+sequence = "<bs>o <bs>ipx "
+settings = "simple-telex unicode-compound vietnamese spell-check restore !modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "006f 006f 0069 0070 0078 0020"
+cuakey = "006f 0069 0070 0078 0020"
+reason = "Random keys: <bs>o <bs>ipx mixes letters with spaces and Backspace; where the texts part OpenKey shows ooipx and CuaKey oipx, neither a Vietnamese word, so no typist types this."
+
+[[accepted]]
+source = "random"
+sequence = "eiOpk<bs>rxd "
+settings = "telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 7
+expected = "0065 0069 004f 0309 0070"
+cuakey = "0065 0069 004f 0070 0072"
+reason = "A syllable ending in p takes only the acute or the dot below, so eiỎp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes eiỎp."
+
+[[accepted]]
+source = "random"
+sequence = "eiOpk<bs>rxd "
+settings = "telex unicode-compound vietnamese !spell-check restore modern-tones !quick-telex !quick-first quick-last !capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0065 0065 0069 004f 0303 0070"
+cuakey = "0065 0069 004f 0070 0072 0078"
+reason = "A syllable ending in p takes only the acute or the dot below, so eeiÕp is no Vietnamese syllable and CuaKey types the tone key as a letter; OpenKey writes eeiÕp."
+
+[[accepted]]
+source = "random"
+sequence = "u p<bs><bs>ih "
+settings = "telex tcvn3 vietnamese !spell-check restore modern-tones quick-telex !quick-first quick-last capitals macros !macros-in-english !match-caps"
+step = 8
+expected = "0075 0069 006e 0068 0020"
+cuakey = "0075 0069 0068 0020"
+reason = "With quick last consonant on, OpenKey writes the h out as nh even where no Vietnamese syllable reads so, giving uinh; CuaKey writes a quick last consonant out only where that makes a syllable."
