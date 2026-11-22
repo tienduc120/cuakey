@@ -396,6 +396,12 @@ fn brackets_type_horned_vowels_in_telex_only() {
 }
 
 #[test]
+fn a_key_that_types_the_same_vowel_takes_it_back() {
+    assert_eq!(type_text(&mut telex(), "nw]"), "n]", "] after the ư of w");
+    assert_eq!(type_text(&mut telex(), "n]w"), "nw", "w after the ư of ]");
+}
+
+#[test]
 fn capitals_keep_their_case_when_marked() {
     assert_eq!(
         type_text(&mut telex(), "Dduowcj"),

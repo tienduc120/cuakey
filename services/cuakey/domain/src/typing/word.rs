@@ -88,8 +88,8 @@ struct TypedKey {
 enum State {
     #[default]
     Composing,
-    /// The last key typed a vowel by itself; the same key again takes the vowel back.
-    TypedVowel(KeyCode),
+    /// The last key typed this vowel by itself; a key that types the same vowel takes it back, as w after ] does.
+    TypedVowel(BaseLetter),
     /// A key typed again took its change back, so the rest of the word is typed as it is, until Backspace deletes
     /// back to the `from` characters there were before that key.
     AsTyped { from: usize },
@@ -159,7 +159,7 @@ impl Word {
         });
         match self.state {
             State::AsTyped { .. } => self.glyphs.push(key.typed),
-            State::TypedVowel(code) if code == key.code => self.take_back_vowel(key),
+            State::TypedVowel(vowel) if key.effects.contains(&Effect::Vowel(vowel)) => self.take_back_vowel(key),
             State::TypedVowel(_) | State::Composing => self.compose(key, rules),
         }
     }
@@ -184,7 +184,7 @@ impl Word {
                 return;
             }
             Some(Outcome::TypedVowel(at)) => {
-                self.state = State::TypedVowel(key.code);
+                self.state = self.base_at(at).map_or(State::Composing, State::TypedVowel);
                 self.changed_at(at);
             }
             Some(Outcome::Done(at)) => self.changed_at(at),
