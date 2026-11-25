@@ -200,6 +200,29 @@ fn windows_terminal() {
 }
 
 #[test]
+fn cuakey_windows() {
+    let pane = element(PANE, "cuakey.exe", "");
+    let password = ElementProps {
+        flags: ElementFlags {
+            password: true,
+            ..ENABLED
+        },
+        ..element(PANE, "cuakey.exe", "")
+    };
+
+    assert_eq!(
+        classify(&pane),
+        FocusClass::Text,
+        "CuaKey's own windows take typing, though UI Automation sees only a pane"
+    );
+    assert_eq!(
+        classify(&password),
+        FocusClass::Password,
+        "a password box still comes first"
+    );
+}
+
+#[test]
 fn desktop_list() {
     let desktop = element(LIST, "explorer.exe", "SysListView32");
 

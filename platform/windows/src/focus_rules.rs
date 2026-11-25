@@ -36,6 +36,8 @@ const DOCUMENT: i32 = 50030;
 const CONSOLE_CLASS: &str = "ConsoleWindowClass";
 const EXCEL: &str = "excel.exe";
 const TERMINALS: [&str; 2] = ["windowsterminal.exe", "openconsole.exe"];
+/// `CuaKey`'s window process. The background never reaches this rule, since the focus watch skips its own process.
+const CUAKEY: &str = "cuakey.exe";
 
 /// What the focused control is. A password box is checked first, so no later rule can let typing into one; a disabled
 /// control takes none; the built-in rules come before the generic ones because those apps' text areas are not edit
@@ -64,13 +66,15 @@ pub fn classify(props: &ElementProps) -> FocusClass {
     }
 }
 
-/// Text areas UI Automation describes as something else: an Excel cell is a data item that typing edits, and a
-/// console's or Windows Terminal's text area is a plain window or a custom control.
+/// Text areas UI Automation describes as something else: an Excel cell is a data item that typing edits, a console's
+/// or Windows Terminal's text area is a plain window or a custom control, and `CuaKey`'s own windows show UI Automation
+/// nothing but a pane, though their text boxes, such as the macro table's, take Vietnamese.
 fn built_in_text(props: &ElementProps) -> bool {
     let process = props.process.as_str();
     (process == EXCEL && props.control_type == DATA_ITEM)
         || props.class_name == CONSOLE_CLASS
         || TERMINALS.contains(&process)
+        || process == CUAKEY
 }
 
 /// `ES_PASSWORD`, the edit window style that hides what is typed.
