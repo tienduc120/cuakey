@@ -7,6 +7,7 @@
 mod hook;
 mod menu;
 mod system;
+mod tray_clicks;
 
 use std::cell::{OnceCell, RefCell};
 use std::io;
@@ -20,17 +21,18 @@ use cuakey_interfaces::{
     MenuEffect, MenuId, Notice, WindowKind, apply, convert_error_message, labels, load_error_message,
     load_macros_error_message, model, notice_message, save_error_message,
 };
-use platform_clock::SystemClock;
+use platform_clock::{Clock, SystemClock};
 use platform_windows::{
     AppMessage, CreateMessageWindowError, FocusCell, FocusChange, FocusClass, FocusWatch, KeyboardHook, MessageWindow,
     RelaunchError, SingleInstanceError, SingleInstanceGuard, StartFocusWatchError, StartHookError, StartupError,
-    StartupMode, Tray, TrayError, TrayEvent, apply_startup, beep, foreground_layout, ime_open, is_elevated, is_english,
-    post_to, relaunch_elevated, set_desktop_shortcut, show_notice, show_notice_and_wait,
+    StartupMode, Tray, TrayError, TrayEvent, apply_startup, beep, double_click_time, foreground_layout, ime_open,
+    is_elevated, is_english, post_to, relaunch_elevated, set_desktop_shortcut, show_notice, show_notice_and_wait,
 };
 
 use self::hook::{HookHandler, HookWorld, Report, SessionUpdate};
-use self::menu::{MenuMap, TrayResponse, menu_app, tray_icon, tray_response};
+use self::menu::{MenuMap, menu_app, tray_icon};
 use self::system::{SystemChanges, startup_mode, system_changes};
+use self::tray_clicks::{TrayClicks, TrayResponse};
 use crate::args::{Mode, window_args};
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, shown_window, take_instance, window_kind};
 use crate::stores::{OpenStoresError, Origin, Stores};
@@ -156,6 +158,7 @@ fn serve(stores: Stores, prefs: Loaded, macros: Vec<MacroView>, focus_log: Optio
         updates: updates.clone(),
         reports: session_reports,
         tray: OnceCell::new(),
+        tray_clicks: RefCell::default(),
         window_process: RefCell::new(None),
     });
     let window = {
@@ -266,6 +269,7 @@ struct Background {
     updates: mpsc::Sender<SessionUpdate>,
     reports: mpsc::Receiver<Report>,
     tray: OnceCell<Tray>,
+    tray_clicks: RefCell<TrayClicks>,
     /// The window process this one started last, waited on rather than left behind.
     window_process: RefCell<Option<Child>>,
 }
@@ -409,15 +413,24 @@ impl Background {
     }
 
     fn on_tray(&self, event: TrayEvent) {
-        match tray_response(event) {
-            TrayResponse::OpenSettings => self.open_window(WindowKind::Settings),
-            TrayResponse::ShowMenu => self.show_menu(),
-            TrayResponse::Choose(id) => {
-                self.carry_out(&id);
-                if self.prefs.borrow().switching.beep == Toggle::On {
-                    beep();
-                }
+        let responses = self
+            .tray_clicks
+            .borrow_mut()
+            .respond(event, SystemClock.now(), double_click_time());
+        for response in responses {
+            match response {
+                TrayResponse::OpenSettings => self.open_window(WindowKind::Settings),
+                TrayResponse::ShowMenu => self.show_menu(),
+                TrayResponse::Choose(id) => self.choose_with_beep(&id),
             }
+        }
+    }
+
+    /// Chooses the menu entry `id` for a click on the icon, which beeps when beeping is on, as the hotkey does.
+    fn choose_with_beep(&self, id: &MenuId) {
+        self.carry_out(id);
+        if self.prefs.borrow().switching.beep == Toggle::On {
+            beep();
         }
     }
 

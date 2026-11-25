@@ -1,8 +1,8 @@
 use cuakey_application::{CodeTableValue, LanguageValue, PreferencesView};
-use cuakey_interfaces::{MenuEffect, MenuEntry, MenuId, apply, model};
-use platform_windows::{MenuItem, TrayEvent, TrayIcon};
+use cuakey_interfaces::{MenuEntry, MenuId, model};
+use platform_windows::{MenuItem, TrayIcon};
 
-use super::{MenuMap, TrayResponse, menu_app, tray_icon, tray_response};
+use super::{MenuMap, menu_app, tray_icon};
 
 fn entry(id: MenuId, label: &str, checked: Option<bool>) -> MenuEntry {
     MenuEntry {
@@ -91,33 +91,4 @@ fn the_menu_offers_the_last_app_that_is_neither_cuakey_nor_the_desktop() {
     assert_eq!(menu_app("cuakey.exe"), None, "the windows of CuaKey itself");
     assert_eq!(menu_app("explorer.exe"), None, "the taskbar the menu opens from");
     assert_eq!(menu_app(""), None, "an app whose name could not be read");
-}
-
-#[test]
-fn a_tray_click_switches_language_like_the_menu() {
-    let response = tray_response(TrayEvent::Click);
-
-    assert_eq!(
-        response,
-        TrayResponse::Choose(MenuId::Vietnamese),
-        "a click chooses the menu's language entry"
-    );
-    let mut prefs = PreferencesView::default();
-    assert_eq!(prefs.language, LanguageValue::English, "the app starts in English");
-    assert_eq!(
-        apply(&mut prefs, MenuId::Vietnamese),
-        MenuEffect::Save,
-        "choosing it saves"
-    );
-    assert_eq!(prefs.language, LanguageValue::Vietnamese, "and switches the language");
-    assert_eq!(
-        tray_response(TrayEvent::Activate),
-        TrayResponse::OpenSettings,
-        "a double click still opens the settings"
-    );
-    assert_eq!(
-        tray_response(TrayEvent::MenuRequested),
-        TrayResponse::ShowMenu,
-        "a right click still shows the menu"
-    );
 }

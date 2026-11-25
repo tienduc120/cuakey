@@ -47,7 +47,7 @@ fn callback_events_decode() {
     assert_eq!(
         decoded,
         [
-            Some(TrayEvent::Activate),
+            Some(TrayEvent::DoubleClick),
             Some(TrayEvent::Activate),
             Some(TrayEvent::MenuRequested),
             Some(TrayEvent::Click),
@@ -55,7 +55,7 @@ fn callback_events_decode() {
             None,
             None,
         ],
-        "a double click or a key select activates, a context-menu request asks for the menu, a single click clicks, \
+        "a double click and a key select are told apart, a context-menu request asks for the menu, a single click clicks, \
          and the rest are ignored"
     );
 }
@@ -268,7 +268,7 @@ mod live {
             *events.borrow(),
             [
                 TrayEvent::Click,
-                TrayEvent::Activate,
+                TrayEvent::DoubleClick,
                 TrayEvent::Activate,
                 TrayEvent::MenuRequested
             ],

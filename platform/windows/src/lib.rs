@@ -22,6 +22,8 @@ mod clipboard;
 #[cfg(windows)]
 mod com;
 #[cfg(windows)]
+mod double_click;
+#[cfg(windows)]
 mod elevation;
 mod focus_cell;
 mod focus_rules;
@@ -66,6 +68,8 @@ pub use app_message::{AppMessage, WindowKind};
 pub use beep::beep;
 #[cfg(windows)]
 pub use browser::{OpenUrlError, open_url};
+#[cfg(windows)]
+pub use double_click::double_click_time;
 #[cfg(windows)]
 pub use elevation::{RelaunchError, is_elevated, relaunch_elevated};
 #[cfg(windows)]
