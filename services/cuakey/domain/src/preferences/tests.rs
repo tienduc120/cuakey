@@ -18,6 +18,14 @@ fn fresh() -> Preferences {
     Preferences::new(ProfileId::new("default").unwrap(), Settings::default()).unwrap()
 }
 
+/// Preferences with the per-app memory switched on, as a user who turned it on has it.
+fn remembering() -> Preferences {
+    let mut preferences = fresh();
+    preferences.update(SettingChange::SmartSwitch(OnOff::On)).unwrap();
+    preferences.update(SettingChange::RememberCodeTable(OnOff::On)).unwrap();
+    preferences
+}
+
 #[test]
 fn typing_defaults_match_the_documented_ones() {
     let preferences = fresh();
@@ -46,8 +54,8 @@ fn macro_and_switching_defaults_match_the_documented_ones() {
     assert_eq!(macros.match_case(), OnOff::Off, "macro capitals");
     assert_eq!(switching.hotkey(), ctrl_shift, "switch hotkey");
     assert_eq!(switching.beep(), OnOff::Off, "beep");
-    assert_eq!(switching.smart_switch(), OnOff::On, "smart switch");
-    assert_eq!(switching.remember_code_table(), OnOff::On, "remember code table");
+    assert_eq!(switching.smart_switch(), OnOff::Off, "smart switch");
+    assert_eq!(switching.remember_code_table(), OnOff::Off, "remember code table");
     assert_eq!(
         switching.work_in_other_languages(),
         OnOff::On,
@@ -82,7 +90,7 @@ fn behaviour_and_convert_defaults_match_the_documented_ones() {
     assert_eq!(convert.quick_convert_hotkey(), None, "quick convert hotkey");
     assert_eq!(convert.notify_when_done(), OnOff::On, "convert notification");
     assert!(preferences.always_on_apps().is_empty(), "always-on list");
-    assert_eq!(preferences.language(), Language::Vietnamese, "language at start");
+    assert_eq!(preferences.language(), Language::English, "language at start");
 }
 
 #[test]
@@ -184,7 +192,7 @@ fn always_on_can_be_turned_off_again() {
 
 #[test]
 fn app_switch_restores_memory() {
-    let mut preferences = fresh();
+    let mut preferences = remembering();
     preferences.set_language(Language::English);
     preferences.remember_app(app("zalo.exe"));
     preferences.set_language(Language::Vietnamese);
@@ -199,7 +207,7 @@ fn app_switch_restores_memory() {
 
 #[test]
 fn an_unknown_app_is_remembered_with_the_current_state() {
-    let mut preferences = fresh();
+    let mut preferences = remembering();
     preferences.set_language(Language::English);
     preferences.apply_app_switch(&app("chrome.exe"));
     preferences.set_language(Language::Vietnamese);
@@ -229,7 +237,7 @@ fn explorer_is_ignored_by_app_switch() {
 
 #[test]
 fn the_code_table_is_restored_only_when_remembering_it_is_on() {
-    let mut preferences = fresh();
+    let mut preferences = remembering();
     preferences.update(SettingChange::CodeTable(CodeTable::Tcvn3)).unwrap();
     preferences.remember_app(app("a.exe"));
     preferences
@@ -356,4 +364,21 @@ fn the_conversion_options_can_be_set() {
     preferences.update(SettingChange::ConvertOptions(options)).unwrap();
 
     assert_eq!(preferences.settings().convert().options(), options);
+}
+
+#[test]
+fn defaults_are_english_without_per_app_memory() {
+    let preferences = fresh();
+
+    assert_eq!(preferences.language(), Language::English, "language");
+    assert_eq!(
+        preferences.settings().switching().smart_switch(),
+        OnOff::Off,
+        "smart switch"
+    );
+    assert_eq!(
+        preferences.settings().switching().remember_code_table(),
+        OnOff::Off,
+        "remember code table"
+    );
 }

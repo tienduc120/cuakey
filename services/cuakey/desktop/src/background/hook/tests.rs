@@ -93,6 +93,22 @@ impl HookWorld for FakeWorld {
     }
 }
 
+/// Preferences that start in Vietnamese, which most of these tests type in.
+fn vietnamese() -> PreferencesView {
+    PreferencesView {
+        language: LanguageValue::Vietnamese,
+        ..PreferencesView::default()
+    }
+}
+
+/// Vietnamese with the per-app memory switched on, as a user who turned it on has it.
+fn remembering() -> PreferencesView {
+    let mut prefs = vietnamese();
+    prefs.switching.smart_switch = Toggle::On;
+    prefs.switching.remember_code_table = Toggle::On;
+    prefs
+}
+
 fn handler_with(prefs: &PreferencesView) -> (HookHandler, mpsc::Sender<SessionUpdate>) {
     let (updates, received) = mpsc::channel();
     let session = TypingSession::new(prefs, &[]).unwrap();
@@ -100,7 +116,7 @@ fn handler_with(prefs: &PreferencesView) -> (HookHandler, mpsc::Sender<SessionUp
 }
 
 fn handler() -> (HookHandler, mpsc::Sender<SessionUpdate>) {
-    handler_with(&PreferencesView::default())
+    handler_with(&vietnamese())
 }
 
 /// A handler whose session expands `ko` to `không`.
@@ -110,7 +126,7 @@ fn handler_with_macro() -> (HookHandler, mpsc::Sender<SessionUpdate>) {
         shortcut: "ko".to_owned(),
         expansion: "không".to_owned(),
     }];
-    let session = TypingSession::new(&PreferencesView::default(), &macros).unwrap();
+    let session = TypingSession::new(&vietnamese(), &macros).unwrap();
     (HookHandler::new(session, received), updates)
 }
 
@@ -190,7 +206,7 @@ fn a_key_reaches_the_app_untouched_or_sent_again() {
 
 #[test]
 fn an_app_switch_is_saved_only_when_it_changed_what_is_stored() {
-    let before = PreferencesView::default();
+    let before = vietnamese();
     let mut remembered = before.clone();
     remembered.app_memory.push(AppMemoryView {
         app: "notepad.exe".to_owned(),
@@ -393,7 +409,7 @@ fn an_app_switch_that_remembers_the_app_reports_the_preferences() {
 
 #[test]
 fn a_code_table_chosen_from_the_menu_stays_with_the_app_in_front_and_is_reported() {
-    let (mut handler, updates) = handler();
+    let (mut handler, updates) = handler_with(&remembering());
     let world = FakeWorld::new();
     updates
         .send(SessionUpdate::Focus(change("winword.exe", true, FocusClass::Text)))

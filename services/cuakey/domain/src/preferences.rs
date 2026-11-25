@@ -39,7 +39,7 @@ pub struct Preferences {
 }
 
 impl Preferences {
-    /// Starts in Vietnamese with no app remembered.
+    /// Starts in English with no app remembered.
     ///
     /// # Errors
     ///
@@ -49,7 +49,7 @@ impl Preferences {
         Ok(Self {
             id,
             settings,
-            language: Language::Vietnamese,
+            language: Language::English,
             always_on: BTreeSet::new(),
             app_memory: BTreeMap::new(),
         })

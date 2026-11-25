@@ -242,7 +242,7 @@ impl Default for PreferencesFile {
     fn default() -> Self {
         Self {
             profile_id: DEFAULT_PROFILE.to_owned(),
-            language: Language::Vietnamese.into(),
+            language: Language::English.into(),
             typing: TypingFile::default(),
             macros: MacrosFile::default(),
             switching: SwitchingFile::default(),
@@ -320,7 +320,7 @@ impl PreferencesFile {
         Ok(Preferences::restore(
             id,
             settings,
-            or_default("language", self.language.known(), Language::Vietnamese),
+            or_default("language", self.language.known(), Language::English),
             always_on,
             app_memory,
         ))

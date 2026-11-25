@@ -193,7 +193,7 @@ async fn an_unknown_language_or_conversion_choice_keeps_the_rest() {
 
     let loaded = store(&dir).load().await.unwrap().unwrap();
 
-    assert_eq!(loaded.language(), Language::Vietnamese);
+    assert_eq!(loaded.language(), Language::English);
     let options = loaded.settings().convert().options();
     assert_eq!(options.from(), CodeTable::Cp1258, "the known half of the options loads");
     assert_eq!(options.to(), CodeTable::Unicode, "the unknown half keeps its default");
@@ -322,4 +322,33 @@ async fn when_the_fallback_collides_every_hotkey_takes_its_default() {
     let got = hotkeys_after_loading("fallback_clash", &format!(r#"{{"switch":{clash},"settings":{clash}}}"#)).await;
 
     assert_eq!(got, hotkeys_of(&Settings::default()));
+}
+
+#[tokio::test]
+async fn a_missing_language_loads_as_english() {
+    let dir = TestDir::new("missing_language");
+    write_settings(&dir, r#"{"switching":{}}"#);
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert_eq!(loaded.language(), Language::English);
+}
+
+#[tokio::test]
+async fn stored_values_win_over_new_defaults() {
+    let dir = TestDir::new("stored_values_win");
+    write_settings(
+        &dir,
+        r#"{"language":"vietnamese","switching":{"smart_switch":"on","remember_code_table":"on"}}"#,
+    );
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert_eq!(loaded.language(), Language::Vietnamese, "language");
+    assert_eq!(loaded.settings().switching().smart_switch(), OnOff::On, "smart switch");
+    assert_eq!(
+        loaded.settings().switching().remember_code_table(),
+        OnOff::On,
+        "remember code table"
+    );
 }

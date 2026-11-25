@@ -60,6 +60,22 @@ fn key_for(c: char) -> (KeyName, bool) {
     (key, c.is_ascii_uppercase())
 }
 
+/// Preferences that start in Vietnamese, which most of these tests type in.
+fn vietnamese() -> PreferencesView {
+    PreferencesView {
+        language: LanguageValue::Vietnamese,
+        ..PreferencesView::default()
+    }
+}
+
+/// Vietnamese with the per-app memory switched on, as a user who turned it on has it.
+fn remembering() -> PreferencesView {
+    let mut prefs = vietnamese();
+    prefs.switching.smart_switch = Toggle::On;
+    prefs.switching.remember_code_table = Toggle::On;
+    prefs
+}
+
 fn macro_view(shortcut: &str, expansion: &str) -> MacroView {
     MacroView {
         shortcut: shortcut.to_owned(),
@@ -95,7 +111,7 @@ impl Typist {
     }
 
     fn with_defaults() -> Self {
-        Self::new(&PreferencesView::default(), &[])
+        Self::new(&vietnamese(), &[])
     }
 
     fn with(prefs: &PreferencesView) -> Self {
@@ -226,8 +242,7 @@ fn shift_and_caps_lock_set_the_case() {
 
 #[test]
 fn password_passes_everything() {
-    let mut typist =
-        Typist::new(&PreferencesView::default(), &[macro_view("ko", "không")]).focused(FocusValue::Password);
+    let mut typist = Typist::new(&vietnamese(), &[macro_view("ko", "không")]).focused(FocusValue::Password);
 
     let screen = typist.type_text("vieetj ko ").to_owned();
 
@@ -249,7 +264,7 @@ fn pending_passes() {
 fn not_text_needs_always_on() {
     let always_on = PreferencesView {
         always_on: vec!["game.exe".to_owned()],
-        ..PreferencesView::default()
+        ..vietnamese()
     };
     let mut plain = Typist::with_defaults().focused(FocusValue::NotText).in_app("game.exe");
     let mut listed = Typist::with(&always_on).focused(FocusValue::NotText).in_app("game.exe");
@@ -264,7 +279,7 @@ fn not_text_needs_always_on() {
 fn always_on_matches_any_case() {
     let prefs = PreferencesView {
         always_on: vec!["game.exe".to_owned()],
-        ..PreferencesView::default()
+        ..vietnamese()
     };
     let mut upper = Typist::with(&prefs).focused(FocusValue::NotText).in_app("Game.EXE");
     let mut path = Typist::with(&prefs)
@@ -279,7 +294,7 @@ fn always_on_matches_any_case() {
 
 #[test]
 fn other_layout_passes_when_option_off() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.switching.work_in_other_languages = Toggle::Off;
     let mut typist = Typist::with(&prefs);
     typist.layout.english_layout = false;
@@ -318,7 +333,7 @@ type CloseGate = fn(&mut Typist);
 
 #[test]
 fn a_key_a_gate_passes_ends_the_word() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.switching.work_in_other_languages = Toggle::Off;
     let gates: [(&str, CloseGate); 3] = [
         ("an open input method editor", |typist| {
@@ -351,7 +366,7 @@ fn a_key_a_gate_passes_ends_the_word() {
 
 #[test]
 fn switch_hotkey_toggles_and_remembers_app() {
-    let mut typist = Typist::with_defaults().in_app("zalo.exe");
+    let mut typist = Typist::with(&remembering()).in_app("zalo.exe");
 
     let results = typist.chord(&[KeyName::Ctrl, KeyName::Shift]);
 
@@ -494,7 +509,7 @@ fn a_chord_ends_the_word() {
 fn english_macros_replace_the_word() {
     let mut prefs = PreferencesView {
         language: LanguageValue::English,
-        ..PreferencesView::default()
+        ..vietnamese()
     };
     prefs.macros.macros_in_english = Toggle::On;
     let mut typist = Typist::new(&prefs, &[macro_view("ko", "không")]);
@@ -506,7 +521,7 @@ fn english_macros_replace_the_word() {
 
 #[test]
 fn chromium_fix_selects_the_previous_character_in_chrome() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.compatibility.chromium_fix = Toggle::On;
     let mut typist = Typist::with(&prefs).in_app("chrome.exe");
     typist.type_text("a");
@@ -522,7 +537,7 @@ fn chromium_fix_selects_the_previous_character_in_chrome() {
 
 #[test]
 fn clipboard_input_pastes_the_replacement() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.compatibility.clipboard_input = Toggle::On;
     prefs.compatibility.fix_autocomplete = Toggle::Off;
     let mut typist = Typist::with(&prefs);
@@ -538,7 +553,7 @@ fn clipboard_input_pastes_the_replacement() {
 
 #[test]
 fn the_output_is_written_in_the_code_table() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.typing.code_table = CodeTableValue::VniWindows;
     prefs.compatibility.fix_autocomplete = Toggle::Off;
     let mut typist = Typist::with(&prefs);
@@ -559,7 +574,7 @@ fn an_app_switch_restores_what_the_app_last_used() {
             language: LanguageValue::English,
             code_table: CodeTableValue::Unicode,
         }],
-        ..PreferencesView::default()
+        ..remembering()
     };
     let mut typist = Typist::with(&prefs).in_app("zalo.exe");
 
@@ -578,7 +593,7 @@ fn an_app_switch_restores_what_the_app_last_used() {
 #[test]
 fn apply_takes_the_new_settings() {
     let mut typist = Typist::with_defaults();
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.typing.input_method = InputMethodValue::Vni;
 
     typist.session.apply(&prefs, &[], None).unwrap();
@@ -620,7 +635,7 @@ fn settings_change_from_cuakey_window_keeps_previous_apps_language() {
                 code_table: CodeTableValue::Unicode,
             },
         ],
-        ..PreferencesView::default()
+        ..remembering()
     };
     let mut typist = Typist::with(&prefs);
     typist.session.app_switched("code.exe");
@@ -645,7 +660,7 @@ fn a_change_that_keeps_the_language_and_code_table_leaves_the_app_memory_alone()
     };
     let mut prefs = PreferencesView {
         app_memory: vec![remembered.clone()],
-        ..PreferencesView::default()
+        ..vietnamese()
     };
     let mut typist = Typist::with(&prefs);
     prefs.typing.input_method = InputMethodValue::Vni;
@@ -657,7 +672,7 @@ fn a_change_that_keeps_the_language_and_code_table_leaves_the_app_memory_alone()
 
 #[test]
 fn an_invalid_macro_is_refused() {
-    let made = TypingSession::new(&PreferencesView::default(), &[macro_view("k o", "không")]);
+    let made = TypingSession::new(&vietnamese(), &[macro_view("k o", "không")]);
 
     assert!(
         matches!(&made, Err(SessionError::Macro(InvalidMacro::Whitespace(s))) if s == "k o"),

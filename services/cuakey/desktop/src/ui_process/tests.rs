@@ -22,7 +22,10 @@ fn stored() -> PreferencesView {
 #[test]
 fn a_settings_save_keeps_the_stored_apps() {
     // The window opened before the background remembered notepad and before game.exe was listed.
-    let mut edited = PreferencesView::default();
+    let mut edited = PreferencesView {
+        language: LanguageValue::Vietnamese,
+        ..PreferencesView::default()
+    };
     edited.typing.spell_check = Toggle::Off;
     edited.convert.to = CodeTableValue::Tcvn3;
 

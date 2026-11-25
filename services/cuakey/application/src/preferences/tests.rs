@@ -231,3 +231,8 @@ fn app_name_refuses_blank_text() {
     assert_eq!(app_name("   ").unwrap_err(), UpdateError::EmptyAppName);
     assert_eq!(app_name(r"C:\Games\").unwrap_err(), UpdateError::EmptyAppName);
 }
+
+#[test]
+fn default_view_is_english() {
+    assert_eq!(PreferencesView::default().language, LanguageValue::English);
+}

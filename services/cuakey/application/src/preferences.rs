@@ -356,7 +356,7 @@ pub struct PreferencesView {
 
 impl Default for PreferencesView {
     fn default() -> Self {
-        Self::with_settings(DEFAULT_PROFILE, &Settings::default(), Language::Vietnamese)
+        Self::with_settings(DEFAULT_PROFILE, &Settings::default(), Language::English)
     }
 }
 

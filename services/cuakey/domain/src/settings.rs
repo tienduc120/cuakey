@@ -115,8 +115,8 @@ impl Default for SwitchSettings {
                 key: None,
             },
             beep: OnOff::Off,
-            smart_switch: OnOff::On,
-            remember_code_table: OnOff::On,
+            smart_switch: OnOff::Off,
+            remember_code_table: OnOff::Off,
             work_in_other_languages: OnOff::On,
         }
     }

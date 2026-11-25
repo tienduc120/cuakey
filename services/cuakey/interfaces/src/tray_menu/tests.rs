@@ -54,7 +54,7 @@ fn menu_reflects_defaults() {
             "Thoát",
         ]
     );
-    assert_eq!(find(&entries, "Bật Tiếng Việt").checked, Some(true));
+    assert_eq!(find(&entries, "Bật Tiếng Việt").checked, Some(false));
     assert_eq!(find(&entries, "Kiểu gõ Telex").checked, Some(true));
     assert_eq!(find(&entries, "Kiểu gõ VNI").checked, Some(false));
     assert_eq!(find(&entries, "Unicode dựng sẵn").checked, Some(true));
@@ -131,9 +131,9 @@ fn menu_apply_each_toggle() {
     let mut prefs = PreferencesView::default();
 
     assert_eq!(apply(&mut prefs, MenuId::Vietnamese), MenuEffect::Save);
-    assert_eq!(prefs.language, LanguageValue::English);
-    assert_eq!(apply(&mut prefs, MenuId::Vietnamese), MenuEffect::Save);
     assert_eq!(prefs.language, LanguageValue::Vietnamese);
+    assert_eq!(apply(&mut prefs, MenuId::Vietnamese), MenuEffect::Save);
+    assert_eq!(prefs.language, LanguageValue::English);
 
     let spell = prefs.typing.spell_check;
     assert_eq!(apply(&mut prefs, MenuId::SpellCheck), MenuEffect::Save);
