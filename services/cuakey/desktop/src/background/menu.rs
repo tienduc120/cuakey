@@ -2,7 +2,7 @@
 
 use cuakey_application::LanguageValue;
 use cuakey_interfaces::{MenuEntry, MenuId};
-use platform_windows::{MenuItem, TrayIcon};
+use platform_windows::{MenuItem, TrayEvent, TrayIcon};
 
 /// The executable's icon resources the tray shows, one per language.
 const VIETNAMESE_ICON: TrayIcon = TrayIcon(2);
@@ -16,6 +16,25 @@ pub(crate) const fn tray_icon(language: LanguageValue) -> TrayIcon {
     match language {
         LanguageValue::Vietnamese => VIETNAMESE_ICON,
         LanguageValue::English => ENGLISH_ICON,
+    }
+}
+
+/// What the background does for an event on the icon.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum TrayResponse {
+    OpenSettings,
+    ShowMenu,
+    /// The same as choosing this entry of the menu.
+    Choose(MenuId),
+}
+
+/// A click on the icon switches the language like the menu's language entry; a double click opens the settings, and a
+/// right click shows the menu.
+pub(crate) const fn tray_response(event: TrayEvent) -> TrayResponse {
+    match event {
+        TrayEvent::Click => TrayResponse::Choose(MenuId::Vietnamese),
+        TrayEvent::Activate => TrayResponse::OpenSettings,
+        TrayEvent::MenuRequested => TrayResponse::ShowMenu,
     }
 }
 

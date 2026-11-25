@@ -29,7 +29,7 @@ use platform_windows::{
 };
 
 use self::hook::{HookHandler, HookWorld, Report, SessionUpdate};
-use self::menu::{MenuMap, menu_app, tray_icon};
+use self::menu::{MenuMap, TrayResponse, menu_app, tray_icon, tray_response};
 use self::system::{SystemChanges, startup_mode, system_changes};
 use crate::args::{Mode, window_args};
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, shown_window, take_instance, window_kind};
@@ -409,9 +409,15 @@ impl Background {
     }
 
     fn on_tray(&self, event: TrayEvent) {
-        match event {
-            TrayEvent::Activate => self.open_window(WindowKind::Settings),
-            TrayEvent::MenuRequested => self.show_menu(),
+        match tray_response(event) {
+            TrayResponse::OpenSettings => self.open_window(WindowKind::Settings),
+            TrayResponse::ShowMenu => self.show_menu(),
+            TrayResponse::Choose(id) => {
+                self.carry_out(&id);
+                if self.prefs.borrow().switching.beep == Toggle::On {
+                    beep();
+                }
+            }
         }
     }
 
@@ -430,10 +436,15 @@ impl Background {
         let Some(id) = chosen.and_then(|id| map.chosen(id)).cloned() else {
             return;
         };
+        self.carry_out(&id);
+    }
+
+    /// Does what choosing the menu entry `id` does.
+    fn carry_out(&self, id: &MenuId) {
         // This only tells what the click does; a change is made again on the stored preferences when it is kept.
         let effect = apply(&mut self.prefs.borrow().clone(), id.clone());
         match effect {
-            MenuEffect::Save => self.keep_menu_change(&id),
+            MenuEffect::Save => self.keep_menu_change(id),
             MenuEffect::Open(kind) => self.open_window(kind),
             MenuEffect::QuickConvert => self.quick_convert(),
             MenuEffect::Exit => quit(),

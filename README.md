@@ -26,6 +26,7 @@ On PCs with Smart App Control turned on, unsigned builds may be blocked.
 | --- | --- |
 | Ctrl+Shift | Switch between Vietnamese and English (acts when the keys are released) |
 | Ctrl+Shift+F5 | Open the settings |
+| Click on the tray icon | Switch between Vietnamese and English |
 | Double click on the tray icon | Open the settings |
 
 ## How it works
