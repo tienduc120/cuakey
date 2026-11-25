@@ -1,7 +1,7 @@
 use cuakey_domain::{
-    AppName, Composer, ComposerSettings, Edit, FocusState, HotkeyAction, HotkeyBindings, HotkeyKey, HotkeyMatcher,
-    KeyCode, KeyDirection, KeyMods, KeyPress, Language, Modifier, OnOff, OutputContext, OutputOp, Preferences,
-    plan_output, should_convert,
+    AppName, AppState, Composer, ComposerSettings, Edit, FocusState, HotkeyAction, HotkeyBindings, HotkeyKey,
+    HotkeyMatcher, KeyCode, KeyDirection, KeyMods, KeyPress, Language, Modifier, OnOff, OutputContext, OutputOp,
+    Preferences, plan_output, should_convert,
 };
 
 use crate::macros::macro_table;
@@ -341,8 +341,21 @@ impl TypingSession {
     }
 
     /// Takes new preferences and macros. The word being typed and any half-pressed hotkey are dropped with the old ones.
-    pub fn apply(&mut self, prefs: &PreferencesView, macros: &[MacroView]) -> Result<(), SessionError> {
+    /// A change of language or code table is made for `made_for`, the last app in front, so that app keeps it as its
+    /// own: otherwise coming back to it would put back what it last used.
+    pub fn apply(
+        &mut self,
+        prefs: &PreferencesView,
+        macros: &[MacroView],
+        made_for: Option<&str>,
+    ) -> Result<(), SessionError> {
+        let before = self.app_state();
         *self = Self::new(prefs, macros)?;
+        if self.app_state() != before
+            && let Some(app) = made_for.and_then(|app| AppName::new(app).ok())
+        {
+            self.preferences.remember_app(app);
+        }
         Ok(())
     }
 
@@ -397,6 +410,14 @@ impl TypingSession {
             self.preferences.remember_app(app);
         }
         self.refresh_composer();
+    }
+
+    /// The language and code table in force, as an app would remember them.
+    fn app_state(&self) -> AppState {
+        AppState::new(
+            self.preferences.language(),
+            self.preferences.settings().typing().code_table(),
+        )
     }
 
     /// Hands the composer the settings and language in force; it drops the word being typed.

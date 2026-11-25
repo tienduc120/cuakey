@@ -545,9 +545,46 @@ fn apply_takes_the_new_settings() {
     let mut prefs = PreferencesView::default();
     prefs.typing.input_method = InputMethodValue::Vni;
 
-    typist.session.apply(&prefs, &[]).unwrap();
+    typist.session.apply(&prefs, &[], None).unwrap();
 
     assert_eq!(typist.type_text("vie6t5"), "việt", "vni now");
+}
+
+#[test]
+fn a_code_table_chosen_for_an_app_stays_with_it() {
+    let mut typist = Typist::with_defaults();
+    typist.session.app_switched("word.exe");
+    let mut chosen = typist.session.preferences();
+    chosen.typing.code_table = CodeTableValue::VniWindows;
+
+    typist.session.apply(&chosen, &[], Some("word.exe")).unwrap();
+    typist.session.app_switched("zalo.exe");
+    typist.session.app_switched("word.exe");
+
+    assert_eq!(
+        typist.session.preferences().typing.code_table,
+        CodeTableValue::VniWindows,
+        "coming back to word keeps the code table chosen while it was in front"
+    );
+}
+
+#[test]
+fn a_change_that_keeps_the_language_and_code_table_leaves_the_app_memory_alone() {
+    let remembered = AppMemoryView {
+        app: "word.exe".to_owned(),
+        language: LanguageValue::English,
+        code_table: CodeTableValue::Unicode,
+    };
+    let mut prefs = PreferencesView {
+        app_memory: vec![remembered.clone()],
+        ..PreferencesView::default()
+    };
+    let mut typist = Typist::with(&prefs);
+    prefs.typing.input_method = InputMethodValue::Vni;
+
+    typist.session.apply(&prefs, &[], Some("word.exe")).unwrap();
+
+    assert_eq!(typist.session.preferences().app_memory, vec![remembered]);
 }
 
 #[test]

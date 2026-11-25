@@ -260,7 +260,8 @@ struct Background {
     /// The preferences as last loaded or stored.
     prefs: RefCell<PreferencesView>,
     macros: RefCell<Vec<MacroView>>,
-    /// The last app in front the menu may offer, which the focus watch writes.
+    /// The last app in front other than `CuaKey` and the taskbar, which the focus watch writes: the menu offers it, and a
+    /// change of language or code table from the menu or the settings window is made for it.
     last_app: Arc<Mutex<Option<String>>>,
     updates: mpsc::Sender<SessionUpdate>,
     reports: mpsc::Receiver<Report>,
@@ -384,10 +385,19 @@ impl Background {
     }
 
     fn send_to_session(&self, prefs: PreferencesView, macros: Vec<MacroView>) {
+        let update = SessionUpdate::Apply {
+            prefs,
+            macros,
+            made_for: self.last_app(),
+        };
         // The hook stops only after the message loop, so it is there to receive.
-        if self.updates.send(SessionUpdate::Apply { prefs, macros }).is_err() {
+        if self.updates.send(update).is_err() {
             tracing::warn!("the session has stopped");
         }
+    }
+
+    fn last_app(&self) -> Option<String> {
+        self.last_app.lock().ok().and_then(|app| app.clone())
     }
 
     fn show_language(&self, language: LanguageValue) {
@@ -409,8 +419,7 @@ impl Background {
         let Some(tray) = self.tray.get() else {
             return;
         };
-        let last_app = self.last_app.lock().ok().and_then(|app| app.clone());
-        let map = MenuMap::new(&model(&self.prefs.borrow(), last_app.as_deref()));
+        let map = MenuMap::new(&model(&self.prefs.borrow(), self.last_app().as_deref()));
         let chosen = match tray.show_menu(map.items()) {
             Ok(chosen) => chosen,
             Err(error) => {

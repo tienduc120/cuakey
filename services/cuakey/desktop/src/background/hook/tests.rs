@@ -2,8 +2,8 @@ use std::cell::{Cell, RefCell};
 use std::sync::mpsc;
 
 use cuakey_application::{
-    AppMemoryView, KeyResult, LanguageValue, LayoutFlags, MacroView, OutputAction, PreferencesView, Toggle,
-    TypingSession,
+    AppMemoryView, CodeTableValue, KeyResult, LanguageValue, LayoutFlags, MacroView, OutputAction, PreferencesView,
+    Toggle, TypingSession,
 };
 use platform_windows::{FocusChange, FocusClass, HookEvent, HookReply, RawKey, RawMods, SendOp};
 
@@ -392,6 +392,51 @@ fn an_app_switch_that_remembers_the_app_reports_the_preferences() {
 }
 
 #[test]
+fn a_code_table_chosen_from_the_menu_stays_with_the_app_in_front_and_is_reported() {
+    let (mut handler, updates) = handler();
+    let world = FakeWorld::new();
+    updates
+        .send(SessionUpdate::Focus(change("winword.exe", true, FocusClass::Text)))
+        .unwrap();
+    handler.handle(HookEvent::MouseDown, &world);
+    let Some(Report::Remembered(mut stored)) = world.reports.borrow_mut().pop() else {
+        panic!("a new app is remembered");
+    };
+    stored.typing.code_table = CodeTableValue::VniWindows;
+
+    updates
+        .send(SessionUpdate::Apply {
+            prefs: stored,
+            macros: Vec::new(),
+            made_for: Some("winword.exe".to_owned()),
+        })
+        .unwrap();
+    handler.handle(HookEvent::MouseDown, &world);
+    let reports = world.reports.take();
+    for app in ["zalo.exe", "winword.exe"] {
+        updates
+            .send(SessionUpdate::Focus(change(app, true, FocusClass::Text)))
+            .unwrap();
+    }
+    handler.handle(HookEvent::MouseDown, &world);
+
+    let kept = [AppMemoryView {
+        app: "winword.exe".to_owned(),
+        language: LanguageValue::Vietnamese,
+        code_table: CodeTableValue::VniWindows,
+    }];
+    assert!(
+        matches!(reports.as_slice(), [Report::Remembered(prefs)] if prefs.app_memory == kept),
+        "the store is told what word now keeps: {reports:?}"
+    );
+    assert_eq!(
+        handler.session.preferences().typing.code_table,
+        CodeTableValue::VniWindows,
+        "coming back to word keeps the code table chosen while it was in front"
+    );
+}
+
+#[test]
 fn the_desktop_shell_is_never_remembered() {
     let (mut handler, updates) = handler();
     let world = FakeWorld::new();
@@ -426,6 +471,7 @@ fn backspaces_go_to_a_store_app_as_characters_once_the_setting_is_on() {
         .send(SessionUpdate::Apply {
             prefs,
             macros: Vec::new(),
+            made_for: None,
         })
         .unwrap();
 

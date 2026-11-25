@@ -22,6 +22,8 @@ pub(crate) enum SessionUpdate {
     Apply {
         prefs: PreferencesView,
         macros: Vec<MacroView>,
+        /// The last app in front other than `CuaKey` and the taskbar: a change of language or code table is made for it.
+        made_for: Option<String>,
     },
     /// A classification of the focused control from the focus watch.
     Focus(FocusChange),
@@ -32,7 +34,8 @@ pub(crate) enum SessionUpdate {
 pub(crate) enum Report {
     /// The language hotkey switched the language: beep, show it, and store the session's preferences, given here.
     SwitchedLanguage(PreferencesView),
-    /// An app switch changed what the session would store; these are its preferences now.
+    /// An app switch, or a change the app in front keeps as its own, changed what the session would store; these are
+    /// its preferences now.
     Remembered(PreferencesView),
     OpenSettings,
     QuickConvert,
@@ -105,15 +108,27 @@ impl HookHandler {
     fn take_updates(&mut self, world: &impl HookWorld) {
         while let Ok(update) = self.updates.try_recv() {
             match update {
-                SessionUpdate::Apply { prefs, macros } => self.apply(&prefs, &macros),
+                SessionUpdate::Apply {
+                    prefs,
+                    macros,
+                    made_for,
+                } => self.apply(&prefs, &macros, made_for.as_deref(), world),
                 SessionUpdate::Focus(change) => self.focus(change, world),
             }
         }
     }
 
-    fn apply(&mut self, prefs: &PreferencesView, macros: &[MacroView]) {
-        match self.session.apply(prefs, macros) {
-            Ok(()) => self.store_app_support = prefs.compatibility.store_app_support,
+    /// Takes the stored preferences. When the app the change was made for keeps the new language or code table, the
+    /// store is told, as after an app switch, so the next save does not put back what the app had.
+    fn apply(&mut self, prefs: &PreferencesView, macros: &[MacroView], made_for: Option<&str>, world: &impl HookWorld) {
+        match self.session.apply(prefs, macros, made_for) {
+            Ok(()) => {
+                self.store_app_support = prefs.compatibility.store_app_support;
+                let now = self.session.preferences();
+                if now.app_memory != prefs.app_memory {
+                    world.report(Report::Remembered(now));
+                }
+            }
             // The main thread read both from the stores, which hold only what was valid; the session keeps what it had.
             Err(error) => tracing::warn!(error = ?error, "the session refused the stored preferences"),
         }
