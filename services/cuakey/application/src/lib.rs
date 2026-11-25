@@ -44,9 +44,9 @@ pub use macros::{
 pub use ports::{Clipboard, ClipboardError, ImportMode, MacroStore, PreferencesStore, StoreError};
 pub use preferences::{
     AppMemoryView, BehaviourPrefs, CodeTableValue, CompatibilityPrefs, ConvertCaseValue, ConvertPrefs, HotkeyView,
-    InputMethodValue, LanguageValue, LoadPreferences, LoadPreferencesError, MacroPrefs, PreferencesView,
-    ResetPreferences, ResetPreferencesError, SavePreferences, SavePreferencesError, SwitchPrefs, SystemPrefs, Toggle,
-    TypingPrefs, UpdateError, app_name,
+    InputMethodValue, InterfaceLanguageValue, LanguageValue, LoadPreferences, LoadPreferencesError, MacroPrefs,
+    PreferencesView, ResetPreferences, ResetPreferencesError, SavePreferences, SavePreferencesError, SwitchPrefs,
+    SystemPrefs, Toggle, TypingPrefs, UpdateError, app_name,
 };
 pub use quick_convert::{QuickConvert, QuickConvertError, QuickConvertResult};
 pub use typing_session::{

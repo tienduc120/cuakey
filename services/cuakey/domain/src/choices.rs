@@ -24,3 +24,10 @@ pub enum Language {
     Vietnamese,
     English,
 }
+
+/// The language the app's own windows and menus speak, apart from the language it types in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum InterfaceLanguage {
+    Vietnamese,
+    English,
+}

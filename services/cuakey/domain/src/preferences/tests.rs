@@ -2,8 +2,8 @@ use alloc::collections::{BTreeMap, BTreeSet};
 
 use super::Preferences;
 use crate::{
-    AppName, AppState, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, KeyCode, Language, Modifier,
-    ModifierSet, OnOff, PreferencesError, ProfileId, SettingChange, Settings,
+    AppName, AppState, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, InterfaceLanguage, KeyCode,
+    Language, Modifier, ModifierSet, OnOff, PreferencesError, ProfileId, SettingChange, Settings,
 };
 
 fn mods(list: &[Modifier]) -> ModifierSet {
@@ -76,6 +76,14 @@ fn compatibility_and_system_defaults_match_the_documented_ones() {
     assert_eq!(system.show_settings_at_startup(), OnOff::On, "show settings at startup");
     assert_eq!(system.run_as_administrator(), OnOff::Off, "run as administrator");
     assert_eq!(system.desktop_shortcut(), OnOff::Off, "desktop shortcut");
+}
+
+#[test]
+fn interface_language_defaults_to_english() {
+    assert_eq!(
+        fresh().settings().system().interface_language(),
+        InterfaceLanguage::English
+    );
 }
 
 #[test]

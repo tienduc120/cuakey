@@ -1,7 +1,7 @@
 use cuakey_application::PreferencesStore as _;
 use cuakey_domain::{
-    AppName, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, KeyCode, Language, Modifier, ModifierSet,
-    OnOff, Preferences, ProfileId, SettingChange, Settings,
+    AppName, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, InterfaceLanguage, KeyCode, Language,
+    Modifier, ModifierSet, OnOff, Preferences, ProfileId, SettingChange, Settings,
 };
 use platform_clock::{FixedClock, Timestamp};
 
@@ -139,6 +139,81 @@ async fn unknown_fields_ignored() {
         CodeTable::Unicode,
         "missing ones take defaults"
     );
+}
+
+#[tokio::test]
+async fn interface_language_round_trips_through_the_file() {
+    let dir = TestDir::new("interface_language_round_trip");
+    let mut saved = defaults();
+    saved
+        .update(SettingChange::InterfaceLanguage(InterfaceLanguage::Vietnamese))
+        .unwrap();
+
+    store(&dir).save(&saved).await.unwrap();
+    let text = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert!(
+        text.contains(r#""interface_language": "vietnamese""#),
+        "written by name: {text}"
+    );
+    assert_eq!(
+        loaded.settings().system().interface_language(),
+        InterfaceLanguage::Vietnamese
+    );
+}
+
+#[tokio::test]
+async fn a_missing_interface_language_loads_as_english() {
+    let dir = TestDir::new("missing_interface_language");
+    write_settings(&dir, r#"{"system":{"start_with_windows":"off"}}"#);
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert_eq!(
+        loaded.settings().system().interface_language(),
+        InterfaceLanguage::English
+    );
+}
+
+#[tokio::test]
+async fn an_unknown_interface_language_loads_as_english() {
+    let dir = TestDir::new("unknown_interface_language");
+    write_settings(&dir, r#"{"system":{"interface_language":"klingon"}}"#);
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert_eq!(
+        loaded.settings().system().interface_language(),
+        InterfaceLanguage::English
+    );
+}
+
+#[tokio::test]
+async fn an_old_file_keeps_its_values_with_the_new_field() {
+    let dir = TestDir::new("old_file_new_field");
+    write_settings(
+        &dir,
+        r#"{"language":"vietnamese","typing":{"input_method":"vni"},"system":{"start_with_windows":"off","desktop_shortcut":"on"}}"#,
+    );
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    let system = loaded.settings().system();
+    assert_eq!(system.start_with_windows(), OnOff::Off, "stored value kept");
+    assert_eq!(system.desktop_shortcut(), OnOff::On, "stored value kept");
+    assert_eq!(
+        system.show_settings_at_startup(),
+        OnOff::On,
+        "absent value takes its default"
+    );
+    assert_eq!(system.interface_language(), InterfaceLanguage::English, "the new field");
+    assert_eq!(
+        loaded.settings().typing().input_method(),
+        InputMethod::Vni,
+        "other groups"
+    );
+    assert_eq!(loaded.language(), Language::Vietnamese, "the typing language");
 }
 
 #[tokio::test]

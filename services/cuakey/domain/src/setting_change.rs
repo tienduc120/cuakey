@@ -1,4 +1,4 @@
-use crate::{CodeTable, ConvertOptions, Hotkey, InputMethod, OnOff};
+use crate::{CodeTable, ConvertOptions, Hotkey, InputMethod, InterfaceLanguage, OnOff};
 
 /// One change to one setting. `Preferences::update` applies it only if the result is still valid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +29,7 @@ pub enum SettingChange {
     ShowSettingsAtStartup(OnOff),
     RunAsAdministrator(OnOff),
     DesktopShortcut(OnOff),
+    InterfaceLanguage(InterfaceLanguage),
     SettingsHotkey(Hotkey),
     KeepW(OnOff),
     OnlyTextBoxes(OnOff),

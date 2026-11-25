@@ -1,7 +1,7 @@
 use cuakey_domain::{
     AppName, BehaviourSettings, CodeTable, CompatibilitySettings, ConvertCase, ConvertOptions, ConvertSettings, Hotkey,
-    HotkeyKey, InputMethod, Language, MacroSettings, Modifier, ModifierSet, OnOff, Preferences, PreferencesError,
-    ProfileId, SettingChange, Settings, SwitchSettings, SystemSettings, TypingSettings,
+    HotkeyKey, InputMethod, InterfaceLanguage, Language, MacroSettings, Modifier, ModifierSet, OnOff, Preferences,
+    PreferencesError, ProfileId, SettingChange, Settings, SwitchSettings, SystemSettings, TypingSettings,
 };
 
 use crate::{KeyName, PreferencesStore, StoreError};
@@ -27,6 +27,11 @@ mirror_enum! {
 mirror_enum! {
     /// The language the keyboard types in.
     LanguageValue mirrors Language { Vietnamese, English }
+}
+
+mirror_enum! {
+    /// The language the app's own windows and menus speak.
+    InterfaceLanguageValue mirrors InterfaceLanguage { Vietnamese, English }
 }
 
 mirror_enum! {
@@ -232,13 +237,14 @@ impl CompatibilityPrefs {
     }
 }
 
-/// How the app starts and installs itself.
+/// How the app starts, installs itself, and which language it speaks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SystemPrefs {
     pub start_with_windows: Toggle,
     pub show_settings_at_startup: Toggle,
     pub run_as_administrator: Toggle,
     pub desktop_shortcut: Toggle,
+    pub interface_language: InterfaceLanguageValue,
 }
 
 impl From<&SystemSettings> for SystemPrefs {
@@ -248,17 +254,19 @@ impl From<&SystemSettings> for SystemPrefs {
             show_settings_at_startup: system.show_settings_at_startup().into(),
             run_as_administrator: system.run_as_administrator().into(),
             desktop_shortcut: system.desktop_shortcut().into(),
+            interface_language: system.interface_language().into(),
         }
     }
 }
 
 impl SystemPrefs {
-    fn changes(&self) -> [SettingChange; 4] {
+    fn changes(&self) -> [SettingChange; 5] {
         [
             SettingChange::StartWithWindows(self.start_with_windows.into()),
             SettingChange::ShowSettingsAtStartup(self.show_settings_at_startup.into()),
             SettingChange::RunAsAdministrator(self.run_as_administrator.into()),
             SettingChange::DesktopShortcut(self.desktop_shortcut.into()),
+            SettingChange::InterfaceLanguage(self.interface_language.into()),
         ]
     }
 }

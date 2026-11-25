@@ -23,7 +23,7 @@ mod typing;
 
 pub use app_name::AppName;
 pub use charset::{BaseLetter, Letter, LetterCase, Tone, decode, encode, units_in};
-pub use choices::{CodeTable, InputMethod, Language};
+pub use choices::{CodeTable, InputMethod, InterfaceLanguage, Language};
 pub use convert::{ConvertCase, ConvertOptions, convert};
 pub use error::PreferencesError;
 pub use focus::{FocusState, should_convert};

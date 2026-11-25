@@ -1,4 +1,4 @@
-use cuakey_application::{SystemPrefs, Toggle};
+use cuakey_application::{InterfaceLanguageValue, SystemPrefs, Toggle};
 use platform_windows::StartupMode;
 
 use super::{SystemChanges, startup_mode, system_changes};
@@ -9,6 +9,7 @@ fn system() -> SystemPrefs {
         show_settings_at_startup: Toggle::On,
         run_as_administrator: Toggle::Off,
         desktop_shortcut: Toggle::Off,
+        interface_language: InterfaceLanguageValue::English,
     }
 }
 

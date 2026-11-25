@@ -1,4 +1,6 @@
-use cuakey_application::{AppMemoryView, CodeTableValue, LanguageValue, PreferencesView, Toggle};
+use cuakey_application::{
+    AppMemoryView, CodeTableValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+};
 use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind, labels};
 use eframe::egui;
 
@@ -43,6 +45,18 @@ fn a_settings_save_keeps_the_stored_apps() {
     );
     assert_eq!(saved.always_on, stored().always_on);
     assert_eq!(saved.app_memory, stored().app_memory);
+}
+
+#[test]
+fn a_settings_save_carries_the_interface_language() {
+    let mut edited = PreferencesView::default();
+    edited.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    edited.system.desktop_shortcut = Toggle::On;
+
+    let saved = rebase(stored(), edited, Edit::Settings);
+
+    assert_eq!(saved.system.interface_language, InterfaceLanguageValue::Vietnamese);
+    assert_eq!(saved.system.desktop_shortcut, Toggle::On, "with the rest of the group");
 }
 
 #[test]

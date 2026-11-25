@@ -5,8 +5,8 @@ use super::{
 use crate::testing::{FakePreferencesStore, Health};
 use crate::{
     AppMemoryView, BehaviourPrefs, CodeTableValue, CompatibilityPrefs, ConvertCaseValue, ConvertPrefs, HotkeyView,
-    InputMethodValue, KeyName, LanguageValue, MacroPrefs, PreferencesView, StoreError, SwitchPrefs, SystemPrefs,
-    Toggle, TypingPrefs, UpdateError,
+    InputMethodValue, InterfaceLanguageValue, KeyName, LanguageValue, MacroPrefs, PreferencesView, StoreError,
+    SwitchPrefs, SystemPrefs, Toggle, TypingPrefs, UpdateError,
 };
 
 fn hotkey(modifiers: [Toggle; 4], key: Option<KeyName>) -> HotkeyView {
@@ -69,6 +69,7 @@ fn everything_changed() -> PreferencesView {
             show_settings_at_startup: Off,
             run_as_administrator: On,
             desktop_shortcut: On,
+            interface_language: InterfaceLanguageValue::Vietnamese,
         },
         behaviours: BehaviourPrefs {
             settings_hotkey: hotkey([Off, Off, On, Off], Some(KeyName::F9)),
@@ -105,6 +106,23 @@ fn a_view_survives_the_trip_through_the_aggregate() {
     let back = PreferencesView::of(&prefs.to_preferences().unwrap());
 
     assert_eq!(back, prefs, "every field is carried both ways");
+}
+
+#[test]
+fn interface_language_round_trips_through_the_view() {
+    for language in [InterfaceLanguageValue::Vietnamese, InterfaceLanguageValue::English] {
+        let mut prefs = PreferencesView::default();
+        prefs.system.interface_language = language;
+
+        let back = PreferencesView::of(&prefs.to_preferences().unwrap());
+
+        assert_eq!(back.system.interface_language, language);
+    }
+    assert_eq!(
+        PreferencesView::default().system.interface_language,
+        InterfaceLanguageValue::English,
+        "a new install speaks English"
+    );
 }
 
 #[test]
