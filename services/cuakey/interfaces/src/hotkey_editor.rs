@@ -6,10 +6,6 @@ use egui::Key;
 
 use crate::{labels, widgets};
 
-/// The key field's width, whatever it shows, so the parts after it stay in place. Its longest text, "Không có phím",
-/// fits with the button padding in each font the window may borrow; a wider font would cut the text, not move the row.
-const KEY_FIELD_WIDTH: f32 = 108.0;
-
 /// The keys the field accepts: A-Z, 0-9, F1-F12 and Space.
 const KEYS: [(Key, KeyName); 49] = [
     (Key::A, KeyName::A),
@@ -119,10 +115,33 @@ pub(crate) fn show_hotkey(ui: &mut egui::Ui, id_salt: &str, hotkey: HotkeyView) 
     (edited != hotkey).then_some(edited)
 }
 
-/// The one-key field: click it, then press the key. While it has focus it reads the keys pressed.
+/// The key field's width, whatever it shows, so the parts after it stay in place: the widest text it can show, in the
+/// font it is drawn with, and the button padding.
+fn key_field_width(ui: &egui::Ui) -> f32 {
+    let widest = KEYS
+        .iter()
+        .map(|(_, name)| key_label(*name))
+        .chain([labels::HOTKEY_OTHER_KEY])
+        .map(|text| {
+            egui::WidgetText::from(text)
+                .into_galley(
+                    ui,
+                    Some(egui::TextWrapMode::Extend),
+                    f32::INFINITY,
+                    egui::TextStyle::Button,
+                )
+                .size()
+                .x
+        })
+        .fold(0.0, f32::max);
+    widest + 2.0 * ui.spacing().button_padding.x
+}
+
+/// The one-key field: click it, then press the key. While it has focus it reads the keys pressed. It is blank while no
+/// key is set; the hint says what to do.
 fn key_field(ui: &mut egui::Ui, hotkey: HotkeyView) -> HotkeyView {
-    let idle_text = hotkey.key.map_or(labels::HOTKEY_NO_KEY, key_label);
-    let size = egui::vec2(KEY_FIELD_WIDTH, ui.spacing().interact_size.y);
+    let idle_text = hotkey.key.map_or("", key_label);
+    let size = egui::vec2(key_field_width(ui), ui.spacing().interact_size.y);
     let response = ui
         .add_sized(size, egui::Button::new(idle_text).truncate())
         .on_hover_text(labels::HOTKEY_FIELD_HINT);

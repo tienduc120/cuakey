@@ -56,7 +56,7 @@ pub enum Button {
     CloseWindow,
     OpenMacros,
     OpenAlwaysOn,
-    /// Shows or hides the sections beyond the control group.
+    /// Shows or hides the sections beyond the controls used every day.
     ToggleExpanded,
 }
 

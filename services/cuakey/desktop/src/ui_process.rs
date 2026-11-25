@@ -15,7 +15,7 @@ use cuakey_application::{ImportMode, MacroView, PreferencesView};
 use cuakey_interfaces::{
     Notice, UiAction, WindowKind, convert_error_message, export_macros_error_message, import_macros_error_message,
     install_system_font, labels, load_error_message, notice_message, reset_error_message, save_error_message,
-    save_macros_error_message,
+    save_macros_error_message, theme,
 };
 use eframe::egui::{Context, IconData, Ui, ViewportCommand, ViewportId};
 use platform_windows::{
@@ -79,6 +79,7 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
         options,
         Box::new(move |creation| {
             install_system_font(&creation.egui_ctx, &fonts)?;
+            theme::apply(&creation.egui_ctx);
             let inbox = Rc::new(RefCell::new(Vec::new()));
             let messages = {
                 let inbox = Rc::clone(&inbox);
@@ -176,6 +177,16 @@ fn move_into_root(ctx: &Context, window: &Window) {
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::CancelClose);
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Title(window.title().to_owned()));
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::InnerSize(window.size()));
+}
+
+/// Shows the about text in `window`, the settings window open in `viewport`. The text is among the sections only the
+/// expanded window shows, so a compact window expands; an expanded one keeps the size the user gave it.
+fn expand_for_about(ctx: &Context, window: &mut Window, viewport: ViewportId) {
+    let before = window.size();
+    window.expand();
+    if window.size() != before {
+        ctx.send_viewport_cmd_to(viewport, ViewportCommand::InnerSize(window.size()));
+    }
 }
 
 /// Draws `window` into `ui`, the root ui of its viewport, with the clipboard and the browser at hand.
@@ -320,7 +331,8 @@ impl UiApp {
         }
     }
 
-    /// Brings `kind` to the front, opening it when it is not open.
+    /// Brings `kind` to the front, opening it when it is not open. "About" also expands a settings window that is open
+    /// compact, so the about text shows.
     fn open(&mut self, ctx: &Context, kind: WindowKind) {
         let shown = shown_kind(kind);
         let Some(index) = self.windows.iter().position(|window| window.kind() == shown) else {
@@ -332,6 +344,11 @@ impl UiApp {
             Some(window) if index > 0 => window.viewport_id(),
             Some(_) | None => ViewportId::ROOT,
         };
+        if kind == WindowKind::About
+            && let Some(window) = self.windows.get_mut(index)
+        {
+            expand_for_about(ctx, window, viewport);
+        }
         ctx.send_viewport_cmd_to(viewport, ViewportCommand::Minimized(false));
         ctx.send_viewport_cmd_to(viewport, ViewportCommand::Focus);
     }

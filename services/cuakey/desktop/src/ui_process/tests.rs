@@ -3,7 +3,7 @@ use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind};
 use eframe::egui;
 
 use super::window::Window;
-use super::{Edit, edit_of, largest_png, move_into_root, rebase, shown_kind};
+use super::{Edit, edit_of, expand_for_about, largest_png, move_into_root, rebase, shown_kind};
 use crate::stores::Stores;
 
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -118,10 +118,15 @@ fn empty_stores(test: &str) -> Stores {
     Stores::in_folder(dir).unwrap()
 }
 
-/// What moving `window` into the root viewport tells that viewport.
-fn root_commands_moving(window: &Window) -> Vec<egui::ViewportCommand> {
+/// What `send` tells the root viewport in one pass.
+fn root_commands(send: impl FnOnce(&egui::Context)) -> Vec<egui::ViewportCommand> {
     let ctx = egui::Context::default();
-    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| move_into_root(ui.ctx(), window));
+    let mut send = Some(send);
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        if let Some(send) = send.take() {
+            send(ui.ctx());
+        }
+    });
     // No renderer takes the font texture here.
     output.textures_delta.clear();
     output
@@ -129,6 +134,33 @@ fn root_commands_moving(window: &Window) -> Vec<egui::ViewportCommand> {
         .get(&egui::ViewportId::ROOT)
         .map(|viewport| viewport.commands.clone())
         .unwrap_or_default()
+}
+
+/// What moving `window` into the root viewport tells that viewport.
+fn root_commands_moving(window: &Window) -> Vec<egui::ViewportCommand> {
+    root_commands(|ctx| move_into_root(ctx, window))
+}
+
+#[test]
+fn about_expands_an_open_settings_window() {
+    let stores = empty_stores("expand");
+    let mut window = Window::open(WindowKind::Settings, &stores);
+
+    let commands = root_commands(|ctx| expand_for_about(ctx, &mut window, egui::ViewportId::ROOT));
+    assert_eq!(window.size(), EXPANDED_SIZE, "the about text is in the expanded part");
+    assert!(
+        commands.contains(&egui::ViewportCommand::InnerSize(EXPANDED_SIZE)),
+        "the native window grows with it: {commands:?}"
+    );
+
+    let again = root_commands(|ctx| expand_for_about(ctx, &mut window, egui::ViewportId::ROOT));
+    assert_eq!(window.size(), EXPANDED_SIZE);
+    assert!(
+        !again
+            .iter()
+            .any(|command| matches!(command, egui::ViewportCommand::InnerSize(_))),
+        "an expanded window keeps the size the user gave it: {again:?}"
+    );
 }
 
 #[test]

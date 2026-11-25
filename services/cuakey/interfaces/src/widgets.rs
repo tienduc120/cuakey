@@ -1,6 +1,8 @@
 //! The app's own widgets, drawn in the colours of the current egui theme.
 
-use egui::{Pos2, Rect, Response, Sense, Shape, StrokeKind, TextStyle, Ui, Vec2, WidgetInfo, WidgetText, pos2, vec2};
+use egui::{
+    Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, TextStyle, Ui, Vec2, WidgetInfo, WidgetText, pos2, vec2,
+};
 
 /// The side of a checkbox's box: one step larger than egui's, so the box reads at a glance.
 pub(crate) const CHECKBOX_SIZE: f32 = 15.0;
@@ -10,6 +12,10 @@ pub(crate) const CHECKBOX_GAP: f32 = 5.0;
 
 /// The tick's corners as fractions of the box, so the tick grows with it.
 const TICK: [Vec2; 3] = [vec2(0.22, 0.52), vec2(0.42, 0.72), vec2(0.78, 0.30)];
+
+/// The tick's stroke width as a fraction of the box's side: 2 points in a 15 point box, firm enough to read at a
+/// glance without filling the box.
+const TICK_WIDTH: f32 = 2.0 / 15.0;
 
 fn tick(icon: Rect) -> Vec<Pos2> {
     TICK.iter().map(|corner| icon.min + *corner * icon.size()).collect()
@@ -34,22 +40,25 @@ pub(crate) fn checkbox(ui: &mut Ui, label: &str, on: bool) -> Response {
         pos2(rect.left(), rect.center().y - CHECKBOX_SIZE / 2.0),
         Vec2::splat(CHECKBOX_SIZE),
     );
-    // A ticked box takes the theme's selection colours; the label keeps the plain widget colour either way.
-    let boxed = ui.style().interact_selectable(&response, on);
-    let text_color = ui.style().interact(&response).text_color();
+    // The outline and size follow the widget's state, ticked or not, so hover and focus show on every box. A ticked
+    // box is filled with the theme's selection colour and ticked in its selected-text colour; the label keeps the
+    // plain widget colour either way.
+    let state = ui.style().interact(&response);
+    let selection = ui.visuals().selection;
     let painter = ui.painter();
     painter.rect(
-        icon,
-        boxed.corner_radius,
-        boxed.bg_fill,
-        boxed.bg_stroke,
+        icon.expand(state.expansion),
+        state.corner_radius,
+        if on { selection.bg_fill } else { state.bg_fill },
+        state.bg_stroke,
         StrokeKind::Inside,
     );
     if on {
-        painter.add(Shape::line(tick(icon), boxed.fg_stroke));
+        let stroke = Stroke::new(icon.width() * TICK_WIDTH, selection.stroke.color);
+        painter.add(Shape::line(tick(icon), stroke));
     }
     let text_pos = pos2(icon.right() + CHECKBOX_GAP, rect.center().y - galley.size().y / 2.0);
-    painter.galley(text_pos, galley, text_color);
+    painter.galley(text_pos, galley, state.text_color());
     response
 }
 

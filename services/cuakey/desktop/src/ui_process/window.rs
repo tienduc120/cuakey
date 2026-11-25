@@ -101,6 +101,14 @@ impl Window {
         }
     }
 
+    /// Shows every section of a settings window, the about text among them; the other windows have no sections.
+    pub(super) const fn expand(&mut self) {
+        match &mut self.view {
+            View::Settings(window) => window.expand(),
+            View::Macros(_) | View::Convert(_) | View::AlwaysOn(_) => {}
+        }
+    }
+
     /// Shows `prefs`, which come from the store, so a save built on them may be written from now on.
     pub(super) fn set_preferences(&mut self, prefs: PreferencesView) {
         match &mut self.view {
@@ -146,13 +154,15 @@ impl Window {
     }
 
     /// The size of what the window shows now, in points: the size it opens at, and the size it takes in the root
-    /// viewport. The settings window changes it when it expands or collapses.
+    /// viewport. The settings window changes it when it expands or collapses. Each other size holds every row and
+    /// button, and a line for an error message, with the shared style in Segoe UI and in the fonts the windows may
+    /// borrow instead.
     pub(super) const fn size(&self) -> Vec2 {
         match &self.view {
             View::Settings(window) => window.size(),
-            View::Macros(_) => Vec2::new(480.0, 460.0),
-            View::Convert(_) => Vec2::new(440.0, 300.0),
-            View::AlwaysOn(_) => Vec2::new(360.0, 340.0),
+            View::Macros(_) => Vec2::new(730.0, 460.0),
+            View::Convert(_) => Vec2::new(570.0, 380.0),
+            View::AlwaysOn(_) => Vec2::new(440.0, 340.0),
         }
     }
 

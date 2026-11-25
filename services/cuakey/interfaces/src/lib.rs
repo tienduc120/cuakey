@@ -31,7 +31,7 @@ pub use messages::{
     load_error_message, load_macros_error_message, macro_error_message, notice_message, reset_error_message,
     save_error_message, save_macros_error_message,
 };
-pub use settings_form::{GatedControl, SettingsForm};
+pub use settings_form::{ButtonBar, GatedControl, SettingsForm};
 pub use settings_window::{COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow};
 pub use tray_menu::{MenuEffect, MenuEntry, MenuId, apply, model};
 pub use ui_action::{Button, Platform, UiAction, WindowKind};

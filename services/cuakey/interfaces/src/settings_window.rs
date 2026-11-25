@@ -1,12 +1,13 @@
-//! The settings window drawn with egui. It opens small, with the control group only, and the expand button shows the
-//! other sections. Every change applies at once: a frame that changed a control returns one `Save` with the whole
-//! edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it.
+//! The settings window drawn with egui. It opens small, with the controls used every day, and the expand button in the
+//! bottom bar shows the other sections. Every change applies at once: a frame that changed a control returns one
+//! `Save` with the whole edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it.
 
-use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView};
+use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView, Toggle};
 use egui::Ui;
 
 use crate::hotkey_editor::show_hotkey;
 use crate::settings_form::{GatedControl, SettingsForm, is_on};
+use crate::theme::BUTTON_SIZE;
 use crate::{Button, Platform, UiAction, labels, widgets};
 
 const INPUT_METHODS: [(InputMethodValue, &str); 3] = [
@@ -28,34 +29,21 @@ const LANGUAGES: [(LanguageValue, &str); 2] = [
     (LanguageValue::English, labels::LANGUAGE_ENGLISH),
 ];
 
-/// The window's inner size with the control group only, the size it opens at. The group and the button column measure
-/// 719 x 106 points in Segoe UI and at most 734 wide in the other fonts the window may borrow; the panel's margins and
-/// a line for an error message come on top, so nothing scrolls or clips.
-pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(760.0, 150.0);
+/// The window's inner size with the controls used every day only, the size it opens at. With the shared style, the
+/// rows measure at most 474 x 185 points in Segoe UI and the other fonts the window may borrow, 212 high with a line
+/// for an error message; the margins and the bottom bar come on top, so nothing scrolls or clips. The width is the
+/// expanded window's, so expanding only moves the bottom edge and the bar's buttons stay where they were.
+pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 300.0);
 
-/// The window's inner size with every section: as wide as the compact window, and tall enough to show a useful part
-/// of the sections, which scroll past that.
+/// The window's inner size with every section. The options sit two to a row, and the widest needs 257 points, so two
+/// columns fit in this width. The sections are taller than a small screen, so they scroll above the bottom bar; this
+/// height shows the controls used every day and the whole first section.
 pub const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
-pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: cuakey_application::Toggle) -> Option<bool> {
+pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: Toggle) -> Option<bool> {
     let on = is_on(current);
     widgets::checkbox(ui, label, on).changed().then_some(!on)
-}
-
-/// A checkbox that is hidden or greyed by the form's rules.
-fn gated_checkbox(
-    ui: &mut Ui,
-    form: &SettingsForm,
-    control: GatedControl,
-    label: &str,
-    current: cuakey_application::Toggle,
-) -> Option<bool> {
-    if !form.is_visible(control) {
-        return None;
-    }
-    ui.add_enabled_ui(form.is_enabled(control), |ui| checkbox(ui, label, current))
-        .inner
 }
 
 /// A drop-down of choices. Returns the new choice when the user picked another.
@@ -86,48 +74,237 @@ fn radios<T: Copy + PartialEq>(ui: &mut Ui, current: T, choices: &[(T, &str)]) -
     (selected != current).then_some(selected)
 }
 
-/// Draws a checkbox for `$path` of the view and stores a click through `$setter`.
-macro_rules! toggle_row {
-    ($ui:expr, $form:expr, $label:expr, $($path:ident).+, $setter:ident) => {
-        if let Some(on) = checkbox($ui, $label, $form.view().$($path).+) {
-            $form.$setter(on);
+/// An on/off preference: its label, where its value lives in the view, and the form's setter for it.
+#[derive(Debug, Clone, Copy)]
+struct OptionBox {
+    label: &'static str,
+    /// The form's rule that hides or greys the box, if any.
+    gate: Option<GatedControl>,
+    value: fn(&PreferencesView) -> Toggle,
+    set: fn(&mut SettingsForm, bool),
+}
+
+impl OptionBox {
+    const fn new(label: &'static str, value: fn(&PreferencesView) -> Toggle, set: fn(&mut SettingsForm, bool)) -> Self {
+        Self {
+            label,
+            gate: None,
+            value,
+            set,
         }
+    }
+
+    /// The same box, hidden or greyed as the form's rule for `gate` says.
+    const fn gated(self, gate: GatedControl) -> Self {
+        Self {
+            gate: Some(gate),
+            ..self
+        }
+    }
+}
+
+/// The [`OptionBox`] labelled `labels::$label` for the view's field at `$path`, which the form's `$set` changes.
+macro_rules! option_box {
+    ($label:ident, $($path:ident).+, $set:ident) => {
+        OptionBox::new(labels::$label, |view| view.$($path).+, SettingsForm::$set)
     };
 }
 
-/// Like `toggle_row!`, for a control the form can hide or grey.
-macro_rules! gated_row {
-    ($ui:expr, $form:expr, $control:expr, $label:expr, $($path:ident).+, $setter:ident) => {
-        if let Some(on) = gated_checkbox($ui, $form, $control, $label, $form.view().$($path).+) {
-            $form.$setter(on);
-        }
-    };
+const BEEP: OptionBox = option_box!(BEEP, switching.beep, set_beep);
+
+const TYPING_OPTIONS: [OptionBox; 11] = [
+    option_box!(NEW_TONE_STYLE, typing.new_tone_style, set_new_tone_style),
+    option_box!(FIX_AUTOCOMPLETE, compatibility.fix_autocomplete, set_fix_autocomplete)
+        .gated(GatedControl::FixAutocomplete),
+    option_box!(SPELL_CHECK, typing.spell_check, set_spell_check),
+    option_box!(
+        RESTORE_INVALID_WORD,
+        typing.restore_invalid_word,
+        set_restore_invalid_word
+    )
+    .gated(GatedControl::RestoreInvalidWord),
+    option_box!(
+        ALLOW_ZWJF_CONSONANTS,
+        typing.allow_zwjf_consonants,
+        set_allow_zwjf_consonants
+    )
+    .gated(GatedControl::AllowZwjfConsonants),
+    option_box!(
+        CAPITALIZE_SENTENCES,
+        typing.capitalize_sentences,
+        set_capitalize_sentences
+    ),
+    option_box!(SMART_SWITCH, switching.smart_switch, set_smart_switch),
+    option_box!(
+        REMEMBER_CODE_TABLE,
+        switching.remember_code_table,
+        set_remember_code_table
+    ),
+    option_box!(
+        WORK_IN_OTHER_LANGUAGES,
+        switching.work_in_other_languages,
+        set_work_in_other_languages
+    ),
+    option_box!(KEEP_W, behaviours.keep_w, set_keep_w),
+    option_box!(ONLY_TEXT_BOXES, behaviours.only_text_boxes, set_only_text_boxes),
+];
+
+const MACRO_OPTIONS: [OptionBox; 6] = [
+    option_box!(USE_MACROS, macros.use_macros, set_use_macros),
+    option_box!(MACROS_IN_ENGLISH, macros.macros_in_english, set_macros_in_english),
+    option_box!(MACRO_MATCH_CASE, macros.match_case, set_macro_match_case),
+    option_box!(QUICK_TELEX, typing.quick_telex, set_quick_telex),
+    option_box!(
+        QUICK_FIRST_CONSONANT,
+        typing.quick_first_consonant,
+        set_quick_first_consonant
+    ),
+    option_box!(
+        QUICK_LAST_CONSONANT,
+        typing.quick_last_consonant,
+        set_quick_last_consonant
+    ),
+];
+
+const SYSTEM_OPTIONS: [OptionBox; 7] = [
+    option_box!(START_WITH_WINDOWS, system.start_with_windows, set_start_with_windows),
+    option_box!(
+        SHOW_SETTINGS_AT_STARTUP,
+        system.show_settings_at_startup,
+        set_show_settings_at_startup
+    ),
+    option_box!(DESKTOP_SHORTCUT, system.desktop_shortcut, set_desktop_shortcut).gated(GatedControl::DesktopShortcut),
+    option_box!(
+        RUN_AS_ADMINISTRATOR,
+        system.run_as_administrator,
+        set_run_as_administrator
+    )
+    .gated(GatedControl::RunAsAdministrator),
+    option_box!(
+        STORE_APP_SUPPORT,
+        compatibility.store_app_support,
+        set_store_app_support
+    )
+    .gated(GatedControl::StoreAppSupport),
+    option_box!(CHROMIUM_FIX, compatibility.chromium_fix, set_chromium_fix).gated(GatedControl::ChromiumFix),
+    option_box!(CLIPBOARD_INPUT, compatibility.clipboard_input, set_clipboard_input)
+        .gated(GatedControl::ClipboardInput),
+];
+
+/// A section only the expanded window shows: its title, its options, and the button under them that opens another
+/// window, if any.
+#[derive(Debug, Clone, Copy)]
+struct Section {
+    title: &'static str,
+    options: &'static [OptionBox],
+    button: Option<Button>,
 }
 
-fn input_method_and_code_table(ui: &mut Ui, form: &mut SettingsForm) {
-    ui.horizontal(|ui| {
-        if let Some(method) = combo(ui, "input_method", form.view().typing.input_method, &INPUT_METHODS) {
-            form.set_input_method(method);
-        }
-        ui.label(labels::CODE_TABLE);
-        if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, &CODE_TABLES) {
-            form.set_code_table(table);
-        }
-    });
+const SECTIONS: [Section; 3] = [
+    Section {
+        title: labels::SECTION_TYPING,
+        options: &TYPING_OPTIONS,
+        button: Some(Button::OpenAlwaysOn),
+    },
+    Section {
+        title: labels::SECTION_MACROS,
+        options: &MACRO_OPTIONS,
+        button: Some(Button::OpenMacros),
+    },
+    Section {
+        title: labels::SECTION_SYSTEM,
+        options: &SYSTEM_OPTIONS,
+        button: None,
+    },
+];
+
+/// Draws `option` as a checkbox, greyed when the form's rule says so, and stores a click.
+fn option_checkbox(ui: &mut Ui, form: &mut SettingsForm, option: &OptionBox) {
+    let enabled = option.gate.is_none_or(|gate| form.is_enabled(gate));
+    let current = (option.value)(form.view());
+    if let Some(on) = ui
+        .add_enabled_ui(enabled, |ui| checkbox(ui, option.label, current))
+        .inner
+    {
+        (option.set)(form, on);
+    }
 }
 
-/// The rows of the control group, as grid cells: a label, then its controls. Each hotkey editor sits in one cell and
-/// draws the same fixed-width parts, so the modifier boxes and key fields of the two hotkey rows line up.
+/// Lays `options` out two to a row, in their order, leaving out those the form hides. The columns split the width
+/// evenly, so the second column starts at the same place in every section.
+fn options_in_two_columns(ui: &mut Ui, form: &mut SettingsForm, id_salt: &str, options: &[OptionBox]) {
+    let shown: Vec<&OptionBox> = options
+        .iter()
+        .filter(|option| option.gate.is_none_or(|gate| form.is_visible(gate)))
+        .collect();
+    let column_width = (ui.available_width() - ui.spacing().item_spacing.x) / 2.0;
+    egui::Grid::new(id_salt)
+        .num_columns(2)
+        .min_col_width(column_width)
+        .show(ui, |ui| {
+            for row in shown.chunks(2) {
+                for option in row {
+                    option_checkbox(ui, form, option);
+                }
+                ui.end_row();
+            }
+        });
+}
+
+/// A section's title: small and muted over a thin line, so the options stand out rather than the headings.
+fn section_title(ui: &mut Ui, title: &str) {
+    ui.add_space(ui.spacing().item_spacing.y);
+    ui.label(egui::RichText::new(title).small().weak());
+    ui.separator();
+}
+
+fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, actions: &mut Vec<UiAction>) {
+    section_title(ui, section.title);
+    options_in_two_columns(ui, form, section.title, section.options);
+    if let Some(button) = section.button
+        && ui.button(button_label(form, button)).clicked()
+    {
+        actions.extend(button.action());
+    }
+}
+
+fn about_section(ui: &mut Ui) {
+    section_title(ui, labels::SECTION_ABOUT);
+    ui.label(labels::ABOUT_NAME);
+    ui.label(labels::ABOUT_VERSION);
+    ui.label(labels::ABOUT_LICENSE);
+    ui.hyperlink(labels::ABOUT_URL);
+    ui.label(labels::ABOUT_CREDITS);
+}
+
+/// The sections only the expanded window shows.
+fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
+    for section in &SECTIONS {
+        options_section(ui, form, section, actions);
+    }
+    about_section(ui);
+}
+
+/// The controls used every day, as grid cells: a label, then its control. Each hotkey editor sits in one cell and
+/// draws the same parts in the same order, so the modifier boxes and key fields of the two hotkey rows line up.
 fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
     ui.label(labels::INPUT_METHOD);
-    input_method_and_code_table(ui, form);
+    if let Some(method) = combo(ui, "input_method", form.view().typing.input_method, &INPUT_METHODS) {
+        form.set_input_method(method);
+    }
+    ui.end_row();
+
+    ui.label(labels::CODE_TABLE);
+    if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, &CODE_TABLES) {
+        form.set_code_table(table);
+    }
     ui.end_row();
 
     ui.label(labels::SWITCH_HOTKEY);
     if let Some(hotkey) = show_hotkey(ui, "switch_hotkey", form.view().switching.hotkey) {
         form.set_switch_hotkey(hotkey);
     }
-    toggle_row!(ui, form, labels::BEEP, switching.beep, set_beep);
+    option_checkbox(ui, form, &BEEP);
     ui.end_row();
 
     ui.label(labels::SETTINGS_HOTKEY);
@@ -143,191 +320,6 @@ fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
     ui.end_row();
 }
 
-/// The control group, framed, with its title inside the frame: egui has no titled group box.
-fn control_group(ui: &mut Ui, form: &mut SettingsForm) {
-    egui::Frame::group(ui.style()).show(ui, |ui| {
-        ui.strong(labels::SECTION_CONTROL);
-        egui::Grid::new("control_rows")
-            .num_columns(3)
-            .show(ui, |ui| control_rows(ui, form));
-    });
-}
-
-fn typing_section(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
-    ui.heading(labels::SECTION_TYPING);
-    toggle_row!(
-        ui,
-        form,
-        labels::NEW_TONE_STYLE,
-        typing.new_tone_style,
-        set_new_tone_style
-    );
-    gated_row!(
-        ui,
-        form,
-        GatedControl::FixAutocomplete,
-        labels::FIX_AUTOCOMPLETE,
-        compatibility.fix_autocomplete,
-        set_fix_autocomplete
-    );
-    toggle_row!(ui, form, labels::SPELL_CHECK, typing.spell_check, set_spell_check);
-    ui.indent("spelling", |ui| {
-        gated_row!(
-            ui,
-            form,
-            GatedControl::RestoreInvalidWord,
-            labels::RESTORE_INVALID_WORD,
-            typing.restore_invalid_word,
-            set_restore_invalid_word
-        );
-        gated_row!(
-            ui,
-            form,
-            GatedControl::AllowZwjfConsonants,
-            labels::ALLOW_ZWJF_CONSONANTS,
-            typing.allow_zwjf_consonants,
-            set_allow_zwjf_consonants
-        );
-    });
-    toggle_row!(
-        ui,
-        form,
-        labels::CAPITALIZE_SENTENCES,
-        typing.capitalize_sentences,
-        set_capitalize_sentences
-    );
-    toggle_row!(ui, form, labels::SMART_SWITCH, switching.smart_switch, set_smart_switch);
-    toggle_row!(
-        ui,
-        form,
-        labels::REMEMBER_CODE_TABLE,
-        switching.remember_code_table,
-        set_remember_code_table
-    );
-    toggle_row!(
-        ui,
-        form,
-        labels::WORK_IN_OTHER_LANGUAGES,
-        switching.work_in_other_languages,
-        set_work_in_other_languages
-    );
-    toggle_row!(ui, form, labels::KEEP_W, behaviours.keep_w, set_keep_w);
-    toggle_row!(
-        ui,
-        form,
-        labels::ONLY_TEXT_BOXES,
-        behaviours.only_text_boxes,
-        set_only_text_boxes
-    );
-    if ui.button(labels::ALWAYS_ON_APPS).clicked() {
-        actions.extend(Button::OpenAlwaysOn.action());
-    }
-}
-
-fn macros_section(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
-    ui.heading(labels::SECTION_MACROS);
-    toggle_row!(ui, form, labels::USE_MACROS, macros.use_macros, set_use_macros);
-    toggle_row!(
-        ui,
-        form,
-        labels::MACROS_IN_ENGLISH,
-        macros.macros_in_english,
-        set_macros_in_english
-    );
-    toggle_row!(
-        ui,
-        form,
-        labels::MACRO_MATCH_CASE,
-        macros.match_case,
-        set_macro_match_case
-    );
-    if ui.button(labels::MACRO_TABLE).clicked() {
-        actions.extend(Button::OpenMacros.action());
-    }
-    toggle_row!(ui, form, labels::QUICK_TELEX, typing.quick_telex, set_quick_telex);
-    toggle_row!(
-        ui,
-        form,
-        labels::QUICK_FIRST_CONSONANT,
-        typing.quick_first_consonant,
-        set_quick_first_consonant
-    );
-    toggle_row!(
-        ui,
-        form,
-        labels::QUICK_LAST_CONSONANT,
-        typing.quick_last_consonant,
-        set_quick_last_consonant
-    );
-}
-
-fn system_section(ui: &mut Ui, form: &mut SettingsForm) {
-    ui.heading(labels::SECTION_SYSTEM);
-    toggle_row!(
-        ui,
-        form,
-        labels::START_WITH_WINDOWS,
-        system.start_with_windows,
-        set_start_with_windows
-    );
-    toggle_row!(
-        ui,
-        form,
-        labels::SHOW_SETTINGS_AT_STARTUP,
-        system.show_settings_at_startup,
-        set_show_settings_at_startup
-    );
-    gated_row!(
-        ui,
-        form,
-        GatedControl::DesktopShortcut,
-        labels::DESKTOP_SHORTCUT,
-        system.desktop_shortcut,
-        set_desktop_shortcut
-    );
-    gated_row!(
-        ui,
-        form,
-        GatedControl::RunAsAdministrator,
-        labels::RUN_AS_ADMINISTRATOR,
-        system.run_as_administrator,
-        set_run_as_administrator
-    );
-    gated_row!(
-        ui,
-        form,
-        GatedControl::StoreAppSupport,
-        labels::STORE_APP_SUPPORT,
-        compatibility.store_app_support,
-        set_store_app_support
-    );
-    gated_row!(
-        ui,
-        form,
-        GatedControl::ChromiumFix,
-        labels::CHROMIUM_FIX,
-        compatibility.chromium_fix,
-        set_chromium_fix
-    );
-    gated_row!(
-        ui,
-        form,
-        GatedControl::ClipboardInput,
-        labels::CLIPBOARD_INPUT,
-        compatibility.clipboard_input,
-        set_clipboard_input
-    );
-}
-
-fn about_section(ui: &mut Ui) {
-    ui.heading(labels::SECTION_ABOUT);
-    ui.label(labels::ABOUT_NAME);
-    ui.label(labels::ABOUT_VERSION);
-    ui.label(labels::ABOUT_LICENSE);
-    ui.hyperlink(labels::ABOUT_URL);
-    ui.label(labels::ABOUT_CREDITS);
-}
-
 fn button_label(form: &SettingsForm, button: Button) -> &'static str {
     match button {
         Button::CloseWindow => labels::BUTTON_CLOSE,
@@ -340,47 +332,34 @@ fn button_label(form: &SettingsForm, button: Button) -> &'static str {
     }
 }
 
-/// Whether `button` sits in the column beside the control group. The reset sits under the expanded sections, away
-/// from the buttons clicked every day.
-const fn is_in_column(button: Button) -> bool {
-    !matches!(button, Button::ResetToDefaults)
+/// One button of the bottom bar, the same size as the others. Returns whether it was clicked.
+fn bar_button(ui: &mut Ui, form: &SettingsForm, button: Button) -> bool {
+    ui.add_sized(BUTTON_SIZE, egui::Button::new(button_label(form, button)).truncate())
+        .clicked()
 }
 
-/// One width for every button of the column: the widest of their labels, both labels of the expand button included,
-/// so the column keeps its place when that label changes.
-fn column_width(ui: &Ui) -> f32 {
-    let widest = [
-        labels::BUTTON_CLOSE,
-        labels::BUTTON_EXIT,
-        labels::BUTTON_EXPAND,
-        labels::BUTTON_COLLAPSE,
-    ]
-    .into_iter()
-    .map(|label| {
-        egui::WidgetText::from(label)
-            .into_galley(
-                ui,
-                Some(egui::TextWrapMode::Extend),
-                f32::INFINITY,
-                egui::TextStyle::Button,
-            )
-            .size()
-            .x
-    })
-    .fold(0.0, f32::max);
-    widest + 2.0 * ui.spacing().button_padding.x
-}
-
-/// The column beside the control group, top to bottom. Returns the button clicked.
-fn button_column(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
-    let min_size = egui::vec2(column_width(ui), 0.0);
-    ui.vertical(|ui| {
+/// The buttons of the bottom bar, where the form puts them. Returns the button clicked.
+fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
+    let bar = form.bar();
+    ui.horizontal(|ui| {
         let mut clicked = None;
-        for &button in form.buttons().iter().filter(|button| is_in_column(**button)) {
-            if ui
-                .add(egui::Button::new(button_label(form, button)).min_size(min_size))
-                .clicked()
-            {
+        if let Some(button) = bar.left
+            && bar_button(ui, form, button)
+        {
+            clicked = Some(button);
+        }
+        right_aligned(ui, form, &bar.right).or(clicked)
+    })
+    .inner
+}
+
+/// `buttons` at the right end of the row, in their order. Returns the button clicked.
+fn right_aligned(ui: &mut Ui, form: &SettingsForm, buttons: &[Button]) -> Option<Button> {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        let mut clicked = None;
+        // Laid out from the right edge, so the last button comes first.
+        for &button in buttons.iter().rev() {
+            if bar_button(ui, form, button) {
                 clicked = Some(button);
             }
         }
@@ -389,24 +368,33 @@ fn button_column(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
     .inner
 }
 
-/// The buttons under the expanded sections. Returns the button clicked.
-fn buttons_below(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
-    let mut clicked = None;
-    for &button in form.buttons().iter().filter(|button| !is_in_column(**button)) {
-        if ui.button(button_label(form, button)).clicked() {
-            clicked = Some(button);
-        }
-    }
-    clicked
+/// The bar along the window's bottom edge, outside the scrolling sections so it never scrolls away. Returns the
+/// button clicked.
+fn bottom_bar(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
+    let margin = ui.spacing().window_margin;
+    // The panel above ends in a margin of its own, so the bar needs none at its top.
+    let frame = egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin { top: 0, ..margin });
+    let height = BUTTON_SIZE.y + frame.total_margin().sum().y;
+    egui::Panel::bottom("button_bar")
+        .frame(frame)
+        .show_separator_line(false)
+        .exact_size(height)
+        .show(ui, |ui| bar_buttons(ui, form))
+        .inner
 }
 
-/// The sections only the expanded window shows, then the buttons under them. Returns the button clicked.
-fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) -> Option<Button> {
-    typing_section(ui, form, actions);
-    macros_section(ui, form, actions);
-    system_section(ui, form);
-    about_section(ui);
-    buttons_below(ui, form)
+/// The controls used every day, the message of the last refused change under them, and, when expanded, the other
+/// sections in a scroll area below. In compact mode nothing scrolls.
+fn contents(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
+    egui::Grid::new("control_rows")
+        .num_columns(3)
+        .show(ui, |ui| control_rows(ui, form));
+    if let Some(message) = form.error() {
+        ui.colored_label(ui.visuals().error_fg_color, message);
+    }
+    if form.is_expanded() {
+        egui::ScrollArea::vertical().show(ui, |ui| expanded_sections(ui, form, actions));
+    }
 }
 
 /// The inner size of a window showing what `form` shows.
@@ -429,29 +417,6 @@ fn press(ui: &Ui, form: &mut SettingsForm, button: Button, actions: &mut Vec<UiA
     actions.extend(button.action());
 }
 
-/// The control group with the button column beside it, the message of the last refused change under them, and, when
-/// expanded, the other sections in a scroll area below. In compact mode nothing scrolls.
-fn contents(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
-    let mut clicked = ui
-        .horizontal_top(|ui| {
-            control_group(ui, form);
-            button_column(ui, form)
-        })
-        .inner;
-    if let Some(message) = form.error() {
-        ui.colored_label(ui.visuals().error_fg_color, message);
-    }
-    if form.is_expanded() {
-        let below = egui::ScrollArea::vertical()
-            .show(ui, |ui| expanded_sections(ui, form, actions))
-            .inner;
-        clicked = clicked.or(below);
-    }
-    if let Some(button) = clicked {
-        press(ui, form, button, actions);
-    }
-}
-
 /// The settings window: draw it every frame, act on what it returns.
 #[derive(Debug, Clone)]
 pub struct SettingsWindow {
@@ -470,10 +435,16 @@ impl SettingsWindow {
     /// window shows, such as the about text.
     #[must_use]
     pub const fn expanded(mut self) -> Self {
+        self.expand();
+        self
+    }
+
+    /// Shows every section, for a way in that leads to something only the expanded window shows, such as the about
+    /// text. An expanded window stays as it is.
+    pub const fn expand(&mut self) {
         if !self.form.is_expanded() {
             self.form.toggle_expanded();
         }
-        self
     }
 
     /// The inner size of what the window shows now: the size to open it at, or to give it in another native window.
@@ -487,7 +458,7 @@ impl SettingsWindow {
         self.form.set_preferences(prefs);
     }
 
-    /// Shows a message under the control group, or clears it. The user's edits stay.
+    /// Shows a message under the controls used every day, or clears it. The user's edits stay.
     pub const fn show_error(&mut self, message: Option<&'static str>) {
         self.form.show_error(message);
     }
@@ -496,7 +467,15 @@ impl SettingsWindow {
     pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        egui::CentralPanel::default().show(ui, |ui| contents(ui, form, &mut actions));
+        // The bar comes first: a panel along an edge takes its room before the central panel fills the rest.
+        let clicked = bottom_bar(ui, form);
+        let frame = egui::Frame::central_panel(ui.style()).inner_margin(ui.spacing().window_margin);
+        egui::CentralPanel::default()
+            .frame(frame)
+            .show(ui, |ui| contents(ui, form, &mut actions));
+        if let Some(button) = clicked {
+            press(ui, form, button, &mut actions);
+        }
         if let Some(view) = form.take_save() {
             actions.insert(0, UiAction::Save(view));
         }

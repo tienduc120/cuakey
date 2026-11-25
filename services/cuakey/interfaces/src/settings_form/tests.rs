@@ -2,7 +2,7 @@ use cuakey_application::{
     AppMemoryView, CodeTableValue, HotkeyView, InputMethodValue, KeyName, LanguageValue, PreferencesView, Toggle,
 };
 
-use super::{GatedControl, SettingsForm};
+use super::{ButtonBar, GatedControl, SettingsForm};
 use crate::{Button, Platform};
 
 const WINDOWS_ONLY: [GatedControl; 6] = [
@@ -205,7 +205,10 @@ fn an_edit_stays_after_a_refused_save() {
 #[test]
 fn opens_compact() {
     let form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
-    assert!(!form.is_expanded(), "the window opens with the control group only");
+    assert!(
+        !form.is_expanded(),
+        "the window opens with the controls used every day only"
+    );
 }
 
 #[test]
@@ -226,18 +229,32 @@ fn toggle_expands_and_collapses() {
     assert_eq!(form.take_save(), None);
 }
 
-#[test]
-fn buttons_in_compact_mode() {
-    let mut form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
-    let column = [Button::CloseWindow, Button::ExitApp, Button::ToggleExpanded];
-    assert_eq!(
-        form.buttons(),
-        column,
-        "compact: the column beside the controls, and nothing else"
-    );
+/// The right end of the bottom bar, left to right, in either mode.
+const BAR_RIGHT: [Button; 3] = [Button::ToggleExpanded, Button::ExitApp, Button::CloseWindow];
 
+#[test]
+fn bar_in_compact_mode() {
+    let form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
+    assert_eq!(
+        form.bar(),
+        ButtonBar {
+            left: None,
+            right: BAR_RIGHT,
+        },
+        "compact: nothing at the left end"
+    );
+}
+
+#[test]
+fn bar_in_expanded_mode() {
+    let mut form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
     form.toggle_expanded();
-    let mut expanded = column.to_vec();
-    expanded.push(Button::ResetToDefaults);
-    assert_eq!(form.buttons(), expanded, "expanded: the reset comes last");
+    assert_eq!(
+        form.bar(),
+        ButtonBar {
+            left: Some(Button::ResetToDefaults),
+            right: BAR_RIGHT,
+        },
+        "expanded: the reset at the left end, away from the buttons clicked every day"
+    );
 }

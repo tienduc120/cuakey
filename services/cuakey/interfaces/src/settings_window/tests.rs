@@ -1,6 +1,8 @@
-use cuakey_application::{PreferencesView, Toggle};
+use cuakey_application::{KeyName, PreferencesView, Toggle};
+use egui::epaint::RectShape;
 
 use super::{COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow, checkbox};
+use crate::theme::{self, BUTTON_SIZE};
 use crate::{Platform, UiAction, labels};
 
 #[test]
@@ -21,6 +23,18 @@ const MESSAGE: &str = "Hai phím tắt không được trùng nhau";
 
 /// Room for everything, so a test sees all that is drawn whatever the test font measures.
 const BIG_SCREEN: egui::Vec2 = egui::vec2(2000.0, 2000.0);
+
+/// A context with the look the app gives every window.
+fn themed() -> egui::Context {
+    let ctx = egui::Context::default();
+    theme::apply(&ctx);
+    ctx
+}
+
+/// The room the theme leaves between the window's edge and what it shows.
+fn margin() -> f32 {
+    f32::from(themed().global_style().spacing.window_margin.left)
+}
 
 fn key(key: egui::Key) -> egui::Event {
     egui::Event::Key {
@@ -54,21 +68,24 @@ fn pass<R>(ctx: &egui::Context, events: Vec<egui::Event>, mut draw: impl FnMut(&
     drawn.unwrap()
 }
 
-/// What one pass of the window asked for, the text it painted and where, and what it told its viewport.
+/// What one pass of the window asked for, the text and rectangles it painted, and what it told its viewport.
 struct Shown {
     actions: Vec<UiAction>,
     texts: Vec<(String, egui::Rect)>,
+    rects: Vec<RectShape>,
     commands: Vec<egui::ViewportCommand>,
 }
 
-fn collect_texts(shape: &egui::Shape, texts: &mut Vec<(String, egui::Rect)>) {
+fn collect(shape: &egui::Shape, texts: &mut Vec<(String, egui::Rect)>, rects: &mut Vec<RectShape>) {
     if let egui::Shape::Vec(inner) = shape {
         for shape in inner {
-            collect_texts(shape, texts);
+            collect(shape, texts, rects);
         }
     } else if let egui::Shape::Text(text) = shape {
         let place = egui::Rect::from_min_size(text.pos, text.galley.size());
         texts.push((text.galley.text().to_owned(), place));
+    } else if let egui::Shape::Rect(rect) = shape {
+        rects.push(rect.clone());
     }
 }
 
@@ -84,8 +101,9 @@ fn show(ctx: &egui::Context, window: &mut SettingsWindow, size: egui::Vec2, even
     let mut output = ctx.run_ui(input, |ui| actions = window.show(ui));
     output.textures_delta.clear();
     let mut texts = Vec::new();
+    let mut rects = Vec::new();
     for clipped in &output.shapes {
-        collect_texts(&clipped.shape, &mut texts);
+        collect(&clipped.shape, &mut texts, &mut rects);
     }
     let commands = output
         .viewport_output
@@ -95,6 +113,7 @@ fn show(ctx: &egui::Context, window: &mut SettingsWindow, size: egui::Vec2, even
     Shown {
         actions,
         texts,
+        rects,
         commands,
     }
 }
@@ -105,6 +124,31 @@ fn place_of(shown: &Shown, text: &str) -> Option<egui::Rect> {
         .iter()
         .find(|(drawn, _)| drawn == text)
         .map(|(_, place)| *place)
+}
+
+fn places_of(shown: &Shown, text: &str) -> Vec<egui::Rect> {
+    shown
+        .texts
+        .iter()
+        .filter(|(drawn, _)| drawn == text)
+        .map(|(_, place)| *place)
+        .collect()
+}
+
+/// The frame of the button labelled `label`: the smallest rectangle painted around its text.
+fn button_of(shown: &Shown, label: &str) -> egui::Rect {
+    let text = place_of(shown, label).unwrap_or_else(|| panic!("{label} is drawn"));
+    shown
+        .rects
+        .iter()
+        .map(|shape| shape.rect)
+        .filter(|rect| rect.contains(text.center()))
+        .min_by(|a, b| a.area().total_cmp(&b.area()))
+        .unwrap_or_else(|| panic!("{label} has a frame"))
+}
+
+fn near(a: f32, b: f32) -> bool {
+    (a - b).abs() < 0.5
 }
 
 /// Clicks the button labelled `label` and returns the pass that saw the release.
@@ -136,7 +180,7 @@ fn a_checkbox_reports_the_flipped_value() {
 
 #[test]
 fn error_shows_in_compact_mode() {
-    let ctx = egui::Context::default();
+    let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, COMPACT_SIZE);
     window.show_error(Some(MESSAGE));
@@ -148,6 +192,8 @@ fn error_shows_in_compact_mode() {
         screen.contains_rect(place),
         "the message fits in the compact window: {place:?}"
     );
+    let bar = button_of(&shown, labels::BUTTON_CLOSE);
+    assert!(place.bottom() < bar.top(), "the message sits above the bar");
 
     window.form.toggle_expanded();
     show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
@@ -186,7 +232,7 @@ fn the_expand_button_resizes_the_window_and_asks_nothing() {
 }
 
 #[test]
-fn the_reset_is_offered_last_and_only_when_expanded() {
+fn the_reset_is_offered_only_when_expanded() {
     let ctx = egui::Context::default();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
 
@@ -199,14 +245,7 @@ fn the_reset_is_offered_last_and_only_when_expanded() {
 
     window.form.toggle_expanded();
     let expanded = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
-    let reset = place_of(&expanded, labels::BUTTON_RESET).expect("the reset is drawn");
-    let lowest_other = expanded
-        .texts
-        .iter()
-        .filter(|(text, _)| text != labels::BUTTON_RESET)
-        .map(|(_, place)| place.top())
-        .fold(f32::MIN, f32::max);
-    assert!(reset.top() > lowest_other, "the reset sits under everything else");
+    assert!(place_of(&expanded, labels::BUTTON_RESET).is_some());
 }
 
 #[test]
@@ -243,4 +282,105 @@ fn a_window_opened_expanded_shows_every_section() {
         "the about section is drawn"
     );
     assert!(place_of(&shown, labels::BUTTON_COLLAPSE).is_some());
+}
+
+#[test]
+fn about_expands_an_open_window() {
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    window.expand();
+    assert_eq!(window.size(), EXPANDED_SIZE);
+
+    window.expand();
+    assert_eq!(window.size(), EXPANDED_SIZE, "an expanded window stays expanded");
+}
+
+#[test]
+fn buttons_sit_in_a_bottom_bar() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    let right = [labels::BUTTON_EXPAND, labels::BUTTON_EXIT, labels::BUTTON_CLOSE];
+
+    let compact = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
+    let buttons = right.map(|label| button_of(&compact, label));
+    let lowest_row = compact
+        .texts
+        .iter()
+        .filter(|(text, _)| !right.contains(&text.as_str()))
+        .map(|(_, place)| place.bottom())
+        .fold(f32::MIN, f32::max);
+    for (label, button) in right.iter().zip(buttons) {
+        assert_eq!(button.size(), BUTTON_SIZE, "{label}");
+        assert!(button.top() > lowest_row, "{label} sits below every row");
+        assert!(
+            near(button.bottom(), COMPACT_SIZE.y - margin()),
+            "{label} sits on the bottom edge: {button:?}"
+        );
+    }
+    let [expand, exit, close] = buttons;
+    assert!(expand.right() < exit.left() && exit.right() < close.left(), "in order");
+    assert!(
+        near(close.right(), COMPACT_SIZE.x - margin()),
+        "right-aligned: {close:?}"
+    );
+
+    window.form.toggle_expanded();
+    let expanded = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    let reset = button_of(&expanded, labels::BUTTON_RESET);
+    let close = button_of(&expanded, labels::BUTTON_CLOSE);
+    assert_eq!(reset.size(), BUTTON_SIZE);
+    assert!(near(reset.left(), margin()), "Cài đặt gốc at the left end: {reset:?}");
+    assert!(near(reset.top(), close.top()), "on the same bar");
+    assert!(
+        near(close.bottom(), EXPANDED_SIZE.y - margin()),
+        "the bar stays on the bottom edge, past the scrolling sections: {close:?}"
+    );
+}
+
+#[test]
+fn control_rows_have_no_frame() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    let shown = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
+    let rows = place_of(&shown, labels::INPUT_METHOD)
+        .unwrap()
+        .union(place_of(&shown, labels::LANGUAGE).unwrap());
+    let framing: Vec<_> = shown
+        .rects
+        .iter()
+        .filter(|shape| shape.stroke.width > 0.0 && shape.rect.contains_rect(rows))
+        .collect();
+    assert!(framing.is_empty(), "no outline around the rows: {framing:?}");
+}
+
+#[test]
+fn hotkey_rows_line_up() {
+    let mut view = PreferencesView::default();
+    view.switching.hotkey.key = Some(KeyName::F5);
+    view.behaviours.settings_hotkey.key = Some(KeyName::F5);
+    let ctx = themed();
+    let mut window = SettingsWindow::new(view, Platform::Windows);
+    let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+
+    for text in [labels::KEY_CTRL, "F5"] {
+        let places = places_of(&shown, text);
+        assert_eq!(places.len(), 2, "{text} in each hotkey row");
+        assert!(
+            places.iter().all(|place| near(place.left(), places[0].left())),
+            "the two rows' {text} start at the same x: {places:?}"
+        );
+    }
+}
+
+#[test]
+fn sections_use_two_columns() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+    let first = place_of(&shown, labels::NEW_TONE_STYLE).unwrap();
+    let second = place_of(&shown, labels::FIX_AUTOCOMPLETE).unwrap();
+    assert!(
+        near(first.center().y, second.center().y),
+        "one row: {first:?} {second:?}"
+    );
+    assert!(second.left() > first.right(), "side by side: {first:?} {second:?}");
 }

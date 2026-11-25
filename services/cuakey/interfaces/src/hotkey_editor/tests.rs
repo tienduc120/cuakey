@@ -1,6 +1,7 @@
 use cuakey_application::{HotkeyView, KeyName, Toggle};
 
-use super::{key_field, key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
+use super::{KEYS, key_field, key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
+use crate::{labels, theme};
 
 fn ctrl_shift(key: Option<KeyName>) -> HotkeyView {
     HotkeyView {
@@ -104,10 +105,16 @@ fn space_on_a_modifier_box_flips_that_modifier() {
     );
 }
 
+/// A context with the look the app gives every window.
+fn themed() -> egui::Context {
+    let ctx = egui::Context::default();
+    theme::apply(&ctx);
+    ctx
+}
+
 /// The size of the key field showing `key`.
 fn key_field_size(key: Option<KeyName>) -> egui::Vec2 {
-    let ctx = egui::Context::default();
-    pass(&ctx, Vec::new(), |ui| {
+    pass(&themed(), Vec::new(), |ui| {
         ui.scope(|ui| key_field(ui, ctrl_shift(key))).response.rect.size()
     })
 }
@@ -117,6 +124,64 @@ fn key_field_width_is_fixed() {
     assert_eq!(
         key_field_size(None),
         key_field_size(Some(KeyName::F5)),
-        "\"Không có phím\" and \"F5\" take the same room, so the rows stay aligned"
+        "a blank field and \"F5\" take the same room, so the rows stay aligned"
     );
+}
+
+fn collect_texts(shape: &egui::Shape, texts: &mut Vec<String>) {
+    if let egui::Shape::Vec(inner) = shape {
+        for shape in inner {
+            collect_texts(shape, texts);
+        }
+    } else if let egui::Shape::Text(text) = shape {
+        texts.push(text.galley.text().to_owned());
+    }
+}
+
+#[test]
+fn no_key_shows_blank() {
+    let ctx = themed();
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        key_field(ui, ctrl_shift(None));
+    });
+    output.textures_delta.clear();
+    let mut texts = Vec::new();
+    for clipped in &output.shapes {
+        collect_texts(&clipped.shape, &mut texts);
+    }
+    texts.retain(|text| !text.is_empty());
+    assert!(texts.is_empty(), "a field with no key shows nothing: {texts:?}");
+}
+
+#[test]
+fn key_field_fits_every_key_name() {
+    let (width, needed) = pass(&themed(), Vec::new(), |ui| {
+        let width = ui
+            .scope(|ui| key_field(ui, ctrl_shift(Some(KeyName::F5))))
+            .response
+            .rect
+            .width();
+        let widest = KEYS
+            .iter()
+            .map(|(_, name)| key_label(*name))
+            .chain([labels::HOTKEY_OTHER_KEY])
+            .map(|text| {
+                egui::WidgetText::from(text)
+                    .into_galley(
+                        ui,
+                        Some(egui::TextWrapMode::Extend),
+                        f32::INFINITY,
+                        egui::TextStyle::Button,
+                    )
+                    .size()
+                    .x
+            })
+            .fold(0.0, f32::max);
+        (width, widest + 2.0 * ui.spacing().button_padding.x)
+    });
+    assert!(
+        width >= needed,
+        "{width} holds the widest key name, which needs {needed}"
+    );
+    assert!(width < 108.0, "{width} is narrower than the old field");
 }

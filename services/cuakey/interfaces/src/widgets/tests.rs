@@ -1,4 +1,4 @@
-use egui::epaint::TextShape;
+use egui::epaint::{RectShape, TextShape};
 use egui::{Context, Event, Key, Modifiers, PointerButton, Pos2, RawInput, Rect, Response, Shape};
 
 use super::{CHECKBOX_GAP, CHECKBOX_SIZE, checkbox};
@@ -33,18 +33,22 @@ fn draw(ctx: &Context, on: bool, events: Vec<Event>) -> (Response, Vec<Shape>) {
 }
 
 /// The smallest rectangle painted: the box, not a frame around the whole widget.
-fn the_box(shapes: &[Shape]) -> Rect {
+fn the_box_shape(shapes: &[Shape]) -> RectShape {
     shapes
         .iter()
         .filter_map(|shape| {
             if let Shape::Rect(rect) = shape {
-                Some(rect.rect)
+                Some(rect.clone())
             } else {
                 None
             }
         })
-        .min_by(|a, b| a.area().total_cmp(&b.area()))
+        .min_by(|a, b| a.rect.area().total_cmp(&b.rect.area()))
         .unwrap()
+}
+
+fn the_box(shapes: &[Shape]) -> Rect {
+    the_box_shape(shapes).rect
 }
 
 fn the_label(shapes: &[Shape]) -> &TextShape {
@@ -117,6 +121,64 @@ fn the_tick_shows_only_when_on() {
     let (_, on) = draw(&ctx, true, Vec::new());
     assert!(!off.iter().any(is_tick), "an unticked box draws no tick: {off:?}");
     assert!(on.iter().any(is_tick), "a ticked box draws its tick: {on:?}");
+}
+
+/// The tick's stroke width, from what a pass painted.
+fn tick_width(shapes: &[Shape]) -> f32 {
+    shapes
+        .iter()
+        .find_map(|shape| {
+            if let Shape::Path(path) = shape {
+                Some(path.stroke.width)
+            } else {
+                None
+            }
+        })
+        .unwrap()
+}
+
+#[test]
+fn the_tick_grows_with_the_box() {
+    let ctx = Context::default();
+    let (_, on) = draw(&ctx, true, Vec::new());
+    let width = tick_width(&on);
+    assert!(
+        (width - CHECKBOX_SIZE * 2.0 / 15.0).abs() < 0.01,
+        "a 2 px tick in the {CHECKBOX_SIZE} px box, not a hairline: {width}"
+    );
+}
+
+/// The painted box of a ticked checkbox at rest, under the pointer, and holding the keyboard focus.
+fn ticked_box_states() -> [RectShape; 3] {
+    let ctx = Context::default();
+    let (response, shapes) = draw(&ctx, true, Vec::new());
+    let at_rest = the_box_shape(&shapes);
+
+    let over = response.rect.center();
+    drop(draw(&ctx, true, vec![Event::PointerMoved(over)]));
+    let (_, shapes) = draw(&ctx, true, vec![Event::PointerMoved(over)]);
+    let hovered = the_box_shape(&shapes);
+
+    let mut output = ctx.run_ui(
+        RawInput {
+            events: vec![Event::PointerGone],
+            ..RawInput::default()
+        },
+        |ui| checkbox(ui, LABEL, true).request_focus(),
+    );
+    output.textures_delta.clear();
+    let (_, shapes) = draw(&ctx, true, Vec::new());
+    let focused = the_box_shape(&shapes);
+    [at_rest, hovered, focused]
+}
+
+#[test]
+fn a_ticked_box_shows_hover_and_focus() {
+    let [at_rest, hovered, focused] = ticked_box_states();
+    assert_eq!(hovered.fill, at_rest.fill, "the box stays ticked under the pointer");
+    assert_ne!(hovered.stroke, at_rest.stroke, "the pointer outlines the box");
+    assert_ne!(focused.stroke, at_rest.stroke, "the focus outlines the box");
+    assert_ne!(focused.stroke, hovered.stroke, "focus reads apart from hover");
 }
 
 #[test]

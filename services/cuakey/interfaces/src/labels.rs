@@ -5,7 +5,6 @@ pub const WINDOW_TITLE: &str = concat!("CuaKey ", env!("CARGO_PKG_VERSION"), " -
 /// The title of every notice the app shows outside its windows.
 pub const NOTICE_TITLE: &str = "CuaKey";
 
-pub const SECTION_CONTROL: &str = "Điều khiển";
 pub const SECTION_TYPING: &str = "Bộ gõ";
 pub const SECTION_MACROS: &str = "Gõ tắt";
 pub const SECTION_SYSTEM: &str = "Hệ thống";
@@ -25,7 +24,7 @@ pub const CODE_TABLE_CP1258: &str = "Vietnamese locale CP 1258";
 
 pub const SWITCH_HOTKEY: &str = "Phím chuyển:";
 pub const BEEP: &str = "Kêu Beep";
-pub const SETTINGS_HOTKEY: &str = "Phím mở bảng điều khiển:";
+pub const SETTINGS_HOTKEY: &str = "Phím mở cài đặt:";
 
 pub const LANGUAGE: &str = "Chế độ gõ:";
 pub const LANGUAGE_VIETNAMESE: &str = "Tiếng Việt";
@@ -66,7 +65,7 @@ pub const ABOUT_LICENSE: &str = "Giấy phép MIT";
 pub const ABOUT_URL: &str = "https://github.com/tienduc120/cuakey";
 pub const ABOUT_CREDITS: &str = "Tham khảo hành vi gõ của OpenKey";
 
-pub const BUTTON_EXIT: &str = "Tắt CuaKey";
+pub const BUTTON_EXIT: &str = "Thoát";
 pub const BUTTON_RESET: &str = "Cài đặt gốc";
 pub const BUTTON_CLOSE: &str = "Đóng";
 pub const BUTTON_EXPAND: &str = "Mở rộng ▼";
@@ -76,7 +75,6 @@ pub const KEY_CTRL: &str = "Ctrl";
 pub const KEY_ALT: &str = "Alt";
 pub const KEY_WIN: &str = "Win";
 pub const KEY_SHIFT: &str = "Shift";
-pub const HOTKEY_NO_KEY: &str = "Không có phím";
 pub const HOTKEY_OTHER_KEY: &str = "Phím khác";
 pub const HOTKEY_FIELD_HINT: &str = "Bấm vào rồi nhấn một phím; Backspace để bỏ phím";
 
