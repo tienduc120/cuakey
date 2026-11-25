@@ -50,12 +50,21 @@ pub(crate) fn write_replacing(path: &Path, bytes: &[u8]) -> Result<(), FileError
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(fail)?;
     }
-    let mut temporary_name: OsString = path.file_name().unwrap_or_default().to_owned();
-    temporary_name.push(".tmp");
-    let temporary = path.with_file_name(temporary_name);
+    let temporary = temporary_path(path, std::process::id());
     let mut file = File::create(&temporary).map_err(fail)?;
     file.write_all(bytes).map_err(fail)?;
     file.sync_all().map_err(fail)?;
     drop(file);
     fs::rename(&temporary, path).map_err(fail)
 }
+
+/// The file `process` writes before renaming it over `path`. Both of `CuaKey`'s processes save the same files, so each
+/// writes its own: with one name for both, a save could rename the other's half-written file into place.
+fn temporary_path(path: &Path, process: u32) -> PathBuf {
+    let mut name: OsString = path.file_name().unwrap_or_default().to_owned();
+    name.push(format!(".{process}.tmp"));
+    path.with_file_name(name)
+}
+
+#[cfg(test)]
+mod tests;
