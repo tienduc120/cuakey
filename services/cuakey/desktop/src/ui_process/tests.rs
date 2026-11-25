@@ -1,5 +1,5 @@
 use cuakey_application::{AppMemoryView, CodeTableValue, LanguageValue, PreferencesView, Toggle};
-use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind};
+use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind, labels};
 use eframe::egui;
 
 use super::window::Window;
@@ -191,5 +191,57 @@ fn a_settings_window_moved_into_the_root_keeps_its_size() {
     assert!(
         commands.contains(&egui::ViewportCommand::InnerSize(COMPACT_SIZE)),
         "{commands:?}"
+    );
+}
+
+/// Whether `shape` paints `text` whole inside `clip`, the area it is clipped to.
+fn paints_whole(shape: &egui::Shape, clip: egui::Rect, text: &str) -> bool {
+    if let egui::Shape::Vec(inner) = shape {
+        inner.iter().any(|shape| paints_whole(shape, clip, text))
+    } else if let egui::Shape::Text(shown) = shape {
+        let place = egui::Rect::from_min_size(shown.pos, shown.galley.size());
+        shown.galley.text() == text && clip.contains_rect(place)
+    } else {
+        false
+    }
+}
+
+/// Whether a few passes of `window` at its own size end with `text` in view, not scrolled out of it.
+fn ends_in_view(window: &mut Window, text: &str) -> bool {
+    let ctx = egui::Context::default();
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, window.size());
+    let mut in_view = false;
+    for _ in 0..3 {
+        let input = egui::RawInput {
+            screen_rect: Some(screen),
+            ..egui::RawInput::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| drop(window.show(ui)));
+        output.textures_delta.clear();
+        in_view = output
+            .shapes
+            .iter()
+            .any(|clipped| paints_whole(&clipped.shape, clipped.clip_rect.intersect(screen), text));
+    }
+    in_view
+}
+
+#[test]
+fn the_about_menu_brings_the_about_text_into_view() {
+    let stores = empty_stores("about-text");
+
+    let mut opened = Window::open(WindowKind::About, &stores);
+    assert!(
+        ends_in_view(&mut opened, labels::SECTION_ABOUT),
+        "a window opened for About shows the about text"
+    );
+
+    let mut open_compact = Window::open(WindowKind::Settings, &stores);
+    drop(root_commands(|ctx| {
+        expand_for_about(ctx, &mut open_compact, egui::ViewportId::ROOT);
+    }));
+    assert!(
+        ends_in_view(&mut open_compact, labels::SECTION_ABOUT),
+        "a window About expanded shows the about text"
     );
 }

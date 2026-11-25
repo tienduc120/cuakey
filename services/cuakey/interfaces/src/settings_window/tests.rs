@@ -74,18 +74,23 @@ struct Shown {
     texts: Vec<(String, egui::Rect)>,
     /// The font size and colour each text was laid out with.
     formats: Vec<(String, f32, egui::Color32)>,
+    /// The texts painted whole inside the area they are clipped to: on screen, and not scrolled out of view.
+    visible: Vec<String>,
     rects: Vec<RectShape>,
     commands: Vec<egui::ViewportCommand>,
 }
 
-fn collect(shape: &egui::Shape, shown: &mut Shown) {
+fn collect(shape: &egui::Shape, clip: egui::Rect, shown: &mut Shown) {
     if let egui::Shape::Vec(inner) = shape {
         for shape in inner {
-            collect(shape, shown);
+            collect(shape, clip, shown);
         }
     } else if let egui::Shape::Text(text) = shape {
         let drawn = text.galley.text().to_owned();
         let place = egui::Rect::from_min_size(text.pos, text.galley.size());
+        if clip.contains_rect(place) {
+            shown.visible.push(drawn.clone());
+        }
         if let Some(section) = text.galley.job.sections.first() {
             let format = &section.format;
             shown.formats.push((drawn.clone(), format.font_id.size, format.color));
@@ -116,11 +121,13 @@ fn show(ctx: &egui::Context, window: &mut SettingsWindow, size: egui::Vec2, even
         actions,
         texts: Vec::new(),
         formats: Vec::new(),
+        visible: Vec::new(),
         rects: Vec::new(),
         commands,
     };
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, size);
     for clipped in &output.shapes {
-        collect(&clipped.shape, &mut shown);
+        collect(&clipped.shape, clipped.clip_rect.intersect(screen), &mut shown);
     }
     shown
 }
@@ -466,4 +473,129 @@ fn section_titles_are_body_size_and_muted() {
         assert!(near(*size, body), "{title} in the body size, not {small}: {size}");
         assert_eq!(*color, style.visuals.weak_text_color(), "{title} is muted");
     }
+}
+
+/// Where the widget holding the keyboard focus was drawn.
+fn focused_place(ctx: &egui::Context) -> Option<egui::Rect> {
+    let id = ctx.memory(egui::Memory::focused)?;
+    ctx.read_response(id).map(|response| response.rect)
+}
+
+fn is_visible(shown: &Shown, text: &str) -> bool {
+    shown.visible.iter().any(|drawn| drawn == text)
+}
+
+#[test]
+fn the_first_tab_lands_on_a_control() {
+    for expanded in [false, true] {
+        let ctx = themed();
+        let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+        if expanded {
+            window.expand();
+        }
+        let size = window.size();
+        let shown = show(&ctx, &mut window, size, Vec::new());
+        show(&ctx, &mut window, size, vec![key(egui::Key::Tab)]);
+        let focused = focused_place(&ctx).expect("Tab focuses a widget");
+        let first_row = place_of(&shown, labels::INPUT_METHOD).unwrap();
+        assert!(
+            near(focused.center().y, first_row.center().y),
+            "expanded {expanded}: the first stop is Kiểu gõ's choice, not a bar button: {focused:?}"
+        );
+
+        let pressed = show(&ctx, &mut window, size, vec![key(egui::Key::Space)]);
+        assert!(
+            !pressed.actions.contains(&UiAction::Reset),
+            "expanded {expanded}: Tab then Space never resets: {:?}",
+            pressed.actions
+        );
+        assert!(pressed.actions.is_empty(), "{:?}", pressed.actions);
+        assert!(pressed.commands.is_empty(), "{:?}", pressed.commands);
+    }
+}
+
+#[test]
+fn tab_walks_the_bar_in_reading_order() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    let bar = [
+        labels::BUTTON_RESET,
+        labels::BUTTON_COLLAPSE,
+        labels::BUTTON_EXIT,
+        labels::BUTTON_CLOSE,
+    ]
+    .map(|label| button_of(&shown, label));
+    // Shift+Tab from nothing focused lands on the last stop; walk back through the bar from there. egui moves the
+    // focus back one pass after the key, so a quiet pass follows each press.
+    let mut stops = Vec::new();
+    for _ in 0..bar.len() {
+        let back = egui::Event::Key {
+            key: egui::Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::SHIFT,
+        };
+        show(&ctx, &mut window, EXPANDED_SIZE, vec![back]);
+        show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+        stops.push(focused_place(&ctx).expect("Shift+Tab focuses a widget"));
+    }
+    stops.reverse();
+    assert_eq!(
+        stops, bar,
+        "the bar's stops run left to right, the reset first and Đóng last"
+    );
+}
+
+#[test]
+fn about_comes_into_view_when_revealed() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    window.reveal_about();
+    assert_eq!(window.size(), EXPANDED_SIZE, "the about text is in the expanded part");
+    let mut shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    for _ in 0..2 {
+        shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    }
+    for text in [labels::SECTION_ABOUT, labels::ABOUT_CREDITS] {
+        assert!(is_visible(&shown, text), "{text} is scrolled into view");
+    }
+    assert!(
+        !window.about_to_reveal,
+        "the request is used up, so the user may scroll away"
+    );
+}
+
+#[test]
+fn expanding_does_not_scroll() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let mut shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    for _ in 0..2 {
+        shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    }
+    assert!(
+        is_visible(&shown, labels::SECTION_TYPING),
+        "the sections start at the top"
+    );
+    assert!(!is_visible(&shown, labels::SECTION_ABOUT), "the about text waits below");
+
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    let compact = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
+    let at = place_of(&compact, labels::BUTTON_EXPAND).unwrap().center();
+    show(
+        &ctx,
+        &mut window,
+        COMPACT_SIZE,
+        vec![egui::Event::PointerMoved(at), primary(at, true)],
+    );
+    show(&ctx, &mut window, COMPACT_SIZE, vec![primary(at, false)]);
+    assert!(window.form.is_expanded(), "the Mở rộng click expanded the window");
+    let mut shown = show(&ctx, &mut window, EXPANDED_SIZE, vec![egui::Event::PointerGone]);
+    for _ in 0..2 {
+        shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    }
+    assert!(is_visible(&shown, labels::SECTION_TYPING));
+    assert!(!is_visible(&shown, labels::SECTION_ABOUT), "Mở rộng does not scroll");
 }

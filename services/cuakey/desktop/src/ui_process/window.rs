@@ -37,8 +37,11 @@ impl Window {
         let mut macros_origin = Origin::Stored;
         let view = match kind {
             WindowKind::Settings => View::Settings(SettingsWindow::new(prefs, Platform::Windows)),
-            // The about text is among the sections only the expanded window shows.
-            WindowKind::About => View::Settings(SettingsWindow::new(prefs, Platform::Windows).expanded()),
+            WindowKind::About => {
+                let mut window = SettingsWindow::new(prefs, Platform::Windows);
+                window.reveal_about();
+                View::Settings(window)
+            }
             WindowKind::Macros => {
                 let (macros, origin, error) = Origin::of(stores.load_macros());
                 if let Some(error) = error {
@@ -101,10 +104,10 @@ impl Window {
         }
     }
 
-    /// Shows every section of a settings window, the about text among them; the other windows have no sections.
-    pub(super) const fn expand(&mut self) {
+    /// Expands a settings window and brings its about text into view; the other windows have no about text.
+    pub(super) const fn reveal_about(&mut self) {
         match &mut self.view {
-            View::Settings(window) => window.expand(),
+            View::Settings(window) => window.reveal_about(),
             View::Macros(_) | View::Convert(_) | View::AlwaysOn(_) => {}
         }
     }

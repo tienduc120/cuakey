@@ -253,14 +253,15 @@ fn options_in_two_columns(ui: &mut Ui, form: &mut SettingsForm, id_salt: &str, o
 
 /// A section's title: muted over a thin line, so the options stand out rather than the headings, and in the body size,
 /// since Vietnamese marks are hard to read any smaller.
-fn section_title(ui: &mut Ui, title: &str) {
+fn section_title(ui: &mut Ui, title: &str) -> egui::Response {
     ui.add_space(ui.spacing().item_spacing.y);
-    ui.label(egui::RichText::new(title).weak());
+    let response = ui.label(egui::RichText::new(title).weak());
     ui.separator();
+    response
 }
 
 fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, actions: &mut Vec<UiAction>) {
-    section_title(ui, section.title);
+    drop(section_title(ui, section.title));
     options_in_two_columns(ui, form, section.title, section.options);
     if let Some(button) = section.button
         && ui.button(button_label(form, button)).clicked()
@@ -269,21 +270,28 @@ fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, acti
     }
 }
 
-fn about_section(ui: &mut Ui) {
-    section_title(ui, labels::SECTION_ABOUT);
+/// The about text, the last section. When `about_to_reveal` asks for it, the scroll area brings it into view once.
+fn about_section(ui: &mut Ui, about_to_reveal: &mut bool) {
+    let title = section_title(ui, labels::SECTION_ABOUT);
     ui.label(labels::ABOUT_NAME);
     ui.label(labels::ABOUT_VERSION);
     ui.label(labels::ABOUT_LICENSE);
     ui.hyperlink(labels::ABOUT_URL);
     ui.label(labels::ABOUT_CREDITS);
+    // egui draws a pass it will discard again at once and drops what that pass asked of the scroll area, so the
+    // request waits for the pass that is kept.
+    if *about_to_reveal && !ui.ctx().will_discard() {
+        title.scroll_to_me_animation(Some(egui::Align::TOP), egui::style::ScrollAnimation::none());
+        *about_to_reveal = false;
+    }
 }
 
 /// The sections only the expanded window shows.
-fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
+fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut bool, actions: &mut Vec<UiAction>) {
     for section in &SECTIONS {
         options_section(ui, form, section, actions);
     }
-    about_section(ui);
+    about_section(ui, about_to_reveal);
 }
 
 /// The controls used every day, as grid cells: a label, then its control. Each hotkey editor sits in one cell and
@@ -359,7 +367,8 @@ fn bar_button(ui: &mut Ui, form: &SettingsForm, button: Button, size: egui::Vec2
         .clicked()
 }
 
-/// The buttons of the bottom bar, where the form puts them. Returns the button clicked.
+/// The buttons of the bottom bar, where the form puts them: the left one at the left edge, the others ending at the
+/// right edge. They are added left to right, so the keyboard reaches them in reading order. Returns the button clicked.
 fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
     let bar = form.bar();
     let size = egui::vec2(bar_button_width(ui, &BAR_LABELS), BUTTON_SIZE.y);
@@ -370,17 +379,10 @@ fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
         {
             clicked = Some(button);
         }
-        right_aligned(ui, form, &bar.right, size).or(clicked)
-    })
-    .inner
-}
-
-/// `buttons` at the right end of the row, in their order. Returns the button clicked.
-fn right_aligned(ui: &mut Ui, form: &SettingsForm, buttons: &[Button], size: egui::Vec2) -> Option<Button> {
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        let mut clicked = None;
-        // Laid out from the right edge, so the last button comes first.
-        for &button in buttons.iter().rev() {
+        let spacing = ui.spacing().item_spacing.x;
+        let right_group = bar.right.iter().map(|_| size.x + spacing).sum::<f32>() - spacing;
+        ui.add_space((ui.available_width() - right_group).max(0.0));
+        for &button in &bar.right {
             if bar_button(ui, form, button, size) {
                 clicked = Some(button);
             }
@@ -390,24 +392,37 @@ fn right_aligned(ui: &mut Ui, form: &SettingsForm, buttons: &[Button], size: egu
     .inner
 }
 
-/// The bar along the window's bottom edge, outside the scrolling sections so it never scrolls away. Returns the
-/// button clicked.
-fn bottom_bar(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
-    let margin = ui.spacing().window_margin;
-    // The panel above ends in a margin of its own, so the bar needs none at its top.
-    let frame = egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin { top: 0, ..margin });
-    let height = BUTTON_SIZE.y + frame.total_margin().sum().y;
-    egui::Panel::bottom("button_bar")
-        .frame(frame)
-        .show_separator_line(false)
-        .exact_size(height)
-        .show(ui, |ui| bar_buttons(ui, form))
+/// Splits the window's inner area into the room for what it shows and, a margin below, the bar along its bottom edge.
+fn split_off_bar(ui: &Ui) -> (egui::Rect, egui::Rect) {
+    let area = ui.max_rect();
+    let bar_top = area.bottom() - BUTTON_SIZE.y;
+    let above_bottom = (bar_top - f32::from(ui.spacing().window_margin.bottom)).max(area.top());
+    (
+        egui::Rect::from_min_max(area.min, egui::pos2(area.right(), above_bottom)),
+        egui::Rect::from_min_max(egui::pos2(area.left(), bar_top), area.max),
+    )
+}
+
+/// What the window shows, then the bar pinned along its bottom edge, outside the scrolling sections. The bar is drawn
+/// last so the keyboard reaches the controls first and the reset last. Returns the button clicked.
+fn window_contents(
+    ui: &mut Ui,
+    form: &mut SettingsForm,
+    about_to_reveal: &mut bool,
+    actions: &mut Vec<UiAction>,
+) -> Option<Button> {
+    let (above, bar) = split_off_bar(ui);
+    ui.scope_builder(egui::UiBuilder::new().max_rect(above), |ui| {
+        ui.shrink_clip_rect(above);
+        contents(ui, form, about_to_reveal, actions);
+    });
+    ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| bar_buttons(ui, form))
         .inner
 }
 
 /// The controls used every day, the message of the last refused change under them, and, when expanded, the other
 /// sections in a scroll area below. In compact mode nothing scrolls.
-fn contents(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
+fn contents(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut bool, actions: &mut Vec<UiAction>) {
     egui::Grid::new("control_rows")
         .num_columns(3)
         .show(ui, |ui| control_rows(ui, form));
@@ -415,7 +430,7 @@ fn contents(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
         ui.colored_label(ui.visuals().error_fg_color, message);
     }
     if form.is_expanded() {
-        egui::ScrollArea::vertical().show(ui, |ui| expanded_sections(ui, form, actions));
+        egui::ScrollArea::vertical().show(ui, |ui| expanded_sections(ui, form, about_to_reveal, actions));
     }
 }
 
@@ -443,6 +458,8 @@ fn press(ui: &Ui, form: &mut SettingsForm, button: Button, actions: &mut Vec<UiA
 #[derive(Debug, Clone)]
 pub struct SettingsWindow {
     form: SettingsForm,
+    /// The about text is to be scrolled into view on the next frame.
+    about_to_reveal: bool,
 }
 
 impl SettingsWindow {
@@ -450,11 +467,19 @@ impl SettingsWindow {
     pub const fn new(prefs: PreferencesView, platform: Platform) -> Self {
         Self {
             form: SettingsForm::new(prefs, platform),
+            about_to_reveal: false,
         }
     }
 
-    /// The same window showing every section from the start, for a way in that leads to something only the expanded
-    /// window shows, such as the about text.
+    /// Expands the window and brings the about text, the last section, into view on its next frame: the About menu
+    /// item leads here. The user may scroll away afterwards.
+    pub const fn reveal_about(&mut self) {
+        self.expand();
+        self.about_to_reveal = true;
+    }
+
+    /// The same window showing every section from the start, scrolled to the top; [`Self::reveal_about`] scrolls to
+    /// the about text instead.
     #[must_use]
     pub const fn expanded(mut self) -> Self {
         self.expand();
@@ -489,12 +514,12 @@ impl SettingsWindow {
     pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        // The bar comes first: a panel along an edge takes its room before the central panel fills the rest.
-        let clicked = bottom_bar(ui, form);
+        let about_to_reveal = &mut self.about_to_reveal;
         let frame = egui::Frame::central_panel(ui.style()).inner_margin(ui.spacing().window_margin);
-        egui::CentralPanel::default()
+        let clicked = egui::CentralPanel::default()
             .frame(frame)
-            .show(ui, |ui| contents(ui, form, &mut actions));
+            .show(ui, |ui| window_contents(ui, form, about_to_reveal, &mut actions))
+            .inner;
         if let Some(button) = clicked {
             press(ui, form, button, &mut actions);
         }

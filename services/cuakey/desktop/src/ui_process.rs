@@ -179,11 +179,12 @@ fn move_into_root(ctx: &Context, window: &Window) {
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::InnerSize(window.size()));
 }
 
-/// Shows the about text in `window`, the settings window open in `viewport`. The text is among the sections only the
-/// expanded window shows, so a compact window expands; an expanded one keeps the size the user gave it.
+/// Shows the about text in `window`, the settings window open in `viewport`. The text is the last of the sections only
+/// the expanded window shows, so a compact window expands, an expanded one keeps the size the user gave it, and either
+/// scrolls the text into view.
 fn expand_for_about(ctx: &Context, window: &mut Window, viewport: ViewportId) {
     let before = window.size();
-    window.expand();
+    window.reveal_about();
     if window.size() != before {
         ctx.send_viewport_cmd_to(viewport, ViewportCommand::InnerSize(window.size()));
     }
