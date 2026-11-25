@@ -1,6 +1,7 @@
 use super::{GlobalMemory, read_clipboard_text, write_clipboard_text};
 
 #[test]
+#[ignore = "touches the real clipboard; run with --run-ignored"]
 fn text_written_to_the_clipboard_reads_back() {
     let text = "Tiếng Việt 😀 gõ nhanh";
 
