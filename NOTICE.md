@@ -11,7 +11,7 @@ Nothing is taken from OpenKey: its sources are fetched and built locally by the 
 
 ## Crates (used as dependencies, not copied)
 
-Their versions are pinned once in the root `Cargo.toml` and their licenses are checked by `cargo deny check licenses` against the allowlist in `deny.toml`. `anyhow`, `clap`, `syn`, `cargo_metadata`, `toml_edit`, `walkdir`, and `regex` belong to `xtask` only.
+Their versions are pinned once in the root `Cargo.toml` and their licenses are checked by `cargo deny check licenses` against the allowlist in `deny.toml`. `anyhow`, `clap`, `syn`, `cargo_metadata`, `toml_edit`, and `walkdir` belong to `xtask` only.
 
 ## Developer tools (installed, not copied)
 
