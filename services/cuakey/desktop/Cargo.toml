@@ -16,7 +16,7 @@ cuakey-application = { path = "../application" }
 cuakey-interfaces = { path = "../interfaces" }
 thiserror = { workspace = true, features = ["std"] }
 
-# The app runs on Windows only for now; elsewhere `main` reads its arguments and stops.
+# The app runs on Windows only for now; elsewhere `main` starts nothing and exits with a failure.
 [target.'cfg(windows)'.dependencies]
 cuakey-infrastructure = { path = "../infrastructure" }
 eframe = { workspace = true }
