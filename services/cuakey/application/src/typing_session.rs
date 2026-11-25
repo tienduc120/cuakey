@@ -193,7 +193,8 @@ pub struct KeyResult {
     pub swallow: bool,
     /// What to send in its place, in order.
     pub actions: Vec<OutputAction>,
-    /// A hotkey fired.
+    /// A hotkey fired. The session has already switched the language for `SwitchLanguage`, so delivery only beeps,
+    /// refreshes the icon and saves; the other commands are delivery's to carry out.
     pub command: Option<CommandValue>,
 }
 
