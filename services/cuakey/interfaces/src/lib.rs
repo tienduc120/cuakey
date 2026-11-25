@@ -15,6 +15,7 @@ mod settings_form;
 mod settings_window;
 mod tray_menu;
 mod ui_action;
+mod widgets;
 
 pub use always_on_form::AlwaysOnForm;
 pub use always_on_window::AlwaysOnWindow;

@@ -6,7 +6,7 @@ use egui::Ui;
 
 use crate::hotkey_editor::show_hotkey;
 use crate::settings_form::{GatedControl, SettingsForm, is_on};
-use crate::{Button, Platform, UiAction, labels};
+use crate::{Button, Platform, UiAction, labels, widgets};
 
 const INPUT_METHODS: [(InputMethodValue, &str); 3] = [
     (InputMethodValue::Telex, labels::INPUT_METHOD_TELEX),
@@ -29,8 +29,8 @@ const LANGUAGES: [(LanguageValue, &str); 2] = [
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
 pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: cuakey_application::Toggle) -> Option<bool> {
-    let mut on = is_on(current);
-    ui.checkbox(&mut on, label).changed().then_some(on)
+    let on = is_on(current);
+    widgets::checkbox(ui, label, on).changed().then_some(!on)
 }
 
 /// A checkbox that is hidden or greyed by the form's rules.

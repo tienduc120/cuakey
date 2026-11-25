@@ -1,6 +1,6 @@
 use cuakey_application::{HotkeyView, KeyName, Toggle};
 
-use super::{key_from_egui, key_label, key_to_egui, press_key};
+use super::{key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
 
 fn ctrl_shift(key: Option<KeyName>) -> HotkeyView {
     HotkeyView {
@@ -58,4 +58,48 @@ fn an_accepted_key_replaces_the_key_and_keeps_modifiers() {
 fn an_unaccepted_key_is_ignored() {
     let held = ctrl_shift(Some(KeyName::F5));
     assert_eq!(press_key(held, egui::Key::Enter), held);
+}
+
+fn key_event(key: egui::Key) -> egui::Event {
+    egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    }
+}
+
+/// Runs one pass fed `events` and returns what `draw` returned.
+fn pass<R>(ctx: &egui::Context, events: Vec<egui::Event>, mut draw: impl FnMut(&mut egui::Ui) -> R) -> R {
+    let input = egui::RawInput {
+        events,
+        ..egui::RawInput::default()
+    };
+    let mut drawn = None;
+    let mut output = ctx.run_ui(input, |ui| drawn = Some(draw(ui)));
+    // No renderer takes the font texture here.
+    output.textures_delta.clear();
+    drawn.unwrap()
+}
+
+#[test]
+fn space_on_a_modifier_box_flips_that_modifier() {
+    let ctx = egui::Context::default();
+    let held = ctrl_shift(Some(KeyName::F5));
+    pass(&ctx, vec![key_event(egui::Key::Tab)], |ui| {
+        show_hotkey(ui, "hotkey", held)
+    });
+    let edited = pass(&ctx, vec![key_event(egui::Key::Space)], |ui| {
+        show_hotkey(ui, "hotkey", held)
+    });
+    let ctrl_released = HotkeyView {
+        ctrl: Toggle::Off,
+        ..held
+    };
+    assert_eq!(
+        edited,
+        Some(ctrl_released),
+        "Space on the focused Ctrl box releases Ctrl"
+    );
 }

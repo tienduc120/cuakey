@@ -4,7 +4,7 @@
 use cuakey_application::{HotkeyView, KeyName, Toggle};
 use egui::Key;
 
-use crate::labels;
+use crate::{labels, widgets};
 
 /// The keys the field accepts: A-Z, 0-9, F1-F12 and Space.
 const KEYS: [(Key, KeyName); 49] = [
@@ -96,9 +96,9 @@ pub fn press_key(hotkey: HotkeyView, key: Key) -> HotkeyView {
 }
 
 fn modifier_checkbox(ui: &mut egui::Ui, held: &mut Toggle, label: &str) {
-    let mut on = *held == Toggle::On;
-    if ui.checkbox(&mut on, label).changed() {
-        *held = if on { Toggle::On } else { Toggle::Off };
+    let on = *held == Toggle::On;
+    if widgets::checkbox(ui, label, on).changed() {
+        *held = if on { Toggle::Off } else { Toggle::On };
     }
 }
 

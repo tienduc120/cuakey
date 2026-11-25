@@ -7,7 +7,7 @@ use egui::Ui;
 use crate::convert_form::ConvertForm;
 use crate::hotkey_editor::show_hotkey;
 use crate::settings_window::{CODE_TABLES, checkbox, combo};
-use crate::{UiAction, labels};
+use crate::{UiAction, labels, widgets};
 
 const CASES: [(ConvertCaseValue, &str); 4] = [
     (ConvertCaseValue::Upper, labels::CONVERT_UPPER),
@@ -27,9 +27,9 @@ const NO_HOTKEY: HotkeyView = HotkeyView {
 
 fn case_boxes(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>) {
     for (case, label) in CASES {
-        let mut on = form.is_case_ticked(case);
-        if ui.checkbox(&mut on, label).changed() {
-            actions.push(form.set_case(case, on));
+        let on = form.is_case_ticked(case);
+        if widgets::checkbox(ui, label, on).changed() {
+            actions.push(form.set_case(case, !on));
         }
     }
 }
