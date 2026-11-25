@@ -79,13 +79,14 @@ pub fn plan_output(edit: &Edit, word_before: &str, ctx: OutputContext) -> Vec<Ou
     else {
         return Vec::new();
     };
-    let mut ops = deletion(*delete, word_before, ctx);
+    let text = encode(insert, ctx.code_table);
+    let mut ops = deletion(*delete, word_before, ctx, !text.is_empty());
     if ctx.clipboard.is_on() {
-        if !insert.is_empty() {
-            ops.push(OutputOp::Paste(encode(insert, ctx.code_table)));
+        if !text.is_empty() {
+            ops.push(OutputOp::Paste(text));
         }
     } else {
-        ops.extend(encode(insert, ctx.code_table).into_iter().map(OutputOp::Unit));
+        ops.extend(text.into_iter().map(OutputOp::Unit));
     }
     if *resend_key {
         ops.push(OutputOp::ResendKey);
@@ -93,8 +94,10 @@ pub fn plan_output(edit: &Edit, word_before: &str, ctx: OutputContext) -> Vec<Ou
     ops
 }
 
-/// The events that delete the last `delete` characters of `word`, with the app-specific fixes.
-fn deletion(delete: usize, word: &str, ctx: OutputContext) -> Vec<OutputOp> {
+/// The events that delete the last `delete` characters of `word`, with the app-specific fixes. With the Chromium fix
+/// the last character is selected rather than deleted, so the text typed next replaces it; when `text_follows` is
+/// false, one more Backspace deletes the selection.
+fn deletion(delete: usize, word: &str, ctx: OutputContext, text_follows: bool) -> Vec<OutputOp> {
     let shown = word.chars().rev().take(delete);
     let missing = delete.saturating_sub(word.chars().count());
     let units: usize = shown.map(|c| units_in(c, ctx.code_table)).sum::<usize>() + missing;
@@ -103,8 +106,11 @@ fn deletion(delete: usize, word: &str, ctx: OutputContext) -> Vec<OutputOp> {
     }
     let mut ops = Vec::with_capacity(units + 1);
     if ctx.chromium_fix.is_on() && ctx.chromium_app.is_on() {
-        ops.push(OutputOp::SelectPreviousChar);
         ops.extend(repeat_n(OutputOp::Backspace, units - 1));
+        ops.push(OutputOp::SelectPreviousChar);
+        if !text_follows {
+            ops.push(OutputOp::Backspace);
+        }
     } else if ctx.browser_fix.is_on() {
         ops.push(OutputOp::Unit(DISMISS_SUGGESTION));
         ops.extend(repeat_n(OutputOp::Backspace, units + 1));
