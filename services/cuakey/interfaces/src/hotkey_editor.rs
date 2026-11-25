@@ -122,17 +122,7 @@ fn key_field_width(ui: &egui::Ui) -> f32 {
         .iter()
         .map(|(_, name)| key_label(*name))
         .chain([labels::HOTKEY_OTHER_KEY])
-        .map(|text| {
-            egui::WidgetText::from(text)
-                .into_galley(
-                    ui,
-                    Some(egui::TextWrapMode::Extend),
-                    f32::INFINITY,
-                    egui::TextStyle::Button,
-                )
-                .size()
-                .x
-        })
+        .map(|text| widgets::button_text_width(ui, text))
         .fold(0.0, f32::max);
     widest + 2.0 * ui.spacing().button_padding.x
 }

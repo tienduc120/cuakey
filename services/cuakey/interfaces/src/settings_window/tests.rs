@@ -1,9 +1,9 @@
 use cuakey_application::{KeyName, PreferencesView, Toggle};
 use egui::epaint::RectShape;
 
-use super::{COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow, checkbox};
+use super::{BAR_LABELS, COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow, bar_button_width, checkbox};
 use crate::theme::{self, BUTTON_SIZE};
-use crate::{Platform, UiAction, labels};
+use crate::{Platform, UiAction, labels, widgets};
 
 #[test]
 fn drawing_frames_asks_for_nothing() {
@@ -72,20 +72,27 @@ fn pass<R>(ctx: &egui::Context, events: Vec<egui::Event>, mut draw: impl FnMut(&
 struct Shown {
     actions: Vec<UiAction>,
     texts: Vec<(String, egui::Rect)>,
+    /// The font size and colour each text was laid out with.
+    formats: Vec<(String, f32, egui::Color32)>,
     rects: Vec<RectShape>,
     commands: Vec<egui::ViewportCommand>,
 }
 
-fn collect(shape: &egui::Shape, texts: &mut Vec<(String, egui::Rect)>, rects: &mut Vec<RectShape>) {
+fn collect(shape: &egui::Shape, shown: &mut Shown) {
     if let egui::Shape::Vec(inner) = shape {
         for shape in inner {
-            collect(shape, texts, rects);
+            collect(shape, shown);
         }
     } else if let egui::Shape::Text(text) = shape {
+        let drawn = text.galley.text().to_owned();
         let place = egui::Rect::from_min_size(text.pos, text.galley.size());
-        texts.push((text.galley.text().to_owned(), place));
+        if let Some(section) = text.galley.job.sections.first() {
+            let format = &section.format;
+            shown.formats.push((drawn.clone(), format.font_id.size, format.color));
+        }
+        shown.texts.push((drawn, place));
     } else if let egui::Shape::Rect(rect) = shape {
-        rects.push(rect.clone());
+        shown.rects.push(rect.clone());
     }
 }
 
@@ -100,22 +107,22 @@ fn show(ctx: &egui::Context, window: &mut SettingsWindow, size: egui::Vec2, even
     // eframe hands the app the root ui of each pass, as `run_ui` does.
     let mut output = ctx.run_ui(input, |ui| actions = window.show(ui));
     output.textures_delta.clear();
-    let mut texts = Vec::new();
-    let mut rects = Vec::new();
-    for clipped in &output.shapes {
-        collect(&clipped.shape, &mut texts, &mut rects);
-    }
     let commands = output
         .viewport_output
         .get(&egui::ViewportId::ROOT)
         .map(|viewport| viewport.commands.clone())
         .unwrap_or_default();
-    Shown {
+    let mut shown = Shown {
         actions,
-        texts,
-        rects,
+        texts: Vec::new(),
+        formats: Vec::new(),
+        rects: Vec::new(),
         commands,
+    };
+    for clipped in &output.shapes {
+        collect(&clipped.shape, &mut shown);
     }
+    shown
 }
 
 fn place_of(shown: &Shown, text: &str) -> Option<egui::Rect> {
@@ -299,6 +306,10 @@ fn buttons_sit_in_a_bottom_bar() {
     let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     let right = [labels::BUTTON_EXPAND, labels::BUTTON_EXIT, labels::BUTTON_CLOSE];
+    let size = egui::vec2(
+        pass(&ctx, Vec::new(), |ui| bar_button_width(ui, &BAR_LABELS)),
+        BUTTON_SIZE.y,
+    );
 
     let compact = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
     let buttons = right.map(|label| button_of(&compact, label));
@@ -309,7 +320,7 @@ fn buttons_sit_in_a_bottom_bar() {
         .map(|(_, place)| place.bottom())
         .fold(f32::MIN, f32::max);
     for (label, button) in right.iter().zip(buttons) {
-        assert_eq!(button.size(), BUTTON_SIZE, "{label}");
+        assert_eq!(button.size(), size, "{label}");
         assert!(button.top() > lowest_row, "{label} sits below every row");
         assert!(
             near(button.bottom(), COMPACT_SIZE.y - margin()),
@@ -327,7 +338,7 @@ fn buttons_sit_in_a_bottom_bar() {
     let expanded = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     let reset = button_of(&expanded, labels::BUTTON_RESET);
     let close = button_of(&expanded, labels::BUTTON_CLOSE);
-    assert_eq!(reset.size(), BUTTON_SIZE);
+    assert_eq!(reset.size(), size);
     assert!(near(reset.left(), margin()), "Cài đặt gốc at the left end: {reset:?}");
     assert!(near(reset.top(), close.top()), "on the same bar");
     assert!(
@@ -383,4 +394,76 @@ fn sections_use_two_columns() {
         "one row: {first:?} {second:?}"
     );
     assert!(second.left() > first.right(), "side by side: {first:?} {second:?}");
+}
+
+#[test]
+fn bar_buttons_take_the_widest_label() {
+    let long_label = "Reset to defaults and start over";
+    let (short, long, needed) = pass(&themed(), Vec::new(), |ui| {
+        (
+            bar_button_width(ui, &[labels::BUTTON_CLOSE]),
+            bar_button_width(ui, &[labels::BUTTON_CLOSE, long_label]),
+            widgets::button_text_width(ui, long_label) + 2.0 * ui.spacing().button_padding.x,
+        )
+    });
+    assert!(
+        near(short, BUTTON_SIZE.x),
+        "short labels keep the smallest width: {short}"
+    );
+    assert!(long > BUTTON_SIZE.x, "a long label widens the buttons: {long}");
+    assert!(near(long, needed), "{long} holds the long label, which needs {needed}");
+}
+
+#[test]
+fn bar_labels_are_never_cut() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    let bar = [
+        labels::BUTTON_RESET,
+        labels::BUTTON_COLLAPSE,
+        labels::BUTTON_EXIT,
+        labels::BUTTON_CLOSE,
+    ];
+    let needs = bar.map(|label| {
+        pass(&ctx, Vec::new(), |ui| {
+            widgets::button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
+        })
+    });
+    assert!(
+        needs.iter().any(|need| *need > BUTTON_SIZE.x),
+        "the test font's wide glyphs give the bar a label wider than the smallest button: {needs:?}"
+    );
+    let buttons = bar.map(|label| button_of(&shown, label));
+    for (label, button) in bar.iter().zip(buttons) {
+        assert_eq!(button.size(), buttons[0].size(), "{label} is as large as the others");
+        assert!(button.width() > BUTTON_SIZE.x, "{label} grew with the widest label");
+        let drawn = place_of(&shown, label).unwrap().width();
+        let full = pass(&ctx, Vec::new(), |ui| widgets::button_text_width(ui, label));
+        assert!(near(drawn, full), "{label} is drawn whole: {drawn} of {full}");
+    }
+}
+
+#[test]
+fn section_titles_are_body_size_and_muted() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+    let style = ctx.global_style();
+    let body = egui::TextStyle::Body.resolve(&style).size;
+    let small = egui::TextStyle::Small.resolve(&style).size;
+    for title in [
+        labels::SECTION_TYPING,
+        labels::SECTION_MACROS,
+        labels::SECTION_SYSTEM,
+        labels::SECTION_ABOUT,
+    ] {
+        let (_, size, color) = shown
+            .formats
+            .iter()
+            .find(|(text, _, _)| text == title)
+            .unwrap_or_else(|| panic!("{title} is drawn"));
+        assert!(near(*size, body), "{title} in the body size, not {small}: {size}");
+        assert_eq!(*color, style.visuals.weak_text_color(), "{title} is muted");
+    }
 }

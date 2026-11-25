@@ -251,10 +251,11 @@ fn options_in_two_columns(ui: &mut Ui, form: &mut SettingsForm, id_salt: &str, o
         });
 }
 
-/// A section's title: small and muted over a thin line, so the options stand out rather than the headings.
+/// A section's title: muted over a thin line, so the options stand out rather than the headings, and in the body size,
+/// since Vietnamese marks are hard to read any smaller.
 fn section_title(ui: &mut Ui, title: &str) {
     ui.add_space(ui.spacing().item_spacing.y);
-    ui.label(egui::RichText::new(title).small().weak());
+    ui.label(egui::RichText::new(title).weak());
     ui.separator();
 }
 
@@ -332,34 +333,55 @@ fn button_label(form: &SettingsForm, button: Button) -> &'static str {
     }
 }
 
-/// One button of the bottom bar, the same size as the others. Returns whether it was clicked.
-fn bar_button(ui: &mut Ui, form: &SettingsForm, button: Button) -> bool {
-    ui.add_sized(BUTTON_SIZE, egui::Button::new(button_label(form, button)).truncate())
+/// Every label a bar button can show, in either mode, so the buttons keep their width when the window expands or
+/// collapses.
+const BAR_LABELS: [&str; 5] = [
+    labels::BUTTON_EXPAND,
+    labels::BUTTON_COLLAPSE,
+    labels::BUTTON_EXIT,
+    labels::BUTTON_CLOSE,
+    labels::BUTTON_RESET,
+];
+
+/// The width every bar button takes: the theme's button width, or more when the widest of `labels` needs it, so no
+/// label is ever cut.
+fn bar_button_width(ui: &Ui, labels: &[&str]) -> f32 {
+    let widest = labels
+        .iter()
+        .map(|label| widgets::button_text_width(ui, label))
+        .fold(0.0, f32::max);
+    BUTTON_SIZE.x.max(widest + 2.0 * ui.spacing().button_padding.x)
+}
+
+/// One button of the bottom bar, `size` like the others. Returns whether it was clicked.
+fn bar_button(ui: &mut Ui, form: &SettingsForm, button: Button, size: egui::Vec2) -> bool {
+    ui.add_sized(size, egui::Button::new(button_label(form, button)))
         .clicked()
 }
 
 /// The buttons of the bottom bar, where the form puts them. Returns the button clicked.
 fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
     let bar = form.bar();
+    let size = egui::vec2(bar_button_width(ui, &BAR_LABELS), BUTTON_SIZE.y);
     ui.horizontal(|ui| {
         let mut clicked = None;
         if let Some(button) = bar.left
-            && bar_button(ui, form, button)
+            && bar_button(ui, form, button, size)
         {
             clicked = Some(button);
         }
-        right_aligned(ui, form, &bar.right).or(clicked)
+        right_aligned(ui, form, &bar.right, size).or(clicked)
     })
     .inner
 }
 
 /// `buttons` at the right end of the row, in their order. Returns the button clicked.
-fn right_aligned(ui: &mut Ui, form: &SettingsForm, buttons: &[Button]) -> Option<Button> {
+fn right_aligned(ui: &mut Ui, form: &SettingsForm, buttons: &[Button], size: egui::Vec2) -> Option<Button> {
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         let mut clicked = None;
         // Laid out from the right edge, so the last button comes first.
         for &button in buttons.iter().rev() {
-            if bar_button(ui, form, button) {
+            if bar_button(ui, form, button, size) {
                 clicked = Some(button);
             }
         }

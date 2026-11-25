@@ -3,7 +3,8 @@
 
 use egui::{CornerRadius, Margin, Style, Vec2, vec2};
 
-/// The size of every button in the settings window's bottom bar: one size, large enough to hit at a glance.
+/// The size of every button in the settings window's bottom bar: one size, large enough to hit at a glance. A label
+/// too wide for it widens every bar button alike.
 pub const BUTTON_SIZE: Vec2 = vec2(110.0, 32.0);
 
 /// The room between a window's edge and what it shows.

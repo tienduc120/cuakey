@@ -1,7 +1,8 @@
 //! The app's own widgets, drawn in the colours of the current egui theme.
 
 use egui::{
-    Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, TextStyle, Ui, Vec2, WidgetInfo, WidgetText, pos2, vec2,
+    Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, TextStyle, TextWrapMode, Ui, Vec2, WidgetInfo, WidgetText,
+    pos2, vec2,
 };
 
 /// The side of a checkbox's box: one step larger than egui's, so the box reads at a glance.
@@ -16,6 +17,14 @@ const TICK: [Vec2; 3] = [vec2(0.22, 0.52), vec2(0.42, 0.72), vec2(0.78, 0.30)];
 /// The tick's stroke width as a fraction of the box's side: 2 points in a 15 point box, firm enough to read at a
 /// glance without filling the box.
 const TICK_WIDTH: f32 = 2.0 / 15.0;
+
+/// The width of `text` on one line, as a button draws it in the ui's current font.
+pub(crate) fn button_text_width(ui: &Ui, text: &str) -> f32 {
+    WidgetText::from(text)
+        .into_galley(ui, Some(TextWrapMode::Extend), f32::INFINITY, TextStyle::Button)
+        .size()
+        .x
+}
 
 fn tick(icon: Rect) -> Vec<Pos2> {
     TICK.iter().map(|corner| icon.min + *corner * icon.size()).collect()
