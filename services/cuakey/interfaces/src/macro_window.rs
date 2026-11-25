@@ -10,18 +10,33 @@ use crate::macro_form::MacroForm;
 use crate::settings_window::checkbox;
 use crate::{UiAction, labels};
 
+#[cfg(windows)]
 const FILE_EXTENSIONS: [&str; 1] = ["txt"];
 
+#[cfg(windows)]
 fn pick_file_to_open() -> Option<PathBuf> {
     rfd::FileDialog::new()
         .add_filter(labels::MACRO_FILE_FILTER, &FILE_EXTENSIONS)
         .pick_file()
 }
 
+#[cfg(windows)]
 fn pick_file_to_save() -> Option<PathBuf> {
     rfd::FileDialog::new()
         .add_filter(labels::MACRO_FILE_FILTER, &FILE_EXTENSIONS)
         .save_file()
+}
+
+/// The app runs on Windows only, so elsewhere the open button finds no file.
+#[cfg(not(windows))]
+const fn pick_file_to_open() -> Option<PathBuf> {
+    None
+}
+
+/// The app runs on Windows only, so elsewhere the save button finds no file.
+#[cfg(not(windows))]
+const fn pick_file_to_save() -> Option<PathBuf> {
+    None
 }
 
 fn row_clicked(ui: &mut Ui, row: &MacroView, is_selected: bool) -> bool {

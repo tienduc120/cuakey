@@ -10,8 +10,11 @@ publish.workspace = true
 [dependencies]
 cuakey-application = { path = "../application" }
 egui = { workspace = true }
-rfd = { workspace = true }
 thiserror = { workspace = true, features = ["std"] }
+
+# The file dialogs are the Windows ones; elsewhere rfd's Wayland backend needs system libraries the build lacks.
+[target.'cfg(windows)'.dependencies]
+rfd = { workspace = true }
 
 [lints]
 workspace = true
