@@ -13,6 +13,7 @@ mod macro_window;
 mod messages;
 mod settings_form;
 mod settings_window;
+pub mod theme;
 mod tray_menu;
 mod ui_action;
 mod widgets;
