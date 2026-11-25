@@ -7,8 +7,10 @@ pub struct TrayIcon(pub u16);
 /// What the user did with the icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayEvent {
-    /// The icon was double-clicked, or chosen with Enter or Space while it had the keyboard focus. A single click does
-    /// nothing.
+    /// The icon was clicked once with the left button. Windows reports the same click again as part of a double click,
+    /// before `Activate`.
+    Click,
+    /// The icon was double-clicked, or chosen with Enter or Space while it had the keyboard focus.
     Activate,
     /// The user asked for the icon's menu, with a right click or from the keyboard.
     MenuRequested,
@@ -35,6 +37,9 @@ pub enum MenuItem {
 /// `WM_LBUTTONDBLCLK`: the icon was double-clicked.
 #[cfg(any(windows, test))]
 const WM_LBUTTONDBLCLK: u32 = 0x0203;
+/// `NIN_SELECT`: the icon was clicked once with the left button.
+#[cfg(any(windows, test))]
+const NIN_SELECT: u32 = 0x0400;
 /// `NIN_KEYSELECT`: the icon was chosen with Enter or Space while it had the keyboard focus.
 #[cfg(any(windows, test))]
 const NIN_KEYSELECT: u32 = 0x0401;
@@ -107,11 +112,12 @@ impl Presence {
 }
 
 /// The event a version-4 notification-area callback reports in the low word of its `lParam`, or `None` for one the
-/// icon does not act on. The high word is the icon's id. A single click (`NIN_SELECT`) is not one: it also comes
-/// around every double click.
+/// icon does not act on. The high word is the icon's id. A double click reports `NIN_SELECT` for its first click
+/// as well, so a `Click` can come right before an `Activate`.
 #[cfg(any(windows, test))]
 fn callback_event(lparam: isize) -> Option<TrayEvent> {
     match u32::try_from(lparam & 0xffff).ok()? {
+        NIN_SELECT => Some(TrayEvent::Click),
         WM_LBUTTONDBLCLK | NIN_KEYSELECT => Some(TrayEvent::Activate),
         WM_CONTEXTMENU => Some(TrayEvent::MenuRequested),
         _ => None,

@@ -1,10 +1,9 @@
 use super::{
-    ChangeCall, MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, NIN_KEYSELECT, Presence, TIP_UNITS, TrayEvent,
-    WM_CONTEXTMENU, WM_LBUTTONDBLCLK, callback_event, command_id, menu_flags as flags_of, tooltip_units,
+    ChangeCall, MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MenuItem, NIN_KEYSELECT, NIN_SELECT, Presence,
+    TIP_UNITS, TrayEvent, WM_CONTEXTMENU, WM_LBUTTONDBLCLK, callback_event, command_id, menu_flags as flags_of,
+    tooltip_units,
 };
 
-/// `NIN_SELECT`: a single click on the icon, which also comes around a double click.
-const NIN_SELECT: u32 = 0x0400;
 /// `WM_MOUSEMOVE`: the pointer passed over the icon.
 const WM_MOUSEMOVE: u32 = 0x0200;
 /// `WM_LBUTTONUP`: the left button came up, just before `NIN_SELECT`.
@@ -51,13 +50,13 @@ fn callback_events_decode() {
             Some(TrayEvent::Activate),
             Some(TrayEvent::Activate),
             Some(TrayEvent::MenuRequested),
-            None,
+            Some(TrayEvent::Click),
             None,
             None,
             None,
         ],
-        "a double click or a key select activates, a context-menu request asks for the menu, and a single click and \
-         the rest are ignored"
+        "a double click or a key select activates, a context-menu request asks for the menu, a single click clicks, \
+         and the rest are ignored"
     );
 }
 
@@ -267,7 +266,12 @@ mod live {
         );
         assert_eq!(
             *events.borrow(),
-            [TrayEvent::Activate, TrayEvent::Activate, TrayEvent::MenuRequested],
+            [
+                TrayEvent::Click,
+                TrayEvent::Activate,
+                TrayEvent::Activate,
+                TrayEvent::MenuRequested
+            ],
             "the message loop of the thread hands the icon's events to the handler, even after a request to close"
         );
         assert!(!shown_after_drop, "dropping the tray removes its icon");
