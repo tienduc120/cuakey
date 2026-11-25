@@ -88,6 +88,13 @@ jobs:
       - name: Compare with OpenKey
         run: cargo xtask compare-openkey
 
+      - name: Compare random typing with OpenKey
+        shell: bash
+        run: |
+          for seed in 1 2 3 4 5; do
+            cargo xtask compare-openkey --random 2000 --seed "$seed"
+          done
+
       - name: Clean worktree
         shell: bash
         run: |
