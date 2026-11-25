@@ -2,8 +2,9 @@ use alloc::collections::{BTreeMap, BTreeSet};
 
 use crate::{AppName, CodeTable, Language, OnOff, PreferencesError, ProfileId, SettingChange, Settings};
 
-/// Explorer is the desktop shell: focus passes through it all the time, so it never counts as a switch.
-const SHELL_APP: &str = "explorer.exe";
+/// Programs that are not places a person types in with a language of their own: the desktop shell, which focus passes
+/// through all the time, and the app's own settings window. They never count as a switch and are never remembered.
+const IGNORED_APPS: [&str; 2] = ["explorer.exe", "cuakey.exe"];
 
 /// The language and code table that were current in one app.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,16 +121,20 @@ impl Preferences {
         self.always_on.contains(app)
     }
 
-    /// Stores the language and code table that are current as this app's.
+    /// Stores the language and code table that are current as this app's. An ignored app is never stored.
     pub fn remember_app(&mut self, app: AppName) {
+        if IGNORED_APPS.contains(&app.as_str()) {
+            return;
+        }
         let state = AppState::new(self.language, self.settings.typing().code_table());
         self.app_memory.insert(app, state);
     }
 
     /// Adopts what a known app last used, as far as the settings ask for it, and returns true. An app never seen
-    /// before is remembered with the current state and returns false. The desktop shell is ignored.
+    /// before is remembered with the current state and returns false. The desktop shell and the settings window are
+    /// ignored, even if an older version stored one of them.
     pub fn apply_app_switch(&mut self, app: &AppName) -> bool {
-        if app.as_str() == SHELL_APP {
+        if IGNORED_APPS.contains(&app.as_str()) {
             return false;
         }
         let Some(state) = self.app_memory.get(app).copied() else {

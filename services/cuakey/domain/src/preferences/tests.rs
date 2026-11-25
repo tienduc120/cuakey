@@ -263,6 +263,33 @@ fn the_language_is_kept_when_smart_switch_is_off() {
 }
 
 #[test]
+fn own_window_is_never_adopted_or_remembered() {
+    let own = app("cuakey.exe");
+    let stale = BTreeMap::from([(own.clone(), AppState::new(Language::Vietnamese, CodeTable::Tcvn3))]);
+    for memory in [stale, BTreeMap::new()] {
+        let mut preferences = Preferences::restore(
+            ProfileId::new("default").unwrap(),
+            Settings::default(),
+            Language::English,
+            BTreeSet::new(),
+            memory.clone(),
+        );
+
+        let adopted = preferences.apply_app_switch(&own);
+        preferences.remember_app(own.clone());
+
+        assert!(!adopted, "switch");
+        assert_eq!(preferences.language(), Language::English, "language");
+        assert_eq!(
+            preferences.settings().typing().code_table(),
+            CodeTable::Unicode,
+            "code table"
+        );
+        assert_eq!(preferences.app_memory(), &memory, "app memory");
+    }
+}
+
+#[test]
 fn restore_round_trip() {
     let mut preferences = fresh();
     preferences

@@ -605,6 +605,38 @@ fn a_code_table_chosen_for_an_app_stays_with_it() {
 }
 
 #[test]
+fn settings_change_from_cuakey_window_keeps_previous_apps_language() {
+    let prefs = PreferencesView {
+        app_memory: vec![
+            AppMemoryView {
+                app: "code.exe".to_owned(),
+                language: LanguageValue::English,
+                code_table: CodeTableValue::Unicode,
+            },
+            // Written by an older version that treated the settings window as a program.
+            AppMemoryView {
+                app: "cuakey.exe".to_owned(),
+                language: LanguageValue::Vietnamese,
+                code_table: CodeTableValue::Unicode,
+            },
+        ],
+        ..PreferencesView::default()
+    };
+    let mut typist = Typist::with(&prefs);
+    typist.session.app_switched("code.exe");
+    typist.session.app_switched("cuakey.exe");
+    let mut chosen = typist.session.preferences();
+    chosen.typing.code_table = CodeTableValue::VniWindows;
+
+    typist.session.apply(&chosen, &[], Some("code.exe")).unwrap();
+
+    let after = typist.session.preferences();
+    let code = after.app_memory.iter().find(|memory| memory.app == "code.exe").unwrap();
+    assert_eq!(code.language, LanguageValue::English, "language");
+    assert_eq!(code.code_table, CodeTableValue::VniWindows, "code table");
+}
+
+#[test]
 fn a_change_that_keeps_the_language_and_code_table_leaves_the_app_memory_alone() {
     let remembered = AppMemoryView {
         app: "word.exe".to_owned(),
