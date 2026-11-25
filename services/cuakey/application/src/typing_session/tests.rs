@@ -313,6 +313,42 @@ fn ime_open_passes() {
     assert!(typist.nothing_sent(), "{:?}", typist.results);
 }
 
+/// Shuts one of the gates that let a key through to the app untouched.
+type CloseGate = fn(&mut Typist);
+
+#[test]
+fn a_key_a_gate_passes_ends_the_word() {
+    let mut prefs = PreferencesView::default();
+    prefs.switching.work_in_other_languages = Toggle::Off;
+    let gates: [(&str, CloseGate); 3] = [
+        ("an open input method editor", |typist| {
+            typist.layout.ime_open = true;
+        }),
+        ("another keyboard language", |typist| {
+            typist.layout.english_layout = false;
+        }),
+        ("a control that is not a text box", |typist| {
+            typist.focus = FocusValue::NotText;
+        }),
+    ];
+
+    for (gate, close) in gates {
+        let mut typist = Typist::with(&prefs);
+        typist.type_text("vie");
+        let open = (typist.layout, typist.focus);
+        close(&mut typist);
+        typist.type_text("x");
+        (typist.layout, typist.focus) = open;
+
+        let screen = typist.type_text("s");
+
+        assert_eq!(
+            screen, "viexs",
+            "{gate}: the s after the passed x starts a word of its own"
+        );
+    }
+}
+
 #[test]
 fn switch_hotkey_toggles_and_remembers_app() {
     let mut typist = Typist::with_defaults().in_app("zalo.exe");

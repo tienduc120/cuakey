@@ -285,7 +285,7 @@ impl TypingSession {
 
     pub fn handle_key(&mut self, cmd: KeyCommand<'_>) -> KeyResult {
         if cmd.layout.ime_open {
-            return KeyResult::pass();
+            return self.pass_key(cmd.down);
         }
         let focus = FocusState::from(cmd.focus);
         let key = cmd.key.to_hotkey_key();
@@ -371,7 +371,7 @@ impl TypingSession {
         let converts = should_convert(focus, settings.behaviours().only_text_boxes(), self.front.always_on);
         let layout_allows = cmd.layout.english_layout || settings.switching().work_in_other_languages().is_on();
         if !converts || !layout_allows {
-            return KeyResult::pass();
+            return self.pass_key(cmd.down);
         }
         self.word_before.clear();
         self.word_before.push_str(self.composer.word());
@@ -385,6 +385,15 @@ impl TypingSession {
             actions,
             command: None,
         }
+    }
+
+    /// Lets a key through untouched. A key-down the app gets as typed puts text on screen the word knows nothing of, so
+    /// the word ends there: a later key must never edit what `CuaKey` did not type.
+    fn pass_key(&mut self, down: bool) -> KeyResult {
+        if down {
+            self.composer.break_word();
+        }
+        KeyResult::pass()
     }
 
     fn output_context(&self) -> OutputContext {

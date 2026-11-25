@@ -129,7 +129,8 @@ impl Composer {
         }
     }
 
-    /// Forgets the word, so the next key starts a new one: after a click, a focus change, or a language switch.
+    /// Forgets the word, so the next key starts a new one: after a click, a focus change, a language switch, or a key
+    /// the app got untouched.
     pub fn break_word(&mut self) {
         self.raised = OnOff::Off;
         self.word = Word::default();
