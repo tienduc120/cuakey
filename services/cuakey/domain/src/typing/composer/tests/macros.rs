@@ -484,22 +484,10 @@ fn a_shortcut_that_matches_only_by_its_keys_fires_at_a_capitalised_sentence_star
 fn a_shortcut_never_joins_text_typed_before_enter() {
     let mut digits = telex_with(&[("t1w", "x")]);
     assert_eq!(
-        type_text(
-            &mut digits,
-            "t1
-w "
-        ),
+        type_text(&mut digits, "t1\n\u{8}w "),
         "t1w ",
         "the t1 typed before Enter is no part of the shortcut typed after it"
     );
     let mut letters = telex_with(&[("btw", "by the way")]);
-    assert_eq!(
-        type_text(
-            &mut letters,
-            "bt
-w "
-        ),
-        "btw ",
-        "nor is bt"
-    );
+    assert_eq!(type_text(&mut letters, "bt\n\u{8}w "), "btw ", "nor is bt");
 }
