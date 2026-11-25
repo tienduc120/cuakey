@@ -217,3 +217,30 @@ fn clicking_the_reset_asks_for_it() {
     let shown = click(&ctx, &mut window, labels::BUTTON_RESET);
     assert_eq!(shown.actions, [UiAction::Reset]);
 }
+
+#[test]
+fn the_window_reports_the_size_of_what_it_shows() {
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    assert_eq!(window.size(), COMPACT_SIZE, "a new window is compact");
+
+    window.form.toggle_expanded();
+    assert_eq!(window.size(), EXPANDED_SIZE);
+
+    window.form.toggle_expanded();
+    assert_eq!(window.size(), COMPACT_SIZE);
+}
+
+#[test]
+fn a_window_opened_expanded_shows_every_section() {
+    let ctx = egui::Context::default();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    assert!(window.form.is_expanded());
+    assert_eq!(window.size(), EXPANDED_SIZE);
+
+    let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+    assert!(
+        place_of(&shown, labels::SECTION_ABOUT).is_some(),
+        "the about section is drawn"
+    );
+    assert!(place_of(&shown, labels::BUTTON_COLLAPSE).is_some());
+}

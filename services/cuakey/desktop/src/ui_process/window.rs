@@ -4,12 +4,11 @@ use std::sync::Arc;
 
 use cuakey_application::{MacroView, PreferencesView};
 use cuakey_interfaces::{
-    AlwaysOnWindow, COMPACT_SIZE, ConvertWindow, MacroWindow, Notice, Platform, SettingsWindow, UiAction, WindowKind,
-    labels, notice_message,
+    AlwaysOnWindow, ConvertWindow, MacroWindow, Notice, Platform, SettingsWindow, UiAction, WindowKind, labels,
+    notice_message,
 };
 use eframe::egui::{IconData, Ui, Vec2, ViewportBuilder, ViewportId};
 
-use super::shown_kind;
 use crate::args::window_name;
 use crate::stores::{Origin, Stores};
 
@@ -36,8 +35,10 @@ impl Window {
     pub(super) fn open(kind: WindowKind, stores: &Stores) -> Self {
         let (prefs, prefs_origin, prefs_error) = Origin::of(stores.load_preferences());
         let mut macros_origin = Origin::Stored;
-        let view = match shown_kind(kind) {
-            WindowKind::Settings | WindowKind::About => View::Settings(SettingsWindow::new(prefs, Platform::Windows)),
+        let view = match kind {
+            WindowKind::Settings => View::Settings(SettingsWindow::new(prefs, Platform::Windows)),
+            // The about text is among the sections only the expanded window shows.
+            WindowKind::About => View::Settings(SettingsWindow::new(prefs, Platform::Windows).expanded()),
             WindowKind::Macros => {
                 let (macros, origin, error) = Origin::of(stores.load_macros());
                 if let Some(error) = error {
@@ -144,10 +145,11 @@ impl Window {
         }
     }
 
-    /// The size the window opens at, in points.
+    /// The size of what the window shows now, in points: the size it opens at, and the size it takes in the root
+    /// viewport. The settings window changes it when it expands or collapses.
     pub(super) const fn size(&self) -> Vec2 {
-        match self.view {
-            View::Settings(_) => COMPACT_SIZE,
+        match &self.view {
+            View::Settings(window) => window.size(),
             View::Macros(_) => Vec2::new(480.0, 460.0),
             View::Convert(_) => Vec2::new(440.0, 300.0),
             View::AlwaysOn(_) => Vec2::new(360.0, 340.0),

@@ -35,7 +35,7 @@ pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(760.0, 150.0);
 
 /// The window's inner size with every section: as wide as the compact window, and tall enough to show a useful part
 /// of the sections, which scroll past that.
-pub(crate) const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
+pub const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
 pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: cuakey_application::Toggle) -> Option<bool> {
@@ -409,17 +409,22 @@ fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiA
     buttons_below(ui, form)
 }
 
+/// The inner size of a window showing what `form` shows.
+const fn window_size(form: &SettingsForm) -> egui::Vec2 {
+    if form.is_expanded() {
+        EXPANDED_SIZE
+    } else {
+        COMPACT_SIZE
+    }
+}
+
 /// Acts on a clicked button. The expand button concerns this window alone: it resizes the window and asks the process
 /// nothing.
 fn press(ui: &Ui, form: &mut SettingsForm, button: Button, actions: &mut Vec<UiAction>) {
     if button == Button::ToggleExpanded {
         form.toggle_expanded();
-        let size = if form.is_expanded() {
-            EXPANDED_SIZE
-        } else {
-            COMPACT_SIZE
-        };
-        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+        ui.ctx()
+            .send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size(form)));
     }
     actions.extend(button.action());
 }
@@ -459,6 +464,22 @@ impl SettingsWindow {
         Self {
             form: SettingsForm::new(prefs, platform),
         }
+    }
+
+    /// The same window showing every section from the start, for a way in that leads to something only the expanded
+    /// window shows, such as the about text.
+    #[must_use]
+    pub const fn expanded(mut self) -> Self {
+        if !self.form.is_expanded() {
+            self.form.toggle_expanded();
+        }
+        self
+    }
+
+    /// The inner size of what the window shows now: the size to open it at, or to give it in another native window.
+    #[must_use]
+    pub const fn size(&self) -> egui::Vec2 {
+        window_size(&self.form)
     }
 
     /// Replaces the edited preferences, after a reset or when the background process changed something.

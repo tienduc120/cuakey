@@ -170,6 +170,14 @@ impl eframe::App for UiApp {
     }
 }
 
+/// Gives the root viewport to `window` once the window it held closed: the root stays open, takes the window's title,
+/// and takes the size of what the window shows now.
+fn move_into_root(ctx: &Context, window: &Window) {
+    ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::CancelClose);
+    ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Title(window.title().to_owned()));
+    ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::InnerSize(window.size()));
+}
+
 /// Draws `window` into `ui`, the root ui of its viewport, with the clipboard and the browser at hand.
 fn draw(window: &mut Window, ui: &mut Ui) -> Vec<UiAction> {
     let ctx = ui.ctx().clone();
@@ -314,8 +322,9 @@ impl UiApp {
 
     /// Brings `kind` to the front, opening it when it is not open.
     fn open(&mut self, ctx: &Context, kind: WindowKind) {
-        let kind = shown_kind(kind);
-        let Some(index) = self.windows.iter().position(|window| window.kind() == kind) else {
+        let shown = shown_kind(kind);
+        let Some(index) = self.windows.iter().position(|window| window.kind() == shown) else {
+            // The kind asked for, not the one shown: the About menu item opens the settings window expanded.
             self.windows.push(Window::open(kind, &self.stores));
             return;
         };
@@ -338,11 +347,7 @@ impl UiApp {
             return;
         }
         match self.windows.first() {
-            Some(next) => {
-                ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::CancelClose);
-                ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Title(next.title().to_owned()));
-                ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::InnerSize(next.size()));
-            }
+            Some(next) => move_into_root(ctx, next),
             None => ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Close),
         }
     }

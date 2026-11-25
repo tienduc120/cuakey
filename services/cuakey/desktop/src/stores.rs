@@ -61,6 +61,11 @@ pub(crate) struct Stores {
 impl Stores {
     pub(crate) fn open() -> Result<Self, OpenStoresError> {
         let dir = roaming_app_data().map_err(OpenStoresError::Folder)?.join(APP_FOLDER);
+        Self::in_folder(dir)
+    }
+
+    /// The stores on the files in `dir`.
+    pub(crate) fn in_folder(dir: PathBuf) -> Result<Self, OpenStoresError> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .build()
             .map_err(OpenStoresError::Runtime)?;

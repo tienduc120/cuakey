@@ -1,7 +1,10 @@
 use cuakey_application::{AppMemoryView, CodeTableValue, LanguageValue, PreferencesView, Toggle};
-use cuakey_interfaces::WindowKind;
+use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind};
+use eframe::egui;
 
-use super::{Edit, edit_of, largest_png, rebase, shown_kind};
+use super::window::Window;
+use super::{Edit, edit_of, largest_png, move_into_root, rebase, shown_kind};
+use crate::stores::Stores;
 
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 
@@ -107,4 +110,54 @@ fn an_icon_file_without_a_png_picture_gives_none() {
     assert_eq!(largest_png(&ico), None);
     assert_eq!(largest_png(&[]), None, "an empty file");
     assert_eq!(largest_png(&ico[..10]), None, "a directory cut short");
+}
+
+/// Stores on a folder that does not exist: every window shows the defaults, and opening one writes nothing.
+fn empty_stores(test: &str) -> Stores {
+    let dir = std::env::temp_dir().join(format!("cuakey-ui-process-{}-{test}", std::process::id()));
+    Stores::in_folder(dir).unwrap()
+}
+
+/// What moving `window` into the root viewport tells that viewport.
+fn root_commands_moving(window: &Window) -> Vec<egui::ViewportCommand> {
+    let ctx = egui::Context::default();
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| move_into_root(ui.ctx(), window));
+    // No renderer takes the font texture here.
+    output.textures_delta.clear();
+    output
+        .viewport_output
+        .get(&egui::ViewportId::ROOT)
+        .map(|viewport| viewport.commands.clone())
+        .unwrap_or_default()
+}
+
+#[test]
+fn the_about_menu_opens_the_settings_window_expanded() {
+    let stores = empty_stores("about");
+
+    let about = Window::open(WindowKind::About, &stores);
+    assert_eq!(about.kind(), WindowKind::Settings);
+    assert_eq!(about.size(), EXPANDED_SIZE, "the about text is in the expanded part");
+
+    let settings = Window::open(WindowKind::Settings, &stores);
+    assert_eq!(settings.size(), COMPACT_SIZE, "every other way in opens compact");
+}
+
+#[test]
+fn a_settings_window_moved_into_the_root_keeps_its_size() {
+    let stores = empty_stores("root");
+
+    let expanded = Window::open(WindowKind::About, &stores);
+    let commands = root_commands_moving(&expanded);
+    assert!(
+        commands.contains(&egui::ViewportCommand::InnerSize(EXPANDED_SIZE)),
+        "{commands:?}"
+    );
+
+    let compact = Window::open(WindowKind::Settings, &stores);
+    let commands = root_commands_moving(&compact);
+    assert!(
+        commands.contains(&egui::ViewportCommand::InnerSize(COMPACT_SIZE)),
+        "{commands:?}"
+    );
 }
