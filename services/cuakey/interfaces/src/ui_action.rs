@@ -56,17 +56,21 @@ pub enum Button {
     CloseWindow,
     OpenMacros,
     OpenAlwaysOn,
+    /// Shows or hides the sections beyond the control group.
+    ToggleExpanded,
 }
 
 impl Button {
+    /// What the button asks of the process that owns the window. Expanding asks nothing: the window resizes itself.
     #[must_use]
-    pub const fn action(self) -> UiAction {
+    pub const fn action(self) -> Option<UiAction> {
         match self {
-            Self::ExitApp => UiAction::Exit,
-            Self::ResetToDefaults => UiAction::Reset,
-            Self::CloseWindow => UiAction::Close,
-            Self::OpenMacros => UiAction::Open(WindowKind::Macros),
-            Self::OpenAlwaysOn => UiAction::Open(WindowKind::AlwaysOn),
+            Self::ExitApp => Some(UiAction::Exit),
+            Self::ResetToDefaults => Some(UiAction::Reset),
+            Self::CloseWindow => Some(UiAction::Close),
+            Self::OpenMacros => Some(UiAction::Open(WindowKind::Macros)),
+            Self::OpenAlwaysOn => Some(UiAction::Open(WindowKind::AlwaysOn)),
+            Self::ToggleExpanded => None,
         }
     }
 }

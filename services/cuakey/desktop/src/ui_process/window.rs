@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use cuakey_application::{MacroView, PreferencesView};
 use cuakey_interfaces::{
-    AlwaysOnWindow, ConvertWindow, MacroWindow, Notice, Platform, SettingsWindow, UiAction, WindowKind, labels,
-    notice_message,
+    AlwaysOnWindow, COMPACT_SIZE, ConvertWindow, MacroWindow, Notice, Platform, SettingsWindow, UiAction, WindowKind,
+    labels, notice_message,
 };
 use eframe::egui::{IconData, Ui, Vec2, ViewportBuilder, ViewportId};
 
@@ -147,7 +147,7 @@ impl Window {
     /// The size the window opens at, in points.
     pub(super) const fn size(&self) -> Vec2 {
         match self.view {
-            View::Settings(_) => Vec2::new(520.0, 640.0),
+            View::Settings(_) => COMPACT_SIZE,
             View::Macros(_) => Vec2::new(480.0, 460.0),
             View::Convert(_) => Vec2::new(440.0, 300.0),
             View::AlwaysOn(_) => Vec2::new(360.0, 340.0),

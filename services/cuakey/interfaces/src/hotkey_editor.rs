@@ -6,6 +6,10 @@ use egui::Key;
 
 use crate::{labels, widgets};
 
+/// The key field's width, whatever it shows, so the parts after it stay in place. Its longest text, "Không có phím",
+/// fits with the button padding in each font the window may borrow; a wider font would cut the text, not move the row.
+const KEY_FIELD_WIDTH: f32 = 108.0;
+
 /// The keys the field accepts: A-Z, 0-9, F1-F12 and Space.
 const KEYS: [(Key, KeyName); 49] = [
     (Key::A, KeyName::A),
@@ -118,8 +122,9 @@ pub(crate) fn show_hotkey(ui: &mut egui::Ui, id_salt: &str, hotkey: HotkeyView) 
 /// The one-key field: click it, then press the key. While it has focus it reads the keys pressed.
 fn key_field(ui: &mut egui::Ui, hotkey: HotkeyView) -> HotkeyView {
     let idle_text = hotkey.key.map_or(labels::HOTKEY_NO_KEY, key_label);
+    let size = egui::vec2(KEY_FIELD_WIDTH, ui.spacing().interact_size.y);
     let response = ui
-        .add(egui::Button::new(idle_text).min_size(egui::vec2(96.0, 0.0)))
+        .add_sized(size, egui::Button::new(idle_text).truncate())
         .on_hover_text(labels::HOTKEY_FIELD_HINT);
     if response.clicked() {
         response.request_focus();

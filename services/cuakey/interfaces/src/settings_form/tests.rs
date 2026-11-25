@@ -3,7 +3,7 @@ use cuakey_application::{
 };
 
 use super::{GatedControl, SettingsForm};
-use crate::Platform;
+use crate::{Button, Platform};
 
 const WINDOWS_ONLY: [GatedControl; 6] = [
     GatedControl::FixAutocomplete,
@@ -200,4 +200,44 @@ fn an_edit_stays_after_a_refused_save() {
     assert_eq!(form.view().switching.hotkey, hotkey(KeyName::F9));
     form.show_error(None);
     assert_eq!(form.error(), None);
+}
+
+#[test]
+fn opens_compact() {
+    let form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
+    assert!(!form.is_expanded(), "the window opens with the control group only");
+}
+
+#[test]
+fn toggle_expands_and_collapses() {
+    let mut form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
+
+    form.toggle_expanded();
+    assert!(form.is_expanded());
+    assert_eq!(
+        Button::ToggleExpanded.action(),
+        None,
+        "the window resizes itself and asks the process nothing"
+    );
+    assert_eq!(form.take_save(), None, "showing more of the window changes no setting");
+
+    form.toggle_expanded();
+    assert!(!form.is_expanded(), "a second toggle collapses it again");
+    assert_eq!(form.take_save(), None);
+}
+
+#[test]
+fn buttons_in_compact_mode() {
+    let mut form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
+    let column = [Button::CloseWindow, Button::ExitApp, Button::ToggleExpanded];
+    assert_eq!(
+        form.buttons(),
+        column,
+        "compact: the column beside the controls, and nothing else"
+    );
+
+    form.toggle_expanded();
+    let mut expanded = column.to_vec();
+    expanded.push(Button::ResetToDefaults);
+    assert_eq!(form.buttons(), expanded, "expanded: the reset comes last");
 }

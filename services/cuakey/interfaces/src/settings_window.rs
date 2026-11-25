@@ -1,5 +1,6 @@
-//! The settings window drawn with egui. Every change applies at once: a frame that changed a control returns one
-//! `Save` with the whole edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it.
+//! The settings window drawn with egui. It opens small, with the control group only, and the expand button shows the
+//! other sections. Every change applies at once: a frame that changed a control returns one `Save` with the whole
+//! edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it.
 
 use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView};
 use egui::Ui;
@@ -26,6 +27,15 @@ const LANGUAGES: [(LanguageValue, &str); 2] = [
     (LanguageValue::Vietnamese, labels::LANGUAGE_VIETNAMESE),
     (LanguageValue::English, labels::LANGUAGE_ENGLISH),
 ];
+
+/// The window's inner size with the control group only, the size it opens at. The group and the button column measure
+/// 719 x 106 points in Segoe UI and at most 734 wide in the other fonts the window may borrow; the panel's margins and
+/// a line for an error message come on top, so nothing scrolls or clips.
+pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(760.0, 150.0);
+
+/// The window's inner size with every section: as wide as the compact window, and tall enough to show a useful part
+/// of the sections, which scroll past that.
+pub(crate) const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
 pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: cuakey_application::Toggle) -> Option<bool> {
@@ -94,10 +104,8 @@ macro_rules! gated_row {
     };
 }
 
-fn control_section(ui: &mut Ui, form: &mut SettingsForm) {
-    ui.heading(labels::SECTION_CONTROL);
+fn input_method_and_code_table(ui: &mut Ui, form: &mut SettingsForm) {
     ui.horizontal(|ui| {
-        ui.label(labels::INPUT_METHOD);
         if let Some(method) = combo(ui, "input_method", form.view().typing.input_method, &INPUT_METHODS) {
             form.set_input_method(method);
         }
@@ -106,24 +114,42 @@ fn control_section(ui: &mut Ui, form: &mut SettingsForm) {
             form.set_code_table(table);
         }
     });
-    ui.horizontal(|ui| {
-        ui.label(labels::SWITCH_HOTKEY);
-        if let Some(hotkey) = show_hotkey(ui, "switch_hotkey", form.view().switching.hotkey) {
-            form.set_switch_hotkey(hotkey);
-        }
-        toggle_row!(ui, form, labels::BEEP, switching.beep, set_beep);
-    });
-    ui.horizontal(|ui| {
-        ui.label(labels::SETTINGS_HOTKEY);
-        if let Some(hotkey) = show_hotkey(ui, "settings_hotkey", form.view().behaviours.settings_hotkey) {
-            form.set_settings_hotkey(hotkey);
-        }
-    });
-    ui.horizontal(|ui| {
-        ui.label(labels::LANGUAGE);
-        if let Some(language) = radios(ui, form.view().language, &LANGUAGES) {
-            form.set_language(language);
-        }
+}
+
+/// The rows of the control group, as grid cells: a label, then its controls. Each hotkey editor sits in one cell and
+/// draws the same fixed-width parts, so the modifier boxes and key fields of the two hotkey rows line up.
+fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
+    ui.label(labels::INPUT_METHOD);
+    input_method_and_code_table(ui, form);
+    ui.end_row();
+
+    ui.label(labels::SWITCH_HOTKEY);
+    if let Some(hotkey) = show_hotkey(ui, "switch_hotkey", form.view().switching.hotkey) {
+        form.set_switch_hotkey(hotkey);
+    }
+    toggle_row!(ui, form, labels::BEEP, switching.beep, set_beep);
+    ui.end_row();
+
+    ui.label(labels::SETTINGS_HOTKEY);
+    if let Some(hotkey) = show_hotkey(ui, "settings_hotkey", form.view().behaviours.settings_hotkey) {
+        form.set_settings_hotkey(hotkey);
+    }
+    ui.end_row();
+
+    ui.label(labels::LANGUAGE);
+    if let Some(language) = radios(ui, form.view().language, &LANGUAGES) {
+        form.set_language(language);
+    }
+    ui.end_row();
+}
+
+/// The control group, framed, with its title inside the frame: egui has no titled group box.
+fn control_group(ui: &mut Ui, form: &mut SettingsForm) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.strong(labels::SECTION_CONTROL);
+        egui::Grid::new("control_rows")
+            .num_columns(3)
+            .show(ui, |ui| control_rows(ui, form));
     });
 }
 
@@ -194,7 +220,7 @@ fn typing_section(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiActi
         set_only_text_boxes
     );
     if ui.button(labels::ALWAYS_ON_APPS).clicked() {
-        actions.push(Button::OpenAlwaysOn.action());
+        actions.extend(Button::OpenAlwaysOn.action());
     }
 }
 
@@ -216,7 +242,7 @@ fn macros_section(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiActi
         set_macro_match_case
     );
     if ui.button(labels::MACRO_TABLE).clicked() {
-        actions.push(Button::OpenMacros.action());
+        actions.extend(Button::OpenMacros.action());
     }
     toggle_row!(ui, form, labels::QUICK_TELEX, typing.quick_telex, set_quick_telex);
     toggle_row!(
@@ -302,30 +328,123 @@ fn about_section(ui: &mut Ui) {
     ui.label(labels::ABOUT_CREDITS);
 }
 
-/// The buttons under the settings, and the message of the last refused change.
-fn bottom_bar(ui: &mut Ui, form: &SettingsForm, actions: &mut Vec<UiAction>) {
-    if let Some(message) = form.error() {
-        ui.colored_label(ui.visuals().error_fg_color, message);
+fn button_label(form: &SettingsForm, button: Button) -> &'static str {
+    match button {
+        Button::CloseWindow => labels::BUTTON_CLOSE,
+        Button::ExitApp => labels::BUTTON_EXIT,
+        Button::ResetToDefaults => labels::BUTTON_RESET,
+        Button::OpenMacros => labels::MACRO_TABLE,
+        Button::OpenAlwaysOn => labels::ALWAYS_ON_APPS,
+        Button::ToggleExpanded if form.is_expanded() => labels::BUTTON_COLLAPSE,
+        Button::ToggleExpanded => labels::BUTTON_EXPAND,
     }
-    ui.horizontal(|ui| {
-        for (label, button) in [
-            (labels::BUTTON_EXIT, Button::ExitApp),
-            (labels::BUTTON_RESET, Button::ResetToDefaults),
-            (labels::BUTTON_CLOSE, Button::CloseWindow),
-        ] {
-            if ui.button(label).clicked() {
-                actions.push(button.action());
-            }
-        }
-    });
 }
 
-fn all_sections(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
-    control_section(ui, form);
+/// Whether `button` sits in the column beside the control group. The reset sits under the expanded sections, away
+/// from the buttons clicked every day.
+const fn is_in_column(button: Button) -> bool {
+    !matches!(button, Button::ResetToDefaults)
+}
+
+/// One width for every button of the column: the widest of their labels, both labels of the expand button included,
+/// so the column keeps its place when that label changes.
+fn column_width(ui: &Ui) -> f32 {
+    let widest = [
+        labels::BUTTON_CLOSE,
+        labels::BUTTON_EXIT,
+        labels::BUTTON_EXPAND,
+        labels::BUTTON_COLLAPSE,
+    ]
+    .into_iter()
+    .map(|label| {
+        egui::WidgetText::from(label)
+            .into_galley(
+                ui,
+                Some(egui::TextWrapMode::Extend),
+                f32::INFINITY,
+                egui::TextStyle::Button,
+            )
+            .size()
+            .x
+    })
+    .fold(0.0, f32::max);
+    widest + 2.0 * ui.spacing().button_padding.x
+}
+
+/// The column beside the control group, top to bottom. Returns the button clicked.
+fn button_column(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
+    let min_size = egui::vec2(column_width(ui), 0.0);
+    ui.vertical(|ui| {
+        let mut clicked = None;
+        for &button in form.buttons().iter().filter(|button| is_in_column(**button)) {
+            if ui
+                .add(egui::Button::new(button_label(form, button)).min_size(min_size))
+                .clicked()
+            {
+                clicked = Some(button);
+            }
+        }
+        clicked
+    })
+    .inner
+}
+
+/// The buttons under the expanded sections. Returns the button clicked.
+fn buttons_below(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
+    let mut clicked = None;
+    for &button in form.buttons().iter().filter(|button| !is_in_column(**button)) {
+        if ui.button(button_label(form, button)).clicked() {
+            clicked = Some(button);
+        }
+    }
+    clicked
+}
+
+/// The sections only the expanded window shows, then the buttons under them. Returns the button clicked.
+fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) -> Option<Button> {
     typing_section(ui, form, actions);
     macros_section(ui, form, actions);
     system_section(ui, form);
     about_section(ui);
+    buttons_below(ui, form)
+}
+
+/// Acts on a clicked button. The expand button concerns this window alone: it resizes the window and asks the process
+/// nothing.
+fn press(ui: &Ui, form: &mut SettingsForm, button: Button, actions: &mut Vec<UiAction>) {
+    if button == Button::ToggleExpanded {
+        form.toggle_expanded();
+        let size = if form.is_expanded() {
+            EXPANDED_SIZE
+        } else {
+            COMPACT_SIZE
+        };
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+    }
+    actions.extend(button.action());
+}
+
+/// The control group with the button column beside it, the message of the last refused change under them, and, when
+/// expanded, the other sections in a scroll area below. In compact mode nothing scrolls.
+fn contents(ui: &mut Ui, form: &mut SettingsForm, actions: &mut Vec<UiAction>) {
+    let mut clicked = ui
+        .horizontal_top(|ui| {
+            control_group(ui, form);
+            button_column(ui, form)
+        })
+        .inner;
+    if let Some(message) = form.error() {
+        ui.colored_label(ui.visuals().error_fg_color, message);
+    }
+    if form.is_expanded() {
+        let below = egui::ScrollArea::vertical()
+            .show(ui, |ui| expanded_sections(ui, form, actions))
+            .inner;
+        clicked = clicked.or(below);
+    }
+    if let Some(button) = clicked {
+        press(ui, form, button, actions);
+    }
 }
 
 /// The settings window: draw it every frame, act on what it returns.
@@ -347,7 +466,7 @@ impl SettingsWindow {
         self.form.set_preferences(prefs);
     }
 
-    /// Shows a message under the buttons, or clears it. The user's edits stay.
+    /// Shows a message under the control group, or clears it. The user's edits stay.
     pub const fn show_error(&mut self, message: Option<&'static str>) {
         self.form.show_error(message);
     }
@@ -356,10 +475,7 @@ impl SettingsWindow {
     pub fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
         let mut actions = Vec::new();
         let form = &mut self.form;
-        egui::Panel::bottom("buttons").show(ui, |ui| bottom_bar(ui, form, &mut actions));
-        egui::CentralPanel::default().show(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| all_sections(ui, form, &mut actions));
-        });
+        egui::CentralPanel::default().show(ui, |ui| contents(ui, form, &mut actions));
         if let Some(view) = form.take_save() {
             actions.insert(0, UiAction::Save(view));
         }

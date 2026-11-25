@@ -69,6 +69,8 @@ pub const ABOUT_CREDITS: &str = "Tham khảo hành vi gõ của OpenKey";
 pub const BUTTON_EXIT: &str = "Tắt CuaKey";
 pub const BUTTON_RESET: &str = "Cài đặt gốc";
 pub const BUTTON_CLOSE: &str = "Đóng";
+pub const BUTTON_EXPAND: &str = "Mở rộng ▾";
+pub const BUTTON_COLLAPSE: &str = "Thu gọn ▴";
 
 pub const KEY_CTRL: &str = "Ctrl";
 pub const KEY_ALT: &str = "Alt";

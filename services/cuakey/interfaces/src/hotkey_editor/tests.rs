@@ -1,6 +1,6 @@
 use cuakey_application::{HotkeyView, KeyName, Toggle};
 
-use super::{key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
+use super::{key_field, key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
 
 fn ctrl_shift(key: Option<KeyName>) -> HotkeyView {
     HotkeyView {
@@ -101,5 +101,22 @@ fn space_on_a_modifier_box_flips_that_modifier() {
         edited,
         Some(ctrl_released),
         "Space on the focused Ctrl box releases Ctrl"
+    );
+}
+
+/// The size of the key field showing `key`.
+fn key_field_size(key: Option<KeyName>) -> egui::Vec2 {
+    let ctx = egui::Context::default();
+    pass(&ctx, Vec::new(), |ui| {
+        ui.scope(|ui| key_field(ui, ctrl_shift(key))).response.rect.size()
+    })
+}
+
+#[test]
+fn key_field_width_is_fixed() {
+    assert_eq!(
+        key_field_size(None),
+        key_field_size(Some(KeyName::F5)),
+        "\"Không có phím\" and \"F5\" take the same room, so the rows stay aligned"
     );
 }

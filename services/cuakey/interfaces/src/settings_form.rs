@@ -3,7 +3,7 @@
 
 use cuakey_application::{CodeTableValue, HotkeyView, InputMethodValue, LanguageValue, PreferencesView, Toggle};
 
-use crate::Platform;
+use crate::{Button, Platform};
 
 /// A control whose visibility or enabled state depends on the platform or on another option.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +40,15 @@ macro_rules! toggle_setters {
     };
 }
 
+const COMPACT_BUTTONS: [Button; 3] = [Button::CloseWindow, Button::ExitApp, Button::ToggleExpanded];
+
+const EXPANDED_BUTTONS: [Button; 4] = [
+    Button::CloseWindow,
+    Button::ExitApp,
+    Button::ToggleExpanded,
+    Button::ResetToDefaults,
+];
+
 /// The preferences being edited, and what the window shows around them.
 #[derive(Debug, Clone)]
 pub struct SettingsForm {
@@ -48,9 +57,12 @@ pub struct SettingsForm {
     /// A control changed since the last `take_save`.
     changed: bool,
     error: Option<&'static str>,
+    /// The window shows every section, not only the control group.
+    expanded: bool,
 }
 
 impl SettingsForm {
+    /// The form of a window that opens small, with the control group only.
     #[must_use]
     pub const fn new(view: PreferencesView, platform: Platform) -> Self {
         Self {
@@ -58,6 +70,7 @@ impl SettingsForm {
             platform,
             changed: false,
             error: None,
+            expanded: false,
         }
     }
 
@@ -72,7 +85,7 @@ impl SettingsForm {
         self.changed = false;
     }
 
-    /// Shows a message under the buttons, or clears it. The edits stay, so the user can correct them.
+    /// Shows a message under the control group, or clears it. The edits stay, so the user can correct them.
     pub const fn show_error(&mut self, message: Option<&'static str>) {
         self.error = message;
     }
@@ -113,6 +126,28 @@ impl SettingsForm {
             | GatedControl::RunAsAdministrator
             | GatedControl::StoreAppSupport
             | GatedControl::ClipboardInput => true,
+        }
+    }
+
+    /// Whether the window shows every section, or only the control group.
+    #[must_use]
+    pub const fn is_expanded(&self) -> bool {
+        self.expanded
+    }
+
+    /// Shows every section, or only the control group. No setting changes, so nothing is saved.
+    pub const fn toggle_expanded(&mut self) {
+        self.expanded = !self.expanded;
+    }
+
+    /// The buttons the window offers, in the order it draws them: the column beside the control group, then the
+    /// reset, which only the expanded window offers, under its sections.
+    #[must_use]
+    pub const fn buttons(&self) -> &'static [Button] {
+        if self.expanded {
+            &EXPANDED_BUTTONS
+        } else {
+            &COMPACT_BUTTONS
         }
     }
 
