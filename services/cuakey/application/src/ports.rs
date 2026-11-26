@@ -3,6 +3,8 @@ use std::path::Path;
 
 use cuakey_domain::{MacroTable, Preferences};
 
+use crate::WindowPlaces;
+
 /// Where the preferences are kept between runs. The futures are `Send` so a use case can run on any runtime thread.
 pub trait PreferencesStore: Send + Sync {
     /// The stored preferences, or `None` when none were saved yet.
@@ -23,6 +25,14 @@ pub trait MacroStore: Send + Sync {
 
     /// Writes the stored macros to a macro file at `path`.
     fn export(&self, path: &Path) -> impl Future<Output = Result<(), StoreError>> + Send;
+}
+
+/// Where each window's last place on screen is kept between runs.
+pub trait WindowPlacesStore: Send + Sync {
+    /// The saved places; none saved yet is an empty set.
+    fn load(&self) -> impl Future<Output = Result<WindowPlaces, StoreError>> + Send;
+
+    fn save(&self, places: &WindowPlaces) -> impl Future<Output = Result<(), StoreError>> + Send;
 }
 
 /// What an imported macro file does to the macros already stored.

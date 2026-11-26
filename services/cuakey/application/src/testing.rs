@@ -10,7 +10,7 @@ use cuakey_domain::{MacroTable, Preferences};
 use crate::macros::{macro_table, macro_views};
 use crate::{
     Clipboard, ClipboardError, ImportMode, InvalidMacro, MacroStore, MacroView, PreferencesStore, PreferencesView,
-    StoreError, UpdateError,
+    StoreError, UpdateError, WindowPlaces, WindowPlacesStore,
 };
 
 /// Whether a fake does its work or fails the way a full disk or a clipboard another app holds would.
@@ -168,6 +168,54 @@ impl MacroStore for FakeMacroStore {
                 Ok(())
             }
             Health::Broken => Err(storage_failure(&path.display().to_string())),
+        })
+    }
+}
+
+/// Holds window places in memory.
+#[derive(Debug)]
+pub struct FakeWindowPlacesStore {
+    stored: Mutex<WindowPlaces>,
+    health: Health,
+}
+
+impl FakeWindowPlacesStore {
+    /// A store no place was saved to yet.
+    pub fn new(health: Health) -> Self {
+        Self {
+            stored: Mutex::new(WindowPlaces::default()),
+            health,
+        }
+    }
+
+    /// A working store that holds `places`.
+    pub const fn holding(places: WindowPlaces) -> Self {
+        Self {
+            stored: Mutex::new(places),
+            health: Health::Working,
+        }
+    }
+
+    pub fn stored(&self) -> WindowPlaces {
+        lock(&self.stored).clone()
+    }
+}
+
+impl WindowPlacesStore for FakeWindowPlacesStore {
+    fn load(&self) -> impl Future<Output = Result<WindowPlaces, StoreError>> + Send {
+        ready(match self.health {
+            Health::Working => Ok(lock(&self.stored).clone()),
+            Health::Broken => Err(storage_failure("window places")),
+        })
+    }
+
+    fn save(&self, places: &WindowPlaces) -> impl Future<Output = Result<(), StoreError>> + Send {
+        ready(match self.health {
+            Health::Working => {
+                *lock(&self.stored) = places.clone();
+                Ok(())
+            }
+            Health::Broken => Err(storage_failure("window places")),
         })
     }
 }

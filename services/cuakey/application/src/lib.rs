@@ -36,12 +36,13 @@ mod quick_convert;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
 mod typing_session;
+mod window_places;
 
 pub use macros::{
     ExportMacros, ExportMacrosCommand, ExportMacrosError, ImportMacros, ImportMacrosCommand, ImportMacrosError,
     InvalidMacro, LoadMacros, LoadMacrosError, MacroView, SaveMacros, SaveMacrosError,
 };
-pub use ports::{Clipboard, ClipboardError, ImportMode, MacroStore, PreferencesStore, StoreError};
+pub use ports::{Clipboard, ClipboardError, ImportMode, MacroStore, PreferencesStore, StoreError, WindowPlacesStore};
 pub use preferences::{
     AppMemoryView, BehaviourPrefs, CodeTableValue, CompatibilityPrefs, ConvertCaseValue, ConvertPrefs, HotkeyView,
     InputMethodValue, InterfaceLanguageValue, LanguageValue, LoadPreferences, LoadPreferencesError, MacroPrefs,
@@ -52,4 +53,8 @@ pub use quick_convert::{QuickConvert, QuickConvertError, QuickConvertResult};
 pub use typing_session::{
     AppSwitchResult, CommandValue, FocusValue, KeyCommand, KeyFlags, KeyName, KeyResult, LayoutFlags, OutputAction,
     SessionError, TypingSession,
+};
+pub use window_places::{
+    LoadWindowPlaces, LoadWindowPlacesError, PlacedWindow, SaveWindowPlaces, SaveWindowPlacesError, WindowPlace,
+    WindowPlaces,
 };
