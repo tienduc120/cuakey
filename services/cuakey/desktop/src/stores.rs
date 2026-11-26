@@ -6,9 +6,9 @@ use std::path::PathBuf;
 
 use cuakey_application::{
     ExportMacros, ExportMacrosCommand, ExportMacrosError, ImportMacros, ImportMacrosCommand, ImportMacrosError,
-    ImportMode, LoadMacros, LoadMacrosError, LoadPreferences, LoadPreferencesError, MacroView, PreferencesView,
-    QuickConvert, QuickConvertError, QuickConvertResult, ResetPreferences, ResetPreferencesError, SaveMacros,
-    SaveMacrosError, SavePreferences, SavePreferencesError,
+    ImportMode, InterfaceLanguageValue, LoadMacros, LoadMacrosError, LoadPreferences, LoadPreferencesError, MacroView,
+    PreferencesView, QuickConvert, QuickConvertError, QuickConvertResult, ResetPreferences, ResetPreferencesError,
+    SaveMacros, SaveMacrosError, SavePreferences, SavePreferencesError,
 };
 use cuakey_infrastructure::{JsonPreferencesStore, TextMacroStore, WindowsClipboard};
 use platform_clock::SystemClock;
@@ -121,6 +121,20 @@ impl Stores {
         self.runtime
             .block_on(QuickConvert::new(WindowsClipboard, self.preferences()).execute())
     }
+
+    /// The interface language the stored preferences ask for, or the default one when they cannot be read.
+    pub(crate) fn interface_language(&self) -> InterfaceLanguageValue {
+        self.load_preferences().unwrap_or_default().system.interface_language
+    }
+}
+
+/// The interface language of the stored preferences, for a notice shown when the app could not start, before any were
+/// read: the default one when the stores cannot be opened either.
+pub(crate) fn stored_interface_language() -> InterfaceLanguageValue {
+    Stores::open().map_or_else(
+        |_| PreferencesView::default().system.interface_language,
+        |stores| stores.interface_language(),
+    )
 }
 
 #[cfg(test)]

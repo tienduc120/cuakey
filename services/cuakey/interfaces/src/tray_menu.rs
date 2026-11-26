@@ -1,10 +1,12 @@
-//! The notification-area menu as plain data: what it shows for the current preferences, and what a click changes.
-//! It knows no Win32, so the process that draws the menu only translates entries to menu items and clicks to ids.
+//! The notification-area menu as plain data: what it shows for the current preferences, in their interface language,
+//! and what a click changes. It knows no Win32, so the process that draws the menu only translates entries to menu
+//! items and clicks to ids.
 
 use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView, Toggle, app_name};
 
+use crate::WindowKind;
+use crate::labels::{Labels, labels_for};
 use crate::settings_form::{is_on, toggle};
-use crate::{WindowKind, labels};
 
 /// What a menu item stands for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,48 +68,54 @@ impl MenuEntry {
     }
 }
 
-const INPUT_METHODS: [(InputMethodValue, &str); 3] = [
-    (InputMethodValue::Telex, labels::MENU_INPUT_METHOD_TELEX),
-    (InputMethodValue::Vni, labels::MENU_INPUT_METHOD_VNI),
-    (InputMethodValue::SimpleTelex, labels::MENU_INPUT_METHOD_SIMPLE_TELEX),
-];
+const fn input_method_items(text: &Labels) -> [(InputMethodValue, &'static str); 3] {
+    [
+        (InputMethodValue::Telex, text.menu_input_method_telex),
+        (InputMethodValue::Vni, text.menu_input_method_vni),
+        (InputMethodValue::SimpleTelex, text.menu_input_method_simple_telex),
+    ]
+}
 
-const MAIN_CODE_TABLES: [(CodeTableValue, &str); 3] = [
-    (CodeTableValue::Unicode, labels::CODE_TABLE_UNICODE),
-    (CodeTableValue::Tcvn3, labels::CODE_TABLE_TCVN3),
-    (CodeTableValue::VniWindows, labels::CODE_TABLE_VNI_WINDOWS),
-];
+const fn main_code_tables(text: &Labels) -> [(CodeTableValue, &'static str); 3] {
+    [
+        (CodeTableValue::Unicode, text.code_table_unicode),
+        (CodeTableValue::Tcvn3, text.code_table_tcvn3),
+        (CodeTableValue::VniWindows, text.code_table_vni_windows),
+    ]
+}
 
-const OTHER_CODE_TABLES: [(CodeTableValue, &str); 2] = [
-    (CodeTableValue::UnicodeCompound, labels::CODE_TABLE_UNICODE_COMPOUND),
-    (CodeTableValue::Cp1258, labels::CODE_TABLE_CP1258),
-];
+const fn other_code_tables(text: &Labels) -> [(CodeTableValue, &'static str); 2] {
+    [
+        (CodeTableValue::UnicodeCompound, text.code_table_unicode_compound),
+        (CodeTableValue::Cp1258, text.code_table_cp1258),
+    ]
+}
 
 fn code_table_entry(prefs: &PreferencesView, table: CodeTableValue, label: &str) -> MenuEntry {
     MenuEntry::item(MenuId::CodeTable(table), label, Some(prefs.typing.code_table == table))
 }
 
-fn switches(prefs: &PreferencesView) -> Vec<MenuEntry> {
+fn switches(prefs: &PreferencesView, text: &Labels) -> Vec<MenuEntry> {
     vec![
         MenuEntry::item(
             MenuId::Vietnamese,
-            labels::MENU_VIETNAMESE,
+            text.menu_vietnamese,
             Some(prefs.language == LanguageValue::Vietnamese),
         ),
         MenuEntry::separator(),
         MenuEntry::item(
             MenuId::SpellCheck,
-            labels::MENU_SPELL_CHECK,
+            text.menu_spell_check,
             Some(is_on(prefs.typing.spell_check)),
         ),
         MenuEntry::item(
             MenuId::SmartSwitch,
-            labels::MENU_SMART_SWITCH,
+            text.menu_smart_switch,
             Some(is_on(prefs.switching.smart_switch)),
         ),
         MenuEntry::item(
             MenuId::UseMacros,
-            labels::MENU_USE_MACROS,
+            text.menu_use_macros,
             Some(is_on(prefs.macros.use_macros)),
         ),
         MenuEntry::separator(),
@@ -115,29 +123,29 @@ fn switches(prefs: &PreferencesView) -> Vec<MenuEntry> {
 }
 
 /// The item for the app that had the focus before the menu opened. It is hidden when there is no such app.
-fn always_on_item(prefs: &PreferencesView, last_app: Option<&str>) -> Vec<MenuEntry> {
+fn always_on_item(prefs: &PreferencesView, text: &Labels, last_app: Option<&str>) -> Vec<MenuEntry> {
     let Some(name) = last_app.and_then(|app| app_name(app).ok()) else {
         return Vec::new();
     };
     let listed = prefs.always_on.contains(&name);
-    let label = format!("{}{name}", labels::MENU_ALWAYS_ON_PREFIX);
+    let label = format!("{}{name}", text.menu_always_on_prefix);
     vec![
         MenuEntry::item(MenuId::AlwaysOnApp(name), &label, Some(listed)),
         MenuEntry::separator(),
     ]
 }
 
-fn tools() -> Vec<MenuEntry> {
+fn tools(text: &Labels) -> Vec<MenuEntry> {
     vec![
-        MenuEntry::item(MenuId::ConfigureMacros, labels::MENU_CONFIGURE_MACROS, None),
-        MenuEntry::item(MenuId::ConvertTool, labels::MENU_CONVERT_TOOL, None),
-        MenuEntry::item(MenuId::QuickConvert, labels::MENU_QUICK_CONVERT, None),
+        MenuEntry::item(MenuId::ConfigureMacros, text.menu_configure_macros, None),
+        MenuEntry::item(MenuId::ConvertTool, text.menu_convert_tool, None),
+        MenuEntry::item(MenuId::QuickConvert, text.menu_quick_convert, None),
         MenuEntry::separator(),
     ]
 }
 
-fn input_methods(prefs: &PreferencesView) -> Vec<MenuEntry> {
-    let mut entries: Vec<MenuEntry> = INPUT_METHODS
+fn input_methods(prefs: &PreferencesView, text: &Labels) -> Vec<MenuEntry> {
+    let mut entries: Vec<MenuEntry> = input_method_items(text)
         .iter()
         .map(|(method, label)| {
             MenuEntry::item(
@@ -151,41 +159,43 @@ fn input_methods(prefs: &PreferencesView) -> Vec<MenuEntry> {
     entries
 }
 
-fn code_tables(prefs: &PreferencesView) -> Vec<MenuEntry> {
-    let mut entries: Vec<MenuEntry> = MAIN_CODE_TABLES
+fn code_tables(prefs: &PreferencesView, text: &Labels) -> Vec<MenuEntry> {
+    let mut entries: Vec<MenuEntry> = main_code_tables(text)
         .iter()
         .map(|(table, label)| code_table_entry(prefs, *table, label))
         .collect();
     entries.push(MenuEntry {
-        children: OTHER_CODE_TABLES
+        children: other_code_tables(text)
             .iter()
             .map(|(table, label)| code_table_entry(prefs, *table, label))
             .collect(),
-        ..MenuEntry::item(MenuId::OtherCodeTables, labels::MENU_OTHER_CODE_TABLES, None)
+        ..MenuEntry::item(MenuId::OtherCodeTables, text.menu_other_code_tables, None)
     });
     entries.push(MenuEntry::separator());
     entries
 }
 
-fn windows_and_exit() -> Vec<MenuEntry> {
+fn windows_and_exit(text: &Labels) -> Vec<MenuEntry> {
     vec![
-        MenuEntry::item(MenuId::ControlPanel, labels::MENU_CONTROL_PANEL, None),
-        MenuEntry::item(MenuId::About, labels::MENU_ABOUT, None),
+        MenuEntry::item(MenuId::ControlPanel, text.menu_control_panel, None),
+        MenuEntry::item(MenuId::About, text.menu_about, None),
         MenuEntry::separator(),
-        MenuEntry::item(MenuId::Exit, labels::MENU_EXIT, None),
+        MenuEntry::item(MenuId::Exit, text.menu_exit, None),
     ]
 }
 
-/// The menu for `prefs`. `last_app` is the app that had the focus before the menu opened, if any is known.
+/// The menu for `prefs`, in their interface language. `last_app` is the app that had the focus before the menu opened,
+/// if any is known.
 #[must_use]
 pub fn model(prefs: &PreferencesView, last_app: Option<&str>) -> Vec<MenuEntry> {
+    let text = labels_for(prefs);
     [
-        switches(prefs),
-        always_on_item(prefs, last_app),
-        tools(),
-        input_methods(prefs),
-        code_tables(prefs),
-        windows_and_exit(),
+        switches(prefs, text),
+        always_on_item(prefs, text, last_app),
+        tools(text),
+        input_methods(prefs, text),
+        code_tables(prefs, text),
+        windows_and_exit(text),
     ]
     .concat()
 }

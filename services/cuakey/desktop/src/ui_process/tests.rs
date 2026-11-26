@@ -246,7 +246,7 @@ fn the_about_menu_brings_the_about_text_into_view() {
 
     let mut opened = Window::open(WindowKind::About, &stores);
     assert!(
-        ends_in_view(&mut opened, labels::SECTION_ABOUT),
+        ends_in_view(&mut opened, labels::ENGLISH.section_about),
         "a window opened for About shows the about text"
     );
 
@@ -255,7 +255,82 @@ fn the_about_menu_brings_the_about_text_into_view() {
         expand_for_about(ctx, &mut open_compact, egui::ViewportId::ROOT);
     }));
     assert!(
-        ends_in_view(&mut open_compact, labels::SECTION_ABOUT),
+        ends_in_view(&mut open_compact, labels::ENGLISH.section_about),
         "a window About expanded shows the about text"
     );
+}
+
+/// What one pass drawing `window` tells the viewport it is drawn in, the root one here.
+fn commands_drawing(window: &mut Window) -> Vec<egui::ViewportCommand> {
+    let ctx = egui::Context::default();
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| drop(window.show(ui)));
+    // No renderer takes the font texture here.
+    output.textures_delta.clear();
+    output
+        .viewport_output
+        .get(&egui::ViewportId::ROOT)
+        .map(|viewport| viewport.commands.clone())
+        .unwrap_or_default()
+}
+
+/// The titles `commands` give the native window, in order.
+fn titles(commands: &[egui::ViewportCommand]) -> Vec<String> {
+    commands
+        .iter()
+        .filter_map(|command| {
+            if let egui::ViewportCommand::Title(title) = command {
+                Some(title.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn a_window_takes_the_title_of_its_interface_language() {
+    let stores = empty_stores("title");
+    let mut vietnamese = PreferencesView::default();
+    vietnamese.system.interface_language = InterfaceLanguageValue::Vietnamese;
+
+    for (kind, english, translated) in [
+        (
+            WindowKind::Settings,
+            labels::ENGLISH.window_title,
+            labels::VIETNAMESE.window_title,
+        ),
+        (
+            WindowKind::Macros,
+            labels::ENGLISH.macro_window_title,
+            labels::VIETNAMESE.macro_window_title,
+        ),
+        (
+            WindowKind::Convert,
+            labels::ENGLISH.convert_window_title,
+            labels::VIETNAMESE.convert_window_title,
+        ),
+        (
+            WindowKind::AlwaysOn,
+            labels::ENGLISH.always_on_window_title,
+            labels::VIETNAMESE.always_on_window_title,
+        ),
+    ] {
+        let mut window = Window::open(kind, &stores);
+        assert_eq!(window.title(), english, "{kind:?} opens in English, the default");
+        assert!(
+            titles(&commands_drawing(&mut window)).is_empty(),
+            "{kind:?} keeps the title it opened with"
+        );
+
+        window.set_preferences(vietnamese.clone());
+        assert_eq!(
+            titles(&commands_drawing(&mut window)),
+            [translated],
+            "{kind:?} is retitled in Vietnamese"
+        );
+        assert!(
+            titles(&commands_drawing(&mut window)).is_empty(),
+            "{kind:?} is retitled once, not every frame"
+        );
+    }
 }

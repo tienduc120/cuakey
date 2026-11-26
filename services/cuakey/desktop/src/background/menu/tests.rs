@@ -1,8 +1,8 @@
-use cuakey_application::{CodeTableValue, LanguageValue, PreferencesView};
-use cuakey_interfaces::{MenuEntry, MenuId, model};
+use cuakey_application::{CodeTableValue, InterfaceLanguageValue, LanguageValue, PreferencesView};
+use cuakey_interfaces::{MenuEntry, MenuId, labels, model};
 use platform_windows::{MenuItem, TrayIcon};
 
-use super::{MenuMap, menu_app, tray_icon};
+use super::{MenuMap, menu_app, tray_icon, tray_tooltip};
 
 fn entry(id: MenuId, label: &str, checked: Option<bool>) -> MenuEntry {
     MenuEntry {
@@ -91,4 +91,20 @@ fn the_menu_offers_the_last_app_that_is_neither_cuakey_nor_the_desktop() {
     assert_eq!(menu_app("cuakey.exe"), None, "the windows of CuaKey itself");
     assert_eq!(menu_app("explorer.exe"), None, "the taskbar the menu opens from");
     assert_eq!(menu_app(""), None, "an app whose name could not be read");
+}
+
+#[test]
+fn the_tooltip_speaks_the_interface_language() {
+    assert_eq!(
+        tray_tooltip(InterfaceLanguageValue::Vietnamese),
+        labels::VIETNAMESE.window_title
+    );
+    assert_eq!(
+        tray_tooltip(InterfaceLanguageValue::English),
+        labels::ENGLISH.window_title
+    );
+    assert_ne!(
+        tray_tooltip(InterfaceLanguageValue::Vietnamese),
+        tray_tooltip(InterfaceLanguageValue::English)
+    );
 }

@@ -24,6 +24,7 @@ pub use convert_form::ConvertForm;
 pub use convert_window::ConvertWindow;
 pub use fonts::{FontError, install_system_font};
 pub use hotkey_editor::{key_from_egui, key_label, key_to_egui, press_key};
+pub use labels::{Labels, labels};
 pub use macro_form::MacroForm;
 pub use macro_window::MacroWindow;
 pub use messages::{

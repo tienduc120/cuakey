@@ -1,5 +1,6 @@
 use cuakey_application::{
-    AppMemoryView, CodeTableValue, HotkeyView, InputMethodValue, KeyName, LanguageValue, PreferencesView, Toggle,
+    AppMemoryView, CodeTableValue, HotkeyView, InputMethodValue, InterfaceLanguageValue, KeyName, LanguageValue,
+    PreferencesView, Toggle,
 };
 
 use super::{ButtonBar, GatedControl, SettingsForm};
@@ -61,6 +62,7 @@ fn flipped(base: &PreferencesView) -> PreferencesView {
     view.system.show_settings_at_startup = flip(base.system.show_settings_at_startup);
     view.system.run_as_administrator = flip(base.system.run_as_administrator);
     view.system.desktop_shortcut = flip(base.system.desktop_shortcut);
+    view.system.interface_language = InterfaceLanguageValue::Vietnamese;
     view.behaviours.settings_hotkey = hotkey(KeyName::F10);
     view.behaviours.keep_w = flip(base.behaviours.keep_w);
     view.behaviours.only_text_boxes = flip(base.behaviours.only_text_boxes);
@@ -97,6 +99,7 @@ fn apply_every_control(form: &mut SettingsForm, target: &PreferencesView) {
     form.set_show_settings_at_startup(on(target.system.show_settings_at_startup));
     form.set_run_as_administrator(on(target.system.run_as_administrator));
     form.set_desktop_shortcut(on(target.system.desktop_shortcut));
+    form.set_interface_language(target.system.interface_language);
     form.set_settings_hotkey(target.behaviours.settings_hotkey);
     form.set_keep_w(on(target.behaviours.keep_w));
     form.set_only_text_boxes(on(target.behaviours.only_text_boxes));

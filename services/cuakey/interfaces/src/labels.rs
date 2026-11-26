@@ -1,127 +1,523 @@
-//! Every string the settings window shows. The text is Vietnamese.
+//! Every text `CuaKey` shows, in Vietnamese and in English: its windows, the tray menu and tooltip, and its messages. The
+//! user picks the interface language in the settings window, and every window reads its texts from it on every frame.
 
-pub const WINDOW_TITLE: &str = concat!("CuaKey ", env!("CARGO_PKG_VERSION"), " - Bộ gõ Tiếng Việt");
+use cuakey_application::{InterfaceLanguageValue, PreferencesView};
 
-/// The title of every notice the app shows outside its windows.
-pub const NOTICE_TITLE: &str = "CuaKey";
+/// Every text `CuaKey` shows, in one interface language.
+#[derive(Debug)]
+pub struct Labels {
+    /// The settings window's title, and the tray icon's tooltip.
+    pub window_title: &'static str,
+    /// The title of every notice the app shows outside its windows.
+    pub notice_title: &'static str,
 
-pub const SECTION_TYPING: &str = "Bộ gõ";
-pub const SECTION_MACROS: &str = "Gõ tắt";
-pub const SECTION_SYSTEM: &str = "Hệ thống";
-pub const SECTION_ABOUT: &str = "Thông tin";
+    pub section_typing: &'static str,
+    pub section_macros: &'static str,
+    pub section_system: &'static str,
+    pub section_about: &'static str,
 
-pub const INPUT_METHOD: &str = "Kiểu gõ:";
-pub const INPUT_METHOD_TELEX: &str = "Telex";
-pub const INPUT_METHOD_VNI: &str = "VNI";
-pub const INPUT_METHOD_SIMPLE_TELEX: &str = "Simple Telex";
+    pub input_method: &'static str,
+    pub input_method_telex: &'static str,
+    pub input_method_vni: &'static str,
+    pub input_method_simple_telex: &'static str,
 
-pub const CODE_TABLE: &str = "Bảng mã:";
-pub const CODE_TABLE_UNICODE: &str = "Unicode dựng sẵn";
-pub const CODE_TABLE_TCVN3: &str = "TCVN3 (ABC)";
-pub const CODE_TABLE_VNI_WINDOWS: &str = "VNI Windows";
-pub const CODE_TABLE_UNICODE_COMPOUND: &str = "Unicode tổ hợp";
-pub const CODE_TABLE_CP1258: &str = "Vietnamese locale CP 1258";
+    pub code_table: &'static str,
+    pub code_table_unicode: &'static str,
+    pub code_table_tcvn3: &'static str,
+    pub code_table_vni_windows: &'static str,
+    pub code_table_unicode_compound: &'static str,
+    pub code_table_cp1258: &'static str,
 
-pub const SWITCH_HOTKEY: &str = "Phím chuyển:";
-pub const BEEP: &str = "Kêu Beep";
-pub const SETTINGS_HOTKEY: &str = "Phím mở cài đặt:";
+    pub switch_hotkey: &'static str,
+    pub beep: &'static str,
+    pub settings_hotkey: &'static str,
 
-pub const LANGUAGE: &str = "Chế độ gõ:";
-pub const LANGUAGE_VIETNAMESE: &str = "Tiếng Việt";
-pub const LANGUAGE_ENGLISH: &str = "Tiếng Anh";
+    /// The language the keyboard types in, and its two choices.
+    pub language: &'static str,
+    pub language_vietnamese: &'static str,
+    pub language_english: &'static str,
 
-pub const NEW_TONE_STYLE: &str = "Đặt dấu oà, uý (thay vì òa, úy)";
-pub const FIX_AUTOCOMPLETE: &str = "Sửa lỗi gợi ý (trình duyệt, Excel)";
-pub const SPELL_CHECK: &str = "Kiểm tra chính tả";
-pub const RESTORE_INVALID_WORD: &str = "Tự khôi phục phím với từ sai";
-pub const ALLOW_ZWJF_CONSONANTS: &str = "Cho phép \"z w j f\" làm phụ âm đầu";
-pub const CAPITALIZE_SENTENCES: &str = "Viết Hoa chữ cái đầu câu";
-pub const SMART_SWITCH: &str = "Loại trừ ứng dụng thông minh";
-pub const REMEMBER_CODE_TABLE: &str = "Tự ghi nhớ bảng mã theo ứng dụng";
-pub const WORK_IN_OTHER_LANGUAGES: &str = "Cho phép gõ trong các ngôn ngữ khác";
-pub const KEEP_W: &str = "Giữ nguyên chữ w ở đầu từ";
-pub const ONLY_TEXT_BOXES: &str = "Chỉ gõ tiếng Việt trong ô nhập chữ";
-pub const ALWAYS_ON_APPS: &str = "Ứng dụng luôn bật...";
+    /// The language `CuaKey` itself speaks. Each choice is named in its own language, the same in either interface, so
+    /// a user finds theirs whichever one is showing.
+    pub interface_language: &'static str,
+    pub interface_vietnamese: &'static str,
+    pub interface_english: &'static str,
 
-pub const USE_MACROS: &str = "Cho phép gõ tắt";
-pub const MACROS_IN_ENGLISH: &str = "Gõ tắt cả khi tắt gõ tiếng Việt";
-pub const MACRO_MATCH_CASE: &str = "Tự động viết hoa theo phím tắt";
-pub const MACRO_TABLE: &str = "Bảng gõ tắt...";
-pub const QUICK_TELEX: &str = "Gõ nhanh (cc=ch, gg=gi, nn=ng,...)";
-pub const QUICK_FIRST_CONSONANT: &str = "Gõ tắt phụ âm đầu: f→ph, j→gi, w→qu";
-pub const QUICK_LAST_CONSONANT: &str = "Gõ tắt phụ âm cuối: g→ng, h→nh, k→ch";
+    pub new_tone_style: &'static str,
+    pub fix_autocomplete: &'static str,
+    pub spell_check: &'static str,
+    pub restore_invalid_word: &'static str,
+    pub allow_zwjf_consonants: &'static str,
+    pub capitalize_sentences: &'static str,
+    pub smart_switch: &'static str,
+    pub remember_code_table: &'static str,
+    pub work_in_other_languages: &'static str,
+    pub keep_w: &'static str,
+    pub only_text_boxes: &'static str,
+    pub always_on_apps: &'static str,
 
-pub const START_WITH_WINDOWS: &str = "Khởi động cùng Windows";
-pub const SHOW_SETTINGS_AT_STARTUP: &str = "Bật bảng này khi khởi động";
-pub const DESKTOP_SHORTCUT: &str = "Tạo biểu tượng trên Desktop";
-pub const RUN_AS_ADMINISTRATOR: &str = "Chạy với quyền Admin";
-pub const STORE_APP_SUPPORT: &str = "Hỗ trợ ứng dụng Metro";
-pub const CHROMIUM_FIX: &str = "Sửa lỗi trên Chromium (beta)";
-pub const CLIPBOARD_INPUT: &str = "Dùng Clipboard để gửi phím";
+    pub use_macros: &'static str,
+    pub macros_in_english: &'static str,
+    pub macro_match_case: &'static str,
+    pub macro_table: &'static str,
+    pub quick_telex: &'static str,
+    pub quick_first_consonant: &'static str,
+    pub quick_last_consonant: &'static str,
 
-pub const ABOUT_NAME: &str = "CuaKey - Bộ gõ Tiếng Việt nguồn mở";
-pub const ABOUT_VERSION: &str = concat!("Phiên bản ", env!("CARGO_PKG_VERSION"));
-pub const ABOUT_LICENSE: &str = "Giấy phép MIT";
-pub const ABOUT_URL: &str = "https://github.com/tienduc120/cuakey";
-pub const ABOUT_CREDITS: &str = "Tham khảo hành vi gõ của OpenKey";
+    pub start_with_windows: &'static str,
+    pub show_settings_at_startup: &'static str,
+    pub desktop_shortcut: &'static str,
+    pub run_as_administrator: &'static str,
+    pub store_app_support: &'static str,
+    pub chromium_fix: &'static str,
+    pub clipboard_input: &'static str,
 
-pub const BUTTON_EXIT: &str = "Thoát";
-pub const BUTTON_RESET: &str = "Cài đặt gốc";
-pub const BUTTON_CLOSE: &str = "Đóng";
-pub const BUTTON_EXPAND: &str = "Mở rộng ▼";
-pub const BUTTON_COLLAPSE: &str = "Thu gọn ▲";
+    pub about_name: &'static str,
+    pub about_version: &'static str,
+    pub about_license: &'static str,
+    pub about_url: &'static str,
+    pub about_credits: &'static str,
 
-pub const KEY_CTRL: &str = "Ctrl";
-pub const KEY_ALT: &str = "Alt";
-pub const KEY_WIN: &str = "Win";
-pub const KEY_SHIFT: &str = "Shift";
-pub const HOTKEY_OTHER_KEY: &str = "Phím khác";
-pub const HOTKEY_FIELD_HINT: &str = "Bấm vào rồi nhấn một phím; Backspace để bỏ phím";
+    pub button_exit: &'static str,
+    pub button_reset: &'static str,
+    pub button_close: &'static str,
+    pub button_expand: &'static str,
+    pub button_collapse: &'static str,
 
-pub const MACRO_WINDOW_TITLE: &str = "Thiết lập gõ tắt - CuaKey";
-pub const MACRO_SHORTCUT_COLUMN: &str = "Từ gõ tắt";
-pub const MACRO_EXPANSION_COLUMN: &str = "Nội dung đầy đủ";
-pub const MACRO_ADD: &str = "+ Thêm";
-pub const MACRO_REMOVE: &str = "- Xóa";
-pub const MACRO_IMPORT: &str = "Nạp từ file...";
-pub const MACRO_EXPORT: &str = "Xuất ra file...";
-pub const MACRO_MATCH_CAPITALS: &str = "Tự động đổi chữ hoa theo phím tắt";
-pub const MACRO_IMPORT_QUESTION: &str = "Nạp bảng gõ tắt từ file:";
-pub const MACRO_IMPORT_APPEND: &str = "Thêm vào";
-pub const MACRO_IMPORT_REPLACE: &str = "Thay thế";
-pub const MACRO_IMPORT_CANCEL: &str = "Hủy";
-pub const MACRO_FILE_FILTER: &str = "Tệp văn bản";
+    pub key_ctrl: &'static str,
+    pub key_alt: &'static str,
+    pub key_win: &'static str,
+    pub key_shift: &'static str,
+    pub hotkey_other_key: &'static str,
+    pub hotkey_field_hint: &'static str,
 
-pub const CONVERT_WINDOW_TITLE: &str = "Công cụ chuyển mã - CuaKey";
-pub const CONVERT_UPPER: &str = "Chuyển sang chữ HOA";
-pub const CONVERT_LOWER: &str = "Chuyển sang chữ thường";
-pub const CONVERT_SENTENCE_START: &str = "Đặt chữ Hoa đầu câu";
-pub const CONVERT_EACH_WORD: &str = "Đặt chữ Hoa Sau Mỗi Từ";
-pub const CONVERT_REMOVE_ACCENTS: &str = "Loại bỏ dấu câu";
-pub const CONVERT_NOTIFY: &str = "Thông báo khi chuyển xong";
-pub const CONVERT_HOTKEY: &str = "Phím chuyển mã nhanh:";
-pub const CONVERT_FROM: &str = "Bảng mã nguồn";
-pub const CONVERT_TO: &str = "Bảng mã đích";
-pub const CONVERT_SWAP: &str = "Đảo";
-pub const CONVERT_RUN: &str = "Chuyển mã";
+    pub macro_window_title: &'static str,
+    pub macro_shortcut_column: &'static str,
+    pub macro_expansion_column: &'static str,
+    pub macro_add: &'static str,
+    pub macro_remove: &'static str,
+    pub macro_import: &'static str,
+    pub macro_export: &'static str,
+    pub macro_match_capitals: &'static str,
+    pub macro_import_question: &'static str,
+    pub macro_import_append: &'static str,
+    pub macro_import_replace: &'static str,
+    pub macro_import_cancel: &'static str,
+    pub macro_file_filter: &'static str,
 
-pub const ALWAYS_ON_WINDOW_TITLE: &str = "Ứng dụng luôn bật tiếng Việt";
-pub const ALWAYS_ON_ADD: &str = "+ Thêm";
-pub const ALWAYS_ON_REMOVE: &str = "- Xóa";
-pub const ALWAYS_ON_HINT: &str = "Tên file chương trình, ví dụ: game.exe";
+    pub convert_window_title: &'static str,
+    pub convert_upper: &'static str,
+    pub convert_lower: &'static str,
+    pub convert_sentence_start: &'static str,
+    pub convert_each_word: &'static str,
+    pub convert_remove_accents: &'static str,
+    pub convert_notify: &'static str,
+    pub convert_hotkey: &'static str,
+    pub convert_from: &'static str,
+    pub convert_to: &'static str,
+    pub convert_swap: &'static str,
+    pub convert_run: &'static str,
 
-pub const MENU_VIETNAMESE: &str = "Bật Tiếng Việt";
-pub const MENU_SPELL_CHECK: &str = "Bật kiểm tra chính tả";
-pub const MENU_SMART_SWITCH: &str = "Bật loại trừ ứng dụng thông minh";
-pub const MENU_USE_MACROS: &str = "Bật gõ tắt";
-pub const MENU_ALWAYS_ON_PREFIX: &str = "★ Luôn bật tiếng Việt cho ";
-pub const MENU_CONFIGURE_MACROS: &str = "Cấu hình gõ tắt...";
-pub const MENU_CONVERT_TOOL: &str = "Công cụ chuyển mã...";
-pub const MENU_QUICK_CONVERT: &str = "Chuyển mã nhanh";
-pub const MENU_INPUT_METHOD_TELEX: &str = "Kiểu gõ Telex";
-pub const MENU_INPUT_METHOD_VNI: &str = "Kiểu gõ VNI";
-pub const MENU_INPUT_METHOD_SIMPLE_TELEX: &str = "Kiểu gõ Simple Telex";
-pub const MENU_OTHER_CODE_TABLES: &str = "Bảng mã khác";
-pub const MENU_CONTROL_PANEL: &str = "Bảng điều khiển...";
-pub const MENU_ABOUT: &str = "Giới thiệu CuaKey";
-pub const MENU_EXIT: &str = "Thoát";
+    pub always_on_window_title: &'static str,
+    pub always_on_add: &'static str,
+    pub always_on_remove: &'static str,
+    pub always_on_hint: &'static str,
+
+    pub menu_vietnamese: &'static str,
+    pub menu_spell_check: &'static str,
+    pub menu_smart_switch: &'static str,
+    pub menu_use_macros: &'static str,
+    /// Followed by the app's file name.
+    pub menu_always_on_prefix: &'static str,
+    pub menu_configure_macros: &'static str,
+    pub menu_convert_tool: &'static str,
+    pub menu_quick_convert: &'static str,
+    pub menu_input_method_telex: &'static str,
+    pub menu_input_method_vni: &'static str,
+    pub menu_input_method_simple_telex: &'static str,
+    pub menu_other_code_tables: &'static str,
+    pub menu_control_panel: &'static str,
+    pub menu_about: &'static str,
+    pub menu_exit: &'static str,
+
+    pub notice_convert_done: &'static str,
+    pub notice_defaults_not_saved: &'static str,
+    pub notice_settings_unread_not_saved: &'static str,
+    pub notice_macros_unread_not_saved: &'static str,
+    pub notice_elevation_refused: &'static str,
+    pub notice_elevation_failed: &'static str,
+    pub notice_startup_needs_administrator: &'static str,
+    pub notice_startup_not_changed: &'static str,
+    pub notice_shortcut_not_changed: &'static str,
+    pub notice_not_started: &'static str,
+    pub notice_window_not_opened: &'static str,
+
+    pub settings_not_read: &'static str,
+    pub settings_not_saved: &'static str,
+    pub empty_profile_id: &'static str,
+    pub empty_app_name: &'static str,
+    pub empty_hotkey: &'static str,
+    pub invalid_hotkey_key: &'static str,
+    pub switch_equals_settings: &'static str,
+    pub quick_convert_clashes: &'static str,
+
+    pub macro_empty_shortcut: &'static str,
+    pub macro_whitespace: &'static str,
+    pub macro_colon: &'static str,
+    pub macro_semicolon: &'static str,
+    pub macro_line_break: &'static str,
+    pub macros_not_read: &'static str,
+    pub macros_not_saved: &'static str,
+    pub macros_not_imported: &'static str,
+    pub macros_not_exported: &'static str,
+
+    pub convert_no_text: &'static str,
+    pub clipboard_unavailable: &'static str,
+    pub convert_options_not_read: &'static str,
+}
+
+pub const VIETNAMESE: Labels = Labels {
+    window_title: concat!("CuaKey ", env!("CARGO_PKG_VERSION"), " - Bộ gõ Tiếng Việt"),
+    notice_title: "CuaKey",
+
+    section_typing: "Bộ gõ",
+    section_macros: "Gõ tắt",
+    section_system: "Hệ thống",
+    section_about: "Thông tin",
+
+    input_method: "Kiểu gõ:",
+    input_method_telex: "Telex",
+    input_method_vni: "VNI",
+    input_method_simple_telex: "Simple Telex",
+
+    code_table: "Bảng mã:",
+    code_table_unicode: "Unicode dựng sẵn",
+    code_table_tcvn3: "TCVN3 (ABC)",
+    code_table_vni_windows: "VNI Windows",
+    code_table_unicode_compound: "Unicode tổ hợp",
+    code_table_cp1258: "Vietnamese locale CP 1258",
+
+    switch_hotkey: "Phím chuyển:",
+    beep: "Kêu Beep",
+    settings_hotkey: "Phím mở cài đặt:",
+
+    language: "Chế độ gõ:",
+    language_vietnamese: "Tiếng Việt",
+    language_english: "Tiếng Anh",
+
+    interface_language: "Giao diện:",
+    interface_vietnamese: "Tiếng Việt",
+    interface_english: "English",
+
+    new_tone_style: "Đặt dấu oà, uý (thay vì òa, úy)",
+    fix_autocomplete: "Sửa lỗi gợi ý (trình duyệt, Excel)",
+    spell_check: "Kiểm tra chính tả",
+    restore_invalid_word: "Tự khôi phục phím với từ sai",
+    allow_zwjf_consonants: "Cho phép \"z w j f\" làm phụ âm đầu",
+    capitalize_sentences: "Viết Hoa chữ cái đầu câu",
+    smart_switch: "Loại trừ ứng dụng thông minh",
+    remember_code_table: "Tự ghi nhớ bảng mã theo ứng dụng",
+    work_in_other_languages: "Cho phép gõ trong các ngôn ngữ khác",
+    keep_w: "Giữ nguyên chữ w ở đầu từ",
+    only_text_boxes: "Chỉ gõ tiếng Việt trong ô nhập chữ",
+    always_on_apps: "Ứng dụng luôn bật...",
+
+    use_macros: "Cho phép gõ tắt",
+    macros_in_english: "Gõ tắt cả khi tắt gõ tiếng Việt",
+    macro_match_case: "Tự động viết hoa theo phím tắt",
+    macro_table: "Bảng gõ tắt...",
+    quick_telex: "Gõ nhanh (cc=ch, gg=gi, nn=ng,...)",
+    quick_first_consonant: "Gõ tắt phụ âm đầu: f→ph, j→gi, w→qu",
+    quick_last_consonant: "Gõ tắt phụ âm cuối: g→ng, h→nh, k→ch",
+
+    start_with_windows: "Khởi động cùng Windows",
+    show_settings_at_startup: "Bật bảng này khi khởi động",
+    desktop_shortcut: "Tạo biểu tượng trên Desktop",
+    run_as_administrator: "Chạy với quyền Admin",
+    store_app_support: "Hỗ trợ ứng dụng Metro",
+    chromium_fix: "Sửa lỗi trên Chromium (beta)",
+    clipboard_input: "Dùng Clipboard để gửi phím",
+
+    about_name: "CuaKey - Bộ gõ Tiếng Việt nguồn mở",
+    about_version: concat!("Phiên bản ", env!("CARGO_PKG_VERSION")),
+    about_license: "Giấy phép MIT",
+    about_url: "https://github.com/tienduc120/cuakey",
+    about_credits: "Tham khảo hành vi gõ của OpenKey",
+
+    button_exit: "Thoát",
+    button_reset: "Cài đặt gốc",
+    button_close: "Đóng",
+    button_expand: "Mở rộng ▼",
+    button_collapse: "Thu gọn ▲",
+
+    key_ctrl: "Ctrl",
+    key_alt: "Alt",
+    key_win: "Win",
+    key_shift: "Shift",
+    hotkey_other_key: "Phím khác",
+    hotkey_field_hint: "Bấm vào rồi nhấn một phím; Backspace để bỏ phím",
+
+    macro_window_title: "Thiết lập gõ tắt - CuaKey",
+    macro_shortcut_column: "Từ gõ tắt",
+    macro_expansion_column: "Nội dung đầy đủ",
+    macro_add: "+ Thêm",
+    macro_remove: "- Xóa",
+    macro_import: "Nạp từ file...",
+    macro_export: "Xuất ra file...",
+    macro_match_capitals: "Tự động đổi chữ hoa theo phím tắt",
+    macro_import_question: "Nạp bảng gõ tắt từ file:",
+    macro_import_append: "Thêm vào",
+    macro_import_replace: "Thay thế",
+    macro_import_cancel: "Hủy",
+    macro_file_filter: "Tệp văn bản",
+
+    convert_window_title: "Công cụ chuyển mã - CuaKey",
+    convert_upper: "Chuyển sang chữ HOA",
+    convert_lower: "Chuyển sang chữ thường",
+    convert_sentence_start: "Đặt chữ Hoa đầu câu",
+    convert_each_word: "Đặt chữ Hoa Sau Mỗi Từ",
+    convert_remove_accents: "Loại bỏ dấu câu",
+    convert_notify: "Thông báo khi chuyển xong",
+    convert_hotkey: "Phím chuyển mã nhanh:",
+    convert_from: "Bảng mã nguồn",
+    convert_to: "Bảng mã đích",
+    convert_swap: "Đảo",
+    convert_run: "Chuyển mã",
+
+    always_on_window_title: "Ứng dụng luôn bật tiếng Việt",
+    always_on_add: "+ Thêm",
+    always_on_remove: "- Xóa",
+    always_on_hint: "Tên file chương trình, ví dụ: game.exe",
+
+    menu_vietnamese: "Bật Tiếng Việt",
+    menu_spell_check: "Bật kiểm tra chính tả",
+    menu_smart_switch: "Bật loại trừ ứng dụng thông minh",
+    menu_use_macros: "Bật gõ tắt",
+    menu_always_on_prefix: "★ Luôn bật tiếng Việt cho ",
+    menu_configure_macros: "Cấu hình gõ tắt...",
+    menu_convert_tool: "Công cụ chuyển mã...",
+    menu_quick_convert: "Chuyển mã nhanh",
+    menu_input_method_telex: "Kiểu gõ Telex",
+    menu_input_method_vni: "Kiểu gõ VNI",
+    menu_input_method_simple_telex: "Kiểu gõ Simple Telex",
+    menu_other_code_tables: "Bảng mã khác",
+    menu_control_panel: "Bảng điều khiển...",
+    menu_about: "Giới thiệu CuaKey",
+    menu_exit: "Thoát",
+
+    notice_convert_done: "Chuyển mã thành công!",
+    notice_defaults_not_saved: "Không đọc được cài đặt. CuaKey dùng cài đặt gốc và không lưu thay đổi cho đến khi được \
+                                khởi động lại",
+    notice_settings_unread_not_saved: "Không đọc được cài đặt nên thay đổi ở cửa sổ này không được lưu",
+    notice_macros_unread_not_saved: "Không đọc được bảng gõ tắt nên thay đổi ở cửa sổ này không được lưu",
+    notice_elevation_refused: "Không được cấp quyền Admin, CuaKey chạy với quyền thường",
+    notice_elevation_failed: "Không khởi động lại được CuaKey với quyền Admin",
+    notice_startup_needs_administrator: "Cần chạy CuaKey với quyền Admin để đổi cách khởi động cùng Windows",
+    notice_startup_not_changed: "Không đổi được cài đặt khởi động cùng Windows",
+    notice_shortcut_not_changed: "Không đổi được biểu tượng trên Desktop",
+    notice_not_started: "Không khởi động được CuaKey",
+    notice_window_not_opened: "Không mở được cửa sổ CuaKey",
+
+    settings_not_read: "Không đọc được cài đặt",
+    settings_not_saved: "Không lưu được cài đặt",
+    empty_profile_id: "Tên hồ sơ không được để trống",
+    empty_app_name: "Tên ứng dụng không được để trống",
+    empty_hotkey: "Phím tắt cần có phím bổ trợ hoặc một phím",
+    invalid_hotkey_key: "Phím tắt không thể kết thúc bằng phím này",
+    switch_equals_settings: "Hai phím tắt không được trùng nhau",
+    quick_convert_clashes: "Phím chuyển mã nhanh không được trùng với phím tắt khác",
+
+    macro_empty_shortcut: "Từ gõ tắt không được để trống",
+    macro_whitespace: "Từ gõ tắt không được chứa khoảng trắng",
+    macro_colon: "Từ gõ tắt không được chứa dấu hai chấm",
+    macro_semicolon: "Từ gõ tắt không được bắt đầu bằng dấu chấm phẩy",
+    macro_line_break: "Nội dung đầy đủ không được xuống dòng",
+    macros_not_read: "Không đọc được bảng gõ tắt",
+    macros_not_saved: "Không lưu được bảng gõ tắt",
+    macros_not_imported: "Không nạp được bảng gõ tắt từ file",
+    macros_not_exported: "Không xuất được bảng gõ tắt ra file",
+
+    convert_no_text: "Bộ nhớ tạm không có văn bản để chuyển mã",
+    clipboard_unavailable: "Không dùng được bộ nhớ tạm",
+    convert_options_not_read: "Không đọc được tùy chọn chuyển mã",
+};
+
+pub const ENGLISH: Labels = Labels {
+    window_title: concat!("CuaKey ", env!("CARGO_PKG_VERSION"), " - Vietnamese Keyboard"),
+    notice_title: "CuaKey",
+
+    section_typing: "Input",
+    section_macros: "Macros",
+    section_system: "System",
+    section_about: "About",
+
+    input_method: "Input method:",
+    input_method_telex: "Telex",
+    input_method_vni: "VNI",
+    input_method_simple_telex: "Simple Telex",
+
+    code_table: "Code table:",
+    code_table_unicode: "Unicode",
+    code_table_tcvn3: "TCVN3 (ABC)",
+    code_table_vni_windows: "VNI Windows",
+    code_table_unicode_compound: "Unicode composite",
+    code_table_cp1258: "Vietnamese locale CP 1258",
+
+    switch_hotkey: "Switch key:",
+    beep: "Beep",
+    settings_hotkey: "Settings key:",
+
+    language: "Typing:",
+    language_vietnamese: "Vietnamese",
+    language_english: "English",
+
+    interface_language: "Interface:",
+    interface_vietnamese: "Tiếng Việt",
+    interface_english: "English",
+
+    new_tone_style: "Tone marks as oà, uý (not òa, úy)",
+    fix_autocomplete: "Fix autocomplete (browsers, Excel)",
+    spell_check: "Spell check",
+    restore_invalid_word: "Restore keys of invalid words",
+    allow_zwjf_consonants: "Allow \"z w j f\" as first consonants",
+    capitalize_sentences: "Capitalize sentences",
+    smart_switch: "Remember typing mode per app",
+    remember_code_table: "Remember code table per app",
+    work_in_other_languages: "Type with other keyboard layouts",
+    keep_w: "Keep w at the start of a word",
+    only_text_boxes: "Vietnamese only in text boxes",
+    always_on_apps: "Always-on apps...",
+
+    use_macros: "Use macros",
+    macros_in_english: "Macros in English mode too",
+    macro_match_case: "Match the shortcut's capitals",
+    macro_table: "Macro table...",
+    quick_telex: "Quick Telex (cc=ch, gg=gi, nn=ng,...)",
+    quick_first_consonant: "First consonants: f→ph, j→gi, w→qu",
+    quick_last_consonant: "Last consonants: g→ng, h→nh, k→ch",
+
+    start_with_windows: "Start with Windows",
+    show_settings_at_startup: "Show this window at startup",
+    desktop_shortcut: "Desktop shortcut",
+    run_as_administrator: "Run as administrator",
+    store_app_support: "Support Metro apps",
+    chromium_fix: "Chromium fix (beta)",
+    clipboard_input: "Send keys through the clipboard",
+
+    about_name: "CuaKey - open-source Vietnamese keyboard",
+    about_version: concat!("Version ", env!("CARGO_PKG_VERSION")),
+    about_license: "MIT License",
+    about_url: "https://github.com/tienduc120/cuakey",
+    about_credits: "Typing behaviour modelled on OpenKey",
+
+    button_exit: "Exit",
+    button_reset: "Reset to defaults",
+    button_close: "Close",
+    button_expand: "More ▼",
+    button_collapse: "Less ▲",
+
+    key_ctrl: "Ctrl",
+    key_alt: "Alt",
+    key_win: "Win",
+    key_shift: "Shift",
+    hotkey_other_key: "Other key",
+    hotkey_field_hint: "Click, then press a key; Backspace clears it",
+
+    macro_window_title: "Macros - CuaKey",
+    macro_shortcut_column: "Shortcut",
+    macro_expansion_column: "Full text",
+    macro_add: "+ Add",
+    macro_remove: "- Remove",
+    macro_import: "Import...",
+    macro_export: "Export...",
+    macro_match_capitals: "Match the shortcut's capitals",
+    macro_import_question: "Import macros from the file:",
+    macro_import_append: "Append",
+    macro_import_replace: "Replace",
+    macro_import_cancel: "Cancel",
+    macro_file_filter: "Text files",
+
+    convert_window_title: "Code Table Converter - CuaKey",
+    convert_upper: "To UPPER CASE",
+    convert_lower: "To lower case",
+    convert_sentence_start: "Sentence case",
+    convert_each_word: "Capitalize Each Word",
+    convert_remove_accents: "Remove accents",
+    convert_notify: "Notify when done",
+    convert_hotkey: "Quick convert key:",
+    convert_from: "From",
+    convert_to: "To",
+    convert_swap: "Swap",
+    convert_run: "Convert",
+
+    always_on_window_title: "Apps Always in Vietnamese",
+    always_on_add: "+ Add",
+    always_on_remove: "- Remove",
+    always_on_hint: "Program file name, e.g. game.exe",
+
+    menu_vietnamese: "Vietnamese typing",
+    menu_spell_check: "Spell check",
+    menu_smart_switch: "Remember typing mode per app",
+    menu_use_macros: "Macros",
+    menu_always_on_prefix: "★ Always Vietnamese in ",
+    menu_configure_macros: "Edit macros...",
+    menu_convert_tool: "Code table converter...",
+    menu_quick_convert: "Quick convert",
+    menu_input_method_telex: "Telex",
+    menu_input_method_vni: "VNI",
+    menu_input_method_simple_telex: "Simple Telex",
+    menu_other_code_tables: "Other code tables",
+    menu_control_panel: "Settings...",
+    menu_about: "About CuaKey",
+    menu_exit: "Exit",
+
+    notice_convert_done: "Conversion done!",
+    notice_defaults_not_saved: "Could not read the settings. CuaKey uses the defaults and saves no changes until it \
+                                restarts",
+    notice_settings_unread_not_saved: "Could not read the settings, so changes in this window are not saved",
+    notice_macros_unread_not_saved: "Could not read the macros, so changes in this window are not saved",
+    notice_elevation_refused: "Administrator rights were not granted, so CuaKey runs with normal rights",
+    notice_elevation_failed: "Could not restart CuaKey as administrator",
+    notice_startup_needs_administrator: "Run CuaKey as administrator to change how it starts with Windows",
+    notice_startup_not_changed: "Could not change how CuaKey starts with Windows",
+    notice_shortcut_not_changed: "Could not change the desktop shortcut",
+    notice_not_started: "Could not start CuaKey",
+    notice_window_not_opened: "Could not open the CuaKey window",
+
+    settings_not_read: "Could not read the settings",
+    settings_not_saved: "Could not save the settings",
+    empty_profile_id: "The profile name cannot be empty",
+    empty_app_name: "The app name cannot be empty",
+    empty_hotkey: "A hotkey needs a modifier or a key",
+    invalid_hotkey_key: "A hotkey cannot end with this key",
+    switch_equals_settings: "The two hotkeys must differ",
+    quick_convert_clashes: "The quick convert key must differ from the other hotkeys",
+
+    macro_empty_shortcut: "The shortcut cannot be empty",
+    macro_whitespace: "The shortcut cannot contain spaces",
+    macro_colon: "The shortcut cannot contain a colon",
+    macro_semicolon: "The shortcut cannot start with a semicolon",
+    macro_line_break: "The full text cannot contain a line break",
+    macros_not_read: "Could not read the macros",
+    macros_not_saved: "Could not save the macros",
+    macros_not_imported: "Could not import the macros from the file",
+    macros_not_exported: "Could not export the macros to the file",
+
+    convert_no_text: "The clipboard holds no text to convert",
+    clipboard_unavailable: "Could not use the clipboard",
+    convert_options_not_read: "Could not read the conversion options",
+};
+
+/// The texts of `language`.
+#[must_use]
+pub const fn labels(language: InterfaceLanguageValue) -> &'static Labels {
+    match language {
+        InterfaceLanguageValue::Vietnamese => &VIETNAMESE,
+        InterfaceLanguageValue::English => &ENGLISH,
+    }
+}
+
+/// The texts of the interface language `view` asks for.
+pub(crate) const fn labels_for(view: &PreferencesView) -> &'static Labels {
+    labels(view.system.interface_language)
+}

@@ -1,6 +1,6 @@
-use cuakey_application::{LoadPreferencesError, PreferencesView, StoreError};
+use cuakey_application::{InterfaceLanguageValue, LoadPreferencesError, PreferencesView, StoreError};
 
-use super::Origin;
+use super::{Origin, Stores};
 
 #[test]
 fn only_what_the_store_holds_may_be_saved_over_it() {
@@ -35,4 +35,22 @@ fn a_load_gives_what_the_store_holds() {
 
     assert_eq!((view, origin), (stored, Origin::Stored));
     assert!(error.is_none());
+}
+
+#[test]
+fn the_interface_language_is_read_from_the_store() {
+    let dir = std::env::temp_dir().join(format!("cuakey-stores-{}-interface", std::process::id()));
+    let stores = Stores::in_folder(dir.clone()).unwrap();
+    assert_eq!(
+        stores.interface_language(),
+        InterfaceLanguageValue::English,
+        "nothing is stored yet, so the default"
+    );
+
+    let mut prefs = PreferencesView::default();
+    prefs.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    stores.save_preferences(&prefs).unwrap();
+
+    assert_eq!(stores.interface_language(), InterfaceLanguageValue::Vietnamese);
+    std::fs::remove_dir_all(dir).unwrap();
 }

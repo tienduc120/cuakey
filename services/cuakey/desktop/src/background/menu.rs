@@ -1,7 +1,7 @@
 //! The notification-area icon and its menu, translated from the menu model to what the tray draws.
 
-use cuakey_application::LanguageValue;
-use cuakey_interfaces::{MenuEntry, MenuId};
+use cuakey_application::{InterfaceLanguageValue, LanguageValue};
+use cuakey_interfaces::{MenuEntry, MenuId, labels};
 use platform_windows::{MenuItem, TrayIcon};
 
 /// The executable's icon resources the tray shows, one per language.
@@ -17,6 +17,11 @@ pub(crate) const fn tray_icon(language: LanguageValue) -> TrayIcon {
         LanguageValue::Vietnamese => VIETNAMESE_ICON,
         LanguageValue::English => ENGLISH_ICON,
     }
+}
+
+/// The icon's tooltip, in the interface language.
+pub(crate) const fn tray_tooltip(language: InterfaceLanguageValue) -> &'static str {
+    labels(language).window_title
 }
 
 /// The app a focus change names, if the menu may offer it as the last app in front.

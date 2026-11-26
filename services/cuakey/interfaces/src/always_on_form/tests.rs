@@ -43,7 +43,7 @@ fn blank_input_is_refused_with_a_message() {
 
     assert_eq!(form.add(), None);
 
-    assert_eq!(form.error(), Some("Tên ứng dụng không được để trống"));
+    assert_eq!(form.error(), Some("The app name cannot be empty"));
     assert_eq!(form.view().always_on, Vec::<String>::new());
 }
 

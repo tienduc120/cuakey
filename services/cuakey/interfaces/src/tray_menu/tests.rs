@@ -1,7 +1,16 @@
-use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView, Toggle};
+use cuakey_application::{
+    CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+};
 
 use super::{MenuEffect, MenuEntry, MenuId, apply, model};
 use crate::WindowKind;
+
+/// The default preferences with the Vietnamese interface.
+fn vietnamese() -> PreferencesView {
+    let mut prefs = PreferencesView::default();
+    prefs.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    prefs
+}
 
 fn labels(entries: &[MenuEntry]) -> Vec<&str> {
     entries.iter().map(|entry| entry.label.as_str()).collect()
@@ -23,7 +32,7 @@ fn always_on_item(entries: &[MenuEntry]) -> &MenuEntry {
 
 #[test]
 fn menu_reflects_defaults() {
-    let prefs = PreferencesView::default();
+    let prefs = vietnamese();
     let entries = model(&prefs, None);
 
     assert_eq!(
@@ -79,7 +88,7 @@ fn separators_are_entries_without_label_or_state() {
 
 #[test]
 fn other_code_tables_are_children_of_one_entry() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.typing.code_table = CodeTableValue::Cp1258;
     let entries = model(&prefs, None);
 
@@ -93,7 +102,7 @@ fn other_code_tables_are_children_of_one_entry() {
 
 #[test]
 fn always_on_item_names_app() {
-    let entries = model(&PreferencesView::default(), Some("game.exe"));
+    let entries = model(&vietnamese(), Some("game.exe"));
 
     let item = always_on_item(&entries);
 
@@ -209,7 +218,7 @@ fn menu_apply_opens_windows_and_runs_commands_without_touching_preferences() {
 
 #[test]
 fn toggle_entries_show_their_state() {
-    let mut prefs = PreferencesView::default();
+    let mut prefs = vietnamese();
     prefs.typing.spell_check = Toggle::On;
     prefs.macros.use_macros = Toggle::Off;
 
@@ -217,4 +226,29 @@ fn toggle_entries_show_their_state() {
 
     assert_eq!(find(&entries, "Bật kiểm tra chính tả").checked, Some(true));
     assert_eq!(find(&entries, "Bật gõ tắt").checked, Some(false));
+}
+
+#[test]
+fn tray_menu_follows_the_interface_language() {
+    let exit_label = |prefs: &PreferencesView| {
+        model(prefs, Some("game.exe"))
+            .into_iter()
+            .find(|entry| entry.id == MenuId::Exit)
+            .map(|entry| entry.label)
+    };
+
+    let english = PreferencesView::default();
+    assert_eq!(
+        english.system.interface_language,
+        InterfaceLanguageValue::English,
+        "English by default"
+    );
+    assert_eq!(exit_label(&english).as_deref(), Some("Exit"));
+    assert_eq!(exit_label(&vietnamese()).as_deref(), Some("Thoát"));
+
+    let english_entries = model(&english, Some("game.exe"));
+    assert_eq!(
+        always_on_item(&english_entries).label,
+        "★ Always Vietnamese in game.exe"
+    );
 }

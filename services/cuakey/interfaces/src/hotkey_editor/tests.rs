@@ -1,7 +1,9 @@
-use cuakey_application::{HotkeyView, KeyName, Toggle};
+use cuakey_application::{HotkeyView, InterfaceLanguageValue, KeyName, Toggle};
 
 use super::{KEYS, key_field, key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
 use crate::{labels, theme};
+
+const VIETNAMESE: InterfaceLanguageValue = InterfaceLanguageValue::Vietnamese;
 
 fn ctrl_shift(key: Option<KeyName>) -> HotkeyView {
     HotkeyView {
@@ -22,8 +24,8 @@ fn hotkey_key_names() {
     assert_eq!(key_from_egui(egui::Key::Space), Some(KeyName::Space));
     assert_eq!(key_from_egui(egui::Key::Enter), None);
     assert_eq!(key_to_egui(KeyName::Enter), None);
-    assert_eq!(key_label(KeyName::F5), "F5");
-    assert_eq!(key_label(KeyName::Digit0), "0");
+    assert_eq!(key_label(KeyName::F5, VIETNAMESE), "F5");
+    assert_eq!(key_label(KeyName::Digit0, VIETNAMESE), "0");
 }
 
 #[test]
@@ -89,10 +91,10 @@ fn space_on_a_modifier_box_flips_that_modifier() {
     let ctx = egui::Context::default();
     let held = ctrl_shift(Some(KeyName::F5));
     pass(&ctx, vec![key_event(egui::Key::Tab)], |ui| {
-        show_hotkey(ui, "hotkey", held)
+        show_hotkey(ui, "hotkey", held, VIETNAMESE)
     });
     let edited = pass(&ctx, vec![key_event(egui::Key::Space)], |ui| {
-        show_hotkey(ui, "hotkey", held)
+        show_hotkey(ui, "hotkey", held, VIETNAMESE)
     });
     let ctrl_released = HotkeyView {
         ctrl: Toggle::Off,
@@ -115,7 +117,10 @@ fn themed() -> egui::Context {
 /// The size of the key field showing `key`.
 fn key_field_size(key: Option<KeyName>) -> egui::Vec2 {
     pass(&themed(), Vec::new(), |ui| {
-        ui.scope(|ui| key_field(ui, ctrl_shift(key))).response.rect.size()
+        ui.scope(|ui| key_field(ui, ctrl_shift(key), VIETNAMESE))
+            .response
+            .rect
+            .size()
     })
 }
 
@@ -142,7 +147,7 @@ fn collect_texts(shape: &egui::Shape, texts: &mut Vec<String>) {
 fn no_key_shows_blank() {
     let ctx = themed();
     let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-        key_field(ui, ctrl_shift(None));
+        key_field(ui, ctrl_shift(None), VIETNAMESE);
     });
     output.textures_delta.clear();
     let mut texts = Vec::new();
@@ -157,14 +162,14 @@ fn no_key_shows_blank() {
 fn key_field_fits_every_key_name() {
     let (width, needed) = pass(&themed(), Vec::new(), |ui| {
         let width = ui
-            .scope(|ui| key_field(ui, ctrl_shift(Some(KeyName::F5))))
+            .scope(|ui| key_field(ui, ctrl_shift(Some(KeyName::F5)), VIETNAMESE))
             .response
             .rect
             .width();
         let widest = KEYS
             .iter()
-            .map(|(_, name)| key_label(*name))
-            .chain([labels::HOTKEY_OTHER_KEY])
+            .map(|(_, name)| key_label(*name, VIETNAMESE))
+            .chain([labels::VIETNAMESE.hotkey_other_key])
             .map(|text| {
                 egui::WidgetText::from(text)
                     .into_galley(

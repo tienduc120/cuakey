@@ -65,7 +65,7 @@ impl AlwaysOnForm {
         let name = match app_name(&self.input) {
             Ok(name) => name,
             Err(error) => {
-                self.error = Some(error_message(error));
+                self.error = Some(error_message(error, self.view.system.interface_language));
                 return None;
             }
         };

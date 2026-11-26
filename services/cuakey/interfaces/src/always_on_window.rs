@@ -1,11 +1,12 @@
 //! The always-on window drawn with egui. Every add or remove returns the whole edited view to store. What the buttons
-//! do lives in [`AlwaysOnForm`]; this file only draws it.
+//! do lives in [`AlwaysOnForm`]; this file only draws it, in the interface language of the view it edits.
 
-use cuakey_application::PreferencesView;
+use cuakey_application::{InterfaceLanguageValue, PreferencesView};
 use egui::Ui;
 
+use crate::UiAction;
 use crate::always_on_form::AlwaysOnForm;
-use crate::{UiAction, labels};
+use crate::labels::labels_for;
 
 fn app_list(ui: &mut Ui, form: &mut AlwaysOnForm) {
     let mut clicked = None;
@@ -23,12 +24,13 @@ fn app_list(ui: &mut Ui, form: &mut AlwaysOnForm) {
 }
 
 fn input_row(ui: &mut Ui, form: &mut AlwaysOnForm, actions: &mut Vec<UiAction>) {
+    let text = labels_for(form.view());
     ui.horizontal(|ui| {
-        ui.add(egui::TextEdit::singleline(form.input_mut()).hint_text(labels::ALWAYS_ON_HINT));
-        if ui.button(labels::ALWAYS_ON_ADD).clicked() {
+        ui.add(egui::TextEdit::singleline(form.input_mut()).hint_text(text.always_on_hint));
+        if ui.button(text.always_on_add).clicked() {
             actions.extend(form.add());
         }
-        if ui.button(labels::ALWAYS_ON_REMOVE).clicked() {
+        if ui.button(text.always_on_remove).clicked() {
             actions.extend(form.remove());
         }
     });
@@ -40,7 +42,7 @@ fn contents(ui: &mut Ui, form: &mut AlwaysOnForm, actions: &mut Vec<UiAction>) {
     if let Some(message) = form.error() {
         ui.colored_label(ui.visuals().error_fg_color, message);
     }
-    if ui.button(labels::BUTTON_CLOSE).clicked() {
+    if ui.button(labels_for(form.view()).button_close).clicked() {
         actions.push(AlwaysOnForm::close());
     }
 }
@@ -57,6 +59,12 @@ impl AlwaysOnWindow {
         Self {
             form: AlwaysOnForm::new(prefs),
         }
+    }
+
+    /// The language the window speaks: the interface language of the preferences it edits.
+    #[must_use]
+    pub const fn interface_language(&self) -> InterfaceLanguageValue {
+        self.form.view().system.interface_language
     }
 
     /// Replaces the edited preferences, when the background process changed something.

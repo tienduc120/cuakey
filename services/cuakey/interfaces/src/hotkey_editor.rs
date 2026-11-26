@@ -1,10 +1,11 @@
 //! The hotkey editor: four modifier checkboxes and a field that takes one key. The mapping between egui's keys and
 //! the keys a hotkey may end on is pure, so a test reads it without a window.
 
-use cuakey_application::{HotkeyView, KeyName, Toggle};
+use cuakey_application::{HotkeyView, InterfaceLanguageValue, KeyName, Toggle};
 use egui::Key;
 
-use crate::{labels, widgets};
+use crate::labels::labels;
+use crate::widgets;
 
 /// The keys the field accepts: A-Z, 0-9, F1-F12 and Space.
 const KEYS: [(Key, KeyName); 49] = [
@@ -73,10 +74,10 @@ pub fn key_to_egui(name: KeyName) -> Option<Key> {
     KEYS.iter().find(|(_, key_name)| *key_name == name).map(|(key, _)| *key)
 }
 
-/// What the field shows for a key.
+/// What the field shows for a key, in `language`.
 #[must_use]
-pub fn key_label(name: KeyName) -> &'static str {
-    key_to_egui(name).map_or(labels::HOTKEY_OTHER_KEY, Key::name)
+pub fn key_label(name: KeyName, language: InterfaceLanguageValue) -> &'static str {
+    key_to_egui(name).map_or_else(|| labels(language).hotkey_other_key, Key::name)
 }
 
 /// The hotkey after `key` is pressed in the field: Backspace clears the key, an accepted key replaces it, and any
@@ -102,26 +103,32 @@ fn modifier_checkbox(ui: &mut egui::Ui, held: &mut Toggle, label: &str) {
     }
 }
 
-/// Draws the editor for `hotkey` and returns the edited hotkey when the user changed it this frame.
-pub(crate) fn show_hotkey(ui: &mut egui::Ui, id_salt: &str, hotkey: HotkeyView) -> Option<HotkeyView> {
+/// Draws the editor for `hotkey`, in `language`, and returns the edited hotkey when the user changed it this frame.
+pub(crate) fn show_hotkey(
+    ui: &mut egui::Ui,
+    id_salt: &str,
+    hotkey: HotkeyView,
+    language: InterfaceLanguageValue,
+) -> Option<HotkeyView> {
+    let text = labels(language);
     let mut edited = hotkey;
     ui.horizontal(|ui| {
-        modifier_checkbox(ui, &mut edited.ctrl, labels::KEY_CTRL);
-        modifier_checkbox(ui, &mut edited.alt, labels::KEY_ALT);
-        modifier_checkbox(ui, &mut edited.win, labels::KEY_WIN);
-        modifier_checkbox(ui, &mut edited.shift, labels::KEY_SHIFT);
-        ui.push_id(id_salt, |ui| edited = key_field(ui, edited));
+        modifier_checkbox(ui, &mut edited.ctrl, text.key_ctrl);
+        modifier_checkbox(ui, &mut edited.alt, text.key_alt);
+        modifier_checkbox(ui, &mut edited.win, text.key_win);
+        modifier_checkbox(ui, &mut edited.shift, text.key_shift);
+        ui.push_id(id_salt, |ui| edited = key_field(ui, edited, language));
     });
     (edited != hotkey).then_some(edited)
 }
 
-/// The key field's width, whatever it shows, so the parts after it stay in place: the widest text it can show, in the
-/// font it is drawn with, and the button padding.
-fn key_field_width(ui: &egui::Ui) -> f32 {
+/// The key field's width, whatever it shows, so the parts after it stay in place: the widest text it can show in
+/// `language`, in the font it is drawn with, and the button padding.
+fn key_field_width(ui: &egui::Ui, language: InterfaceLanguageValue) -> f32 {
     let widest = KEYS
         .iter()
-        .map(|(_, name)| key_label(*name))
-        .chain([labels::HOTKEY_OTHER_KEY])
+        .map(|(_, name)| key_label(*name, language))
+        .chain([labels(language).hotkey_other_key])
         .map(|text| widgets::button_text_width(ui, text))
         .fold(0.0, f32::max);
     widest + 2.0 * ui.spacing().button_padding.x
@@ -129,12 +136,12 @@ fn key_field_width(ui: &egui::Ui) -> f32 {
 
 /// The one-key field: click it, then press the key. While it has focus it reads the keys pressed. It is blank while no
 /// key is set; the hint says what to do.
-fn key_field(ui: &mut egui::Ui, hotkey: HotkeyView) -> HotkeyView {
-    let idle_text = hotkey.key.map_or("", key_label);
-    let size = egui::vec2(key_field_width(ui), ui.spacing().interact_size.y);
+fn key_field(ui: &mut egui::Ui, hotkey: HotkeyView, language: InterfaceLanguageValue) -> HotkeyView {
+    let idle_text = hotkey.key.map_or("", |name| key_label(name, language));
+    let size = egui::vec2(key_field_width(ui, language), ui.spacing().interact_size.y);
     let response = ui
         .add_sized(size, egui::Button::new(idle_text).truncate())
-        .on_hover_text(labels::HOTKEY_FIELD_HINT);
+        .on_hover_text(labels(language).hotkey_field_hint);
     if response.clicked() {
         response.request_focus();
     }

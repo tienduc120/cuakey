@@ -1,9 +1,10 @@
-use cuakey_application::{KeyName, PreferencesView, Toggle};
+use cuakey_application::{InterfaceLanguageValue, KeyName, PreferencesView, Toggle};
 use egui::epaint::RectShape;
 
-use super::{BAR_LABELS, COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow, bar_button_width, checkbox};
+use super::{COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow, bar_button_width, bar_labels, checkbox};
+use crate::labels::{ENGLISH, VIETNAMESE};
 use crate::theme::{self, BUTTON_SIZE};
-use crate::{Platform, UiAction, labels, widgets};
+use crate::{Platform, UiAction, widgets};
 
 #[test]
 fn drawing_frames_asks_for_nothing() {
@@ -34,6 +35,15 @@ fn themed() -> egui::Context {
 /// The room the theme leaves between the window's edge and what it shows.
 fn margin() -> f32 {
     f32::from(themed().global_style().spacing.window_margin.left)
+}
+
+/// The default preferences with the Vietnamese interface. The tests of the bar's place at the window's own size use
+/// it: the test font draws about 9 points a letter, which makes the English reset label far wider than any real font
+/// does, too wide for four buttons in a row.
+fn vietnamese() -> PreferencesView {
+    let mut view = PreferencesView::default();
+    view.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    view
 }
 
 fn key(key: egui::Key) -> egui::Event {
@@ -183,10 +193,10 @@ fn a_checkbox_reports_the_flipped_value() {
     for (current, flipped) in [(Toggle::Off, true), (Toggle::On, false)] {
         let ctx = egui::Context::default();
         pass(&ctx, vec![key(egui::Key::Tab)], |ui| {
-            checkbox(ui, labels::BEEP, current)
+            checkbox(ui, ENGLISH.beep, current)
         });
         let changed = pass(&ctx, vec![key(egui::Key::Space)], |ui| {
-            checkbox(ui, labels::BEEP, current)
+            checkbox(ui, ENGLISH.beep, current)
         });
         assert_eq!(changed, Some(flipped), "Space on a box showing {current:?}");
     }
@@ -206,7 +216,7 @@ fn error_shows_in_compact_mode() {
         screen.contains_rect(place),
         "the message fits in the compact window: {place:?}"
     );
-    let bar = button_of(&shown, labels::BUTTON_CLOSE);
+    let bar = button_of(&shown, ENGLISH.button_close);
     assert!(place.bottom() < bar.top(), "the message sits above the bar");
 
     window.form.toggle_expanded();
@@ -222,7 +232,7 @@ fn the_expand_button_resizes_the_window_and_asks_nothing() {
     let ctx = egui::Context::default();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
 
-    let expanded = click(&ctx, &mut window, labels::BUTTON_EXPAND);
+    let expanded = click(&ctx, &mut window, ENGLISH.button_expand);
     assert!(window.form.is_expanded());
     assert!(expanded.actions.is_empty(), "{:?}", expanded.actions);
     assert!(
@@ -233,7 +243,7 @@ fn the_expand_button_resizes_the_window_and_asks_nothing() {
         expanded.commands
     );
 
-    let collapsed = click(&ctx, &mut window, labels::BUTTON_COLLAPSE);
+    let collapsed = click(&ctx, &mut window, ENGLISH.button_collapse);
     assert!(!window.form.is_expanded());
     assert!(collapsed.actions.is_empty(), "{:?}", collapsed.actions);
     assert!(
@@ -251,15 +261,15 @@ fn the_reset_is_offered_only_when_expanded() {
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
 
     let compact = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
-    assert_eq!(place_of(&compact, labels::BUTTON_RESET), None);
+    assert_eq!(place_of(&compact, ENGLISH.button_reset), None);
     assert!(
-        place_of(&compact, labels::SECTION_TYPING).is_none(),
+        place_of(&compact, ENGLISH.section_typing).is_none(),
         "the sections wait for the expand button"
     );
 
     window.form.toggle_expanded();
     let expanded = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
-    assert!(place_of(&expanded, labels::BUTTON_RESET).is_some());
+    assert!(place_of(&expanded, ENGLISH.button_reset).is_some());
 }
 
 #[test]
@@ -267,7 +277,7 @@ fn clicking_the_reset_asks_for_it() {
     let ctx = egui::Context::default();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     window.form.toggle_expanded();
-    let shown = click(&ctx, &mut window, labels::BUTTON_RESET);
+    let shown = click(&ctx, &mut window, ENGLISH.button_reset);
     assert_eq!(shown.actions, [UiAction::Reset]);
 }
 
@@ -292,10 +302,10 @@ fn a_window_opened_expanded_shows_every_section() {
 
     let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
     assert!(
-        place_of(&shown, labels::SECTION_ABOUT).is_some(),
+        place_of(&shown, ENGLISH.section_about).is_some(),
         "the about section is drawn"
     );
-    assert!(place_of(&shown, labels::BUTTON_COLLAPSE).is_some());
+    assert!(place_of(&shown, ENGLISH.button_collapse).is_some());
 }
 
 #[test]
@@ -311,10 +321,14 @@ fn about_expands_an_open_window() {
 #[test]
 fn buttons_sit_in_a_bottom_bar() {
     let ctx = themed();
-    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
-    let right = [labels::BUTTON_EXPAND, labels::BUTTON_EXIT, labels::BUTTON_CLOSE];
+    let mut window = SettingsWindow::new(vietnamese(), Platform::Windows);
+    let right = [
+        VIETNAMESE.button_expand,
+        VIETNAMESE.button_exit,
+        VIETNAMESE.button_close,
+    ];
     let size = egui::vec2(
-        pass(&ctx, Vec::new(), |ui| bar_button_width(ui, &BAR_LABELS)),
+        pass(&ctx, Vec::new(), |ui| bar_button_width(ui, &bar_labels(&VIETNAMESE))),
         BUTTON_SIZE.y,
     );
 
@@ -343,10 +357,10 @@ fn buttons_sit_in_a_bottom_bar() {
 
     window.form.toggle_expanded();
     let expanded = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
-    let reset = button_of(&expanded, labels::BUTTON_RESET);
-    let close = button_of(&expanded, labels::BUTTON_CLOSE);
+    let reset = button_of(&expanded, VIETNAMESE.button_reset);
+    let close = button_of(&expanded, VIETNAMESE.button_close);
     assert_eq!(reset.size(), size);
-    assert!(near(reset.left(), margin()), "Cài đặt gốc at the left end: {reset:?}");
+    assert!(near(reset.left(), margin()), "the reset at the left end: {reset:?}");
     assert!(near(reset.top(), close.top()), "on the same bar");
     assert!(
         near(close.bottom(), EXPANDED_SIZE.y - margin()),
@@ -359,9 +373,9 @@ fn control_rows_have_no_frame() {
     let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     let shown = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
-    let rows = place_of(&shown, labels::INPUT_METHOD)
+    let rows = place_of(&shown, ENGLISH.input_method)
         .unwrap()
-        .union(place_of(&shown, labels::LANGUAGE).unwrap());
+        .union(place_of(&shown, ENGLISH.interface_language).unwrap());
     let framing: Vec<_> = shown
         .rects
         .iter()
@@ -379,7 +393,7 @@ fn hotkey_rows_line_up() {
     let mut window = SettingsWindow::new(view, Platform::Windows);
     let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
 
-    for text in [labels::KEY_CTRL, "F5"] {
+    for text in [ENGLISH.key_ctrl, "F5"] {
         let places = places_of(&shown, text);
         assert_eq!(places.len(), 2, "{text} in each hotkey row");
         assert!(
@@ -394,8 +408,8 @@ fn sections_use_two_columns() {
     let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
     let shown = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
-    let first = place_of(&shown, labels::NEW_TONE_STYLE).unwrap();
-    let second = place_of(&shown, labels::FIX_AUTOCOMPLETE).unwrap();
+    let first = place_of(&shown, ENGLISH.new_tone_style).unwrap();
+    let second = place_of(&shown, ENGLISH.fix_autocomplete).unwrap();
     assert!(
         near(first.center().y, second.center().y),
         "one row: {first:?} {second:?}"
@@ -408,8 +422,8 @@ fn bar_buttons_take_the_widest_label() {
     let long_label = "Reset to defaults and start over";
     let (short, long, needed) = pass(&themed(), Vec::new(), |ui| {
         (
-            bar_button_width(ui, &[labels::BUTTON_CLOSE]),
-            bar_button_width(ui, &[labels::BUTTON_CLOSE, long_label]),
+            bar_button_width(ui, &[ENGLISH.button_close]),
+            bar_button_width(ui, &[ENGLISH.button_close, long_label]),
             widgets::button_text_width(ui, long_label) + 2.0 * ui.spacing().button_padding.x,
         )
     });
@@ -423,31 +437,38 @@ fn bar_buttons_take_the_widest_label() {
 
 #[test]
 fn bar_labels_are_never_cut() {
-    let ctx = themed();
-    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
-    let shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
-    let bar = [
-        labels::BUTTON_RESET,
-        labels::BUTTON_COLLAPSE,
-        labels::BUTTON_EXIT,
-        labels::BUTTON_CLOSE,
-    ];
-    let needs = bar.map(|label| {
-        pass(&ctx, Vec::new(), |ui| {
-            widgets::button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
-        })
-    });
-    assert!(
-        needs.iter().any(|need| *need > BUTTON_SIZE.x),
-        "the test font's wide glyphs give the bar a label wider than the smallest button: {needs:?}"
-    );
-    let buttons = bar.map(|label| button_of(&shown, label));
-    for (label, button) in bar.iter().zip(buttons) {
-        assert_eq!(button.size(), buttons[0].size(), "{label} is as large as the others");
-        assert!(button.width() > BUTTON_SIZE.x, "{label} grew with the widest label");
-        let drawn = place_of(&shown, label).unwrap().width();
-        let full = pass(&ctx, Vec::new(), |ui| widgets::button_text_width(ui, label));
-        assert!(near(drawn, full), "{label} is drawn whole: {drawn} of {full}");
+    // English at a width that holds four of the test font's wide English buttons, Vietnamese at the window's own.
+    let english_screen = egui::vec2(BIG_SCREEN.x, EXPANDED_SIZE.y);
+    for (view, text, size) in [
+        (vietnamese(), &VIETNAMESE, EXPANDED_SIZE),
+        (PreferencesView::default(), &ENGLISH, english_screen),
+    ] {
+        let ctx = themed();
+        let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
+        let shown = show(&ctx, &mut window, size, Vec::new());
+        let bar = [
+            text.button_reset,
+            text.button_collapse,
+            text.button_exit,
+            text.button_close,
+        ];
+        let needs = bar.map(|label| {
+            pass(&ctx, Vec::new(), |ui| {
+                widgets::button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
+            })
+        });
+        assert!(
+            needs.iter().any(|need| *need > BUTTON_SIZE.x),
+            "the test font's wide glyphs give the bar a label wider than the smallest button: {needs:?}"
+        );
+        let buttons = bar.map(|label| button_of(&shown, label));
+        for (label, button) in bar.iter().zip(buttons) {
+            assert_eq!(button.size(), buttons[0].size(), "{label} is as large as the others");
+            assert!(button.width() > BUTTON_SIZE.x, "{label} grew with the widest label");
+            let drawn = place_of(&shown, label).unwrap().width();
+            let full = pass(&ctx, Vec::new(), |ui| widgets::button_text_width(ui, label));
+            assert!(near(drawn, full), "{label} is drawn whole: {drawn} of {full}");
+        }
     }
 }
 
@@ -460,10 +481,10 @@ fn section_titles_are_body_size_and_muted() {
     let body = egui::TextStyle::Body.resolve(&style).size;
     let small = egui::TextStyle::Small.resolve(&style).size;
     for title in [
-        labels::SECTION_TYPING,
-        labels::SECTION_MACROS,
-        labels::SECTION_SYSTEM,
-        labels::SECTION_ABOUT,
+        ENGLISH.section_typing,
+        ENGLISH.section_macros,
+        ENGLISH.section_system,
+        ENGLISH.section_about,
     ] {
         let (_, size, color) = shown
             .formats
@@ -497,10 +518,10 @@ fn the_first_tab_lands_on_a_control() {
         let shown = show(&ctx, &mut window, size, Vec::new());
         show(&ctx, &mut window, size, vec![key(egui::Key::Tab)]);
         let focused = focused_place(&ctx).expect("Tab focuses a widget");
-        let first_row = place_of(&shown, labels::INPUT_METHOD).unwrap();
+        let first_row = place_of(&shown, ENGLISH.input_method).unwrap();
         assert!(
             near(focused.center().y, first_row.center().y),
-            "expanded {expanded}: the first stop is Kiểu gõ's choice, not a bar button: {focused:?}"
+            "expanded {expanded}: the first stop is the input method choice, not a bar button: {focused:?}"
         );
 
         let pressed = show(&ctx, &mut window, size, vec![key(egui::Key::Space)]);
@@ -517,13 +538,13 @@ fn the_first_tab_lands_on_a_control() {
 #[test]
 fn tab_walks_the_bar_in_reading_order() {
     let ctx = themed();
-    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let mut window = SettingsWindow::new(vietnamese(), Platform::Windows).expanded();
     let shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     let bar = [
-        labels::BUTTON_RESET,
-        labels::BUTTON_COLLAPSE,
-        labels::BUTTON_EXIT,
-        labels::BUTTON_CLOSE,
+        VIETNAMESE.button_reset,
+        VIETNAMESE.button_collapse,
+        VIETNAMESE.button_exit,
+        VIETNAMESE.button_close,
     ]
     .map(|label| button_of(&shown, label));
     // Shift+Tab from nothing focused lands on the last stop; walk back through the bar from there. egui moves the
@@ -544,7 +565,7 @@ fn tab_walks_the_bar_in_reading_order() {
     stops.reverse();
     assert_eq!(
         stops, bar,
-        "the bar's stops run left to right, the reset first and Đóng last"
+        "the bar's stops run left to right, the reset first and the close button last"
     );
 }
 
@@ -558,7 +579,7 @@ fn about_comes_into_view_when_revealed() {
     for _ in 0..2 {
         shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     }
-    for text in [labels::SECTION_ABOUT, labels::ABOUT_CREDITS] {
+    for text in [ENGLISH.section_about, ENGLISH.about_credits] {
         assert!(is_visible(&shown, text), "{text} is scrolled into view");
     }
     assert!(
@@ -576,14 +597,14 @@ fn expanding_does_not_scroll() {
         shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     }
     assert!(
-        is_visible(&shown, labels::SECTION_TYPING),
+        is_visible(&shown, ENGLISH.section_typing),
         "the sections start at the top"
     );
-    assert!(!is_visible(&shown, labels::SECTION_ABOUT), "the about text waits below");
+    assert!(!is_visible(&shown, ENGLISH.section_about), "the about text waits below");
 
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     let compact = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
-    let at = place_of(&compact, labels::BUTTON_EXPAND).unwrap().center();
+    let at = place_of(&compact, ENGLISH.button_expand).unwrap().center();
     show(
         &ctx,
         &mut window,
@@ -591,11 +612,93 @@ fn expanding_does_not_scroll() {
         vec![egui::Event::PointerMoved(at), primary(at, true)],
     );
     show(&ctx, &mut window, COMPACT_SIZE, vec![primary(at, false)]);
-    assert!(window.form.is_expanded(), "the Mở rộng click expanded the window");
+    assert!(window.form.is_expanded(), "the expand click expanded the window");
     let mut shown = show(&ctx, &mut window, EXPANDED_SIZE, vec![egui::Event::PointerGone]);
     for _ in 0..2 {
         shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     }
-    assert!(is_visible(&shown, labels::SECTION_TYPING));
-    assert!(!is_visible(&shown, labels::SECTION_ABOUT), "Mở rộng does not scroll");
+    assert!(is_visible(&shown, ENGLISH.section_typing));
+    assert!(!is_visible(&shown, ENGLISH.section_about), "expanding does not scroll");
+}
+
+#[test]
+fn english_interface_draws_english() {
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    assert_eq!(
+        window.interface_language(),
+        InterfaceLanguageValue::English,
+        "English by default"
+    );
+
+    let shown = show(&themed(), &mut window, BIG_SCREEN, Vec::new());
+
+    for text in ["Exit", "Interface:"] {
+        assert!(place_of(&shown, text).is_some(), "{text} is drawn");
+    }
+    assert_eq!(place_of(&shown, "Thoát"), None, "no Vietnamese label");
+}
+
+#[test]
+fn choosing_english_redraws_at_once() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(vietnamese(), Platform::Windows);
+    let before = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+    assert!(place_of(&before, "Thoát").is_some(), "the window opens in Vietnamese");
+
+    let chosen = click(&ctx, &mut window, "English");
+    let next = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+
+    assert_eq!(
+        window.form.view().system.interface_language,
+        InterfaceLanguageValue::English
+    );
+    assert!(
+        matches!(
+            chosen.actions.as_slice(),
+            [UiAction::Save(view)] if view.system.interface_language == InterfaceLanguageValue::English
+        ),
+        "the choice is saved: {:?}",
+        chosen.actions
+    );
+    assert!(place_of(&next, "Exit").is_some(), "the next frame speaks English");
+    assert_eq!(place_of(&next, "Thoát"), None);
+}
+
+#[test]
+fn interface_radios_name_each_language_in_itself() {
+    for (language, row_label) in [
+        (InterfaceLanguageValue::Vietnamese, "Giao diện:"),
+        (InterfaceLanguageValue::English, "Interface:"),
+    ] {
+        let mut view = PreferencesView::default();
+        view.system.interface_language = language;
+        let mut window = SettingsWindow::new(view, Platform::Windows);
+        let shown = show(&themed(), &mut window, BIG_SCREEN, Vec::new());
+
+        let row = place_of(&shown, row_label).unwrap_or_else(|| panic!("{row_label} is drawn"));
+        for choice in ["Tiếng Việt", "English"] {
+            assert!(
+                places_of(&shown, choice)
+                    .iter()
+                    .any(|place| near(place.center().y, row.center().y) && place.left() > row.right()),
+                "{row_label} offers {choice}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_bar_measures_every_label_it_can_show() {
+    for text in [&VIETNAMESE, &ENGLISH] {
+        let measured = bar_labels(text);
+        for label in [
+            text.button_expand,
+            text.button_collapse,
+            text.button_exit,
+            text.button_close,
+            text.button_reset,
+        ] {
+            assert!(measured.contains(&label), "{label} in {measured:?}");
+        }
+    }
 }

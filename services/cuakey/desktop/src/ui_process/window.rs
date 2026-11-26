@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
-use cuakey_application::{MacroView, PreferencesView};
+use cuakey_application::{InterfaceLanguageValue, MacroView, PreferencesView};
 use cuakey_interfaces::{
     AlwaysOnWindow, ConvertWindow, MacroWindow, Notice, Platform, SettingsWindow, UiAction, WindowKind, labels,
     notice_message,
 };
-use eframe::egui::{IconData, Ui, Vec2, ViewportBuilder, ViewportId};
+use eframe::egui::{Context, IconData, Ui, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
 
 use crate::args::window_name;
 use crate::stores::{Origin, Stores};
@@ -19,6 +19,8 @@ pub(super) struct Window {
     prefs: Origin,
     /// Whether the macros it shows were read; only the macro window shows any.
     macros: Origin,
+    /// The title its native window shows, so a change of interface language can retitle it.
+    shown_title: &'static str,
 }
 
 #[derive(Debug)]
@@ -27,6 +29,27 @@ enum View {
     Macros(MacroWindow),
     Convert(ConvertWindow),
     AlwaysOn(AlwaysOnWindow),
+}
+
+impl View {
+    const fn interface_language(&self) -> InterfaceLanguageValue {
+        match self {
+            Self::Settings(window) => window.interface_language(),
+            Self::Macros(window) => window.interface_language(),
+            Self::Convert(window) => window.interface_language(),
+            Self::AlwaysOn(window) => window.interface_language(),
+        }
+    }
+
+    const fn title(&self) -> &'static str {
+        let text = labels(self.interface_language());
+        match self {
+            Self::Settings(_) => text.window_title,
+            Self::Macros(_) => text.macro_window_title,
+            Self::Convert(_) => text.convert_window_title,
+            Self::AlwaysOn(_) => text.always_on_window_title,
+        }
+    }
 }
 
 impl Window {
@@ -57,6 +80,7 @@ impl Window {
             tracing::warn!(error = ?error, "could not load the preferences");
         }
         let mut window = Self {
+            shown_title: view.title(),
             view,
             prefs: prefs_origin,
             macros: macros_origin,
@@ -67,10 +91,11 @@ impl Window {
 
     /// Why this window saves nothing, when what it shows could not be read.
     fn unread_message(&self) -> Option<&'static str> {
+        let language = self.interface_language();
         if !self.prefs.may_save() {
-            Some(notice_message(Notice::SettingsUnreadNotSaved))
+            Some(notice_message(Notice::SettingsUnreadNotSaved, language))
         } else if !self.macros.may_save() {
-            Some(notice_message(Notice::MacrosUnreadNotSaved))
+            Some(notice_message(Notice::MacrosUnreadNotSaved, language))
         } else {
             None
         }
@@ -95,12 +120,30 @@ impl Window {
         }
     }
 
+    /// The language the window speaks: the interface language of the preferences it shows.
+    pub(super) const fn interface_language(&self) -> InterfaceLanguageValue {
+        self.view.interface_language()
+    }
+
+    /// Draws the window into `ui` and returns what the user asked for this frame. When the interface language changed
+    /// since the last frame, the native window takes the title in the new language.
     pub(super) fn show(&mut self, ui: &mut Ui) -> Vec<UiAction> {
-        match &mut self.view {
+        let actions = match &mut self.view {
             View::Settings(window) => window.show(ui),
             View::Macros(window) => window.show(ui),
             View::Convert(window) => window.show(ui),
             View::AlwaysOn(window) => window.show(ui),
+        };
+        self.follow_title(ui.ctx());
+        actions
+    }
+
+    /// Tells the native window of `ctx`'s viewport its title when it no longer says what it shows.
+    fn follow_title(&mut self, ctx: &Context) {
+        let title = self.title();
+        if title != self.shown_title {
+            ctx.send_viewport_cmd(ViewportCommand::Title(title.to_owned()));
+            self.shown_title = title;
         }
     }
 
@@ -147,25 +190,21 @@ impl Window {
         }
     }
 
+    /// The title of the native window, in the window's interface language.
     pub(super) const fn title(&self) -> &'static str {
-        match self.view {
-            View::Settings(_) => labels::WINDOW_TITLE,
-            View::Macros(_) => labels::MACRO_WINDOW_TITLE,
-            View::Convert(_) => labels::CONVERT_WINDOW_TITLE,
-            View::AlwaysOn(_) => labels::ALWAYS_ON_WINDOW_TITLE,
-        }
+        self.view.title()
     }
 
     /// The size of what the window shows now, in points: the size it opens at, and the size it takes in the root
     /// viewport. The settings window changes it when it expands or collapses. Each other size holds every row and
-    /// button, and a line for an error message, with the shared style in Segoe UI and in the fonts the windows may
-    /// borrow instead.
+    /// button, and a line for an error message, in either interface language, with the shared style in Segoe UI and in
+    /// the fonts the windows may borrow instead.
     pub(super) const fn size(&self) -> Vec2 {
         match &self.view {
             View::Settings(window) => window.size(),
-            View::Macros(_) => Vec2::new(730.0, 460.0),
+            View::Macros(_) => Vec2::new(740.0, 460.0),
             View::Convert(_) => Vec2::new(570.0, 380.0),
-            View::AlwaysOn(_) => Vec2::new(440.0, 340.0),
+            View::AlwaysOn(_) => Vec2::new(455.0, 340.0),
         }
     }
 

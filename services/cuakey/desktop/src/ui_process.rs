@@ -11,7 +11,7 @@ use std::process::ExitCode;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use cuakey_application::{ImportMode, MacroView, PreferencesView};
+use cuakey_application::{ImportMode, InterfaceLanguageValue, MacroView, PreferencesView};
 use cuakey_interfaces::{
     Notice, UiAction, WindowKind, convert_error_message, export_macros_error_message, import_macros_error_message,
     install_system_font, labels, load_error_message, notice_message, reset_error_message, save_error_message,
@@ -26,7 +26,7 @@ use platform_windows::{
 use self::window::Window;
 use crate::args::Mode;
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, take_instance, window_kind};
-use crate::stores::{OpenStoresError, Origin, Stores};
+use crate::stores::{OpenStoresError, Origin, Stores, stored_interface_language};
 
 /// The name eframe gives the app.
 const APP_NAME: &str = "CuaKey";
@@ -50,8 +50,12 @@ pub(crate) fn run(kind: WindowKind) -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(error = ?error, "the window process failed");
+            let language = stored_interface_language();
             // The process ends next, which would take a notice on a thread of its own with it.
-            show_notice_and_wait(labels::NOTICE_TITLE, notice_message(Notice::WindowNotOpened));
+            show_notice_and_wait(
+                labels(language).notice_title,
+                notice_message(Notice::WindowNotOpened, language),
+            );
             ExitCode::FAILURE
         }
     }
@@ -235,100 +239,104 @@ impl UiApp {
     /// background process. Says whether it was stored.
     fn store(&mut self, source: WindowKind, edited: PreferencesView) -> bool {
         if !self.origin_of(source, Window::prefs_origin).may_save() {
-            self.show_error(source, Some(notice_message(Notice::SettingsUnreadNotSaved)));
+            self.refuse(source, |language| {
+                notice_message(Notice::SettingsUnreadNotSaved, language)
+            });
             return false;
         }
         let stored = match self.stores.load_preferences() {
             Ok(stored) => stored,
             Err(error) => {
-                self.show_error(source, Some(load_error_message(&error)));
+                self.refuse(source, |language| load_error_message(&error, language));
                 return false;
             }
         };
         let prefs = rebase(stored, edited, edit_of(source));
         match self.stores.save_preferences(&prefs) {
             Ok(()) => {
-                self.show_error(source, None);
+                self.clear_error(source);
                 self.set_preferences(&prefs);
                 tell_background(AppMessage::Reload);
                 true
             }
             Err(error) => {
-                self.show_error(source, Some(save_error_message(&error)));
+                self.refuse(source, |language| save_error_message(&error, language));
                 false
             }
         }
     }
 
     fn reset(&mut self, source: WindowKind) {
-        let reset = self
-            .stores
-            .load_preferences()
-            .map_err(|error| load_error_message(&error))
-            .and_then(|current| {
-                self.stores
-                    .reset_preferences(&current)
-                    .map_err(|error| reset_error_message(&error))
-            });
-        match reset {
+        let current = match self.stores.load_preferences() {
+            Ok(current) => current,
+            Err(error) => {
+                self.refuse(source, |language| load_error_message(&error, language));
+                return;
+            }
+        };
+        match self.stores.reset_preferences(&current) {
             Ok(prefs) => {
-                self.show_error(source, None);
+                self.clear_error(source);
                 self.set_preferences(&prefs);
                 tell_background(AppMessage::Reload);
             }
-            Err(message) => self.show_error(source, Some(message)),
+            Err(error) => self.refuse(source, |language| reset_error_message(&error, language)),
         }
     }
 
     fn save_macros(&mut self, source: WindowKind, macros: &[MacroView]) {
         if !self.origin_of(source, Window::macros_origin).may_save() {
-            self.show_error(source, Some(notice_message(Notice::MacrosUnreadNotSaved)));
+            self.refuse(source, |language| {
+                notice_message(Notice::MacrosUnreadNotSaved, language)
+            });
             return;
         }
         match self.stores.save_macros(macros) {
             Ok(()) => {
-                self.show_error(source, None);
+                self.clear_error(source);
                 tell_background(AppMessage::Reload);
             }
             // The refused row stays in the table, so the user can see which one to correct.
-            Err(error) => self.show_error(source, Some(save_macros_error_message(&error))),
+            Err(error) => self.refuse(source, |language| save_macros_error_message(&error, language)),
         }
     }
 
     fn import_macros(&mut self, source: WindowKind, path: PathBuf, mode: ImportMode) {
         match self.stores.import_macros(path, mode) {
             Ok(macros) => {
-                self.show_error(source, None);
+                self.clear_error(source);
                 if let Some(window) = self.window_mut(source) {
                     window.set_macros(macros);
                 }
                 tell_background(AppMessage::Reload);
             }
-            Err(error) => self.show_error(source, Some(import_macros_error_message(&error))),
+            Err(error) => self.refuse(source, |language| import_macros_error_message(&error, language)),
         }
     }
 
     fn export_macros(&mut self, source: WindowKind, path: PathBuf) {
-        let message = self
-            .stores
-            .export_macros(path)
-            .err()
-            .map(|error| export_macros_error_message(&error));
-        self.show_error(source, message);
+        match self.stores.export_macros(path) {
+            Ok(()) => self.clear_error(source),
+            Err(error) => self.refuse(source, |language| export_macros_error_message(&error, language)),
+        }
     }
 
     /// Stores the options the conversion window shows, then converts the clipboard with them.
     fn convert(&mut self, source: WindowKind, edited: PreferencesView) {
+        let language = edited.system.interface_language;
         if !self.store(source, edited) {
             return;
         }
         match self.stores.quick_convert() {
             Ok(result) => {
                 if result.notify {
-                    show_notice(labels::NOTICE_TITLE, notice_message(Notice::ConvertDone));
+                    show_notice(
+                        labels(language).notice_title,
+                        notice_message(Notice::ConvertDone, language),
+                    );
                 }
             }
-            Err(error) => self.show_error(source, Some(convert_error_message(&error))),
+            Err(error) => self.refuse(source, |language| convert_error_message(&error, language)),
         }
     }
 
@@ -381,9 +389,16 @@ impl UiApp {
         }
     }
 
-    fn show_error(&mut self, source: WindowKind, message: Option<&'static str>) {
+    /// Shows under `source` what `message` says in that window's language. A window that is gone shows nothing.
+    fn refuse(&mut self, source: WindowKind, message: impl FnOnce(InterfaceLanguageValue) -> &'static str) {
         if let Some(window) = self.window_mut(source) {
-            window.show_error(message);
+            window.show_error(Some(message(window.interface_language())));
+        }
+    }
+
+    fn clear_error(&mut self, source: WindowKind) {
+        if let Some(window) = self.window_mut(source) {
+            window.show_error(None);
         }
     }
 

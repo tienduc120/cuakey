@@ -1,43 +1,63 @@
 //! The settings window drawn with egui. It opens small, with the controls used every day, and the expand button in the
 //! bottom bar shows the other sections. Every change applies at once: a frame that changed a control returns one
-//! `Save` with the whole edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it.
+//! `Save` with the whole edited view. What is shown and enabled lives in [`SettingsForm`]; this file only draws it, in
+//! the interface language of the view it edits.
 
-use cuakey_application::{CodeTableValue, InputMethodValue, LanguageValue, PreferencesView, Toggle};
+use cuakey_application::{
+    CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+};
 use egui::Ui;
 
 use crate::hotkey_editor::show_hotkey;
-use crate::settings_form::{GatedControl, SettingsForm, is_on};
+use crate::labels::{Labels, labels_for};
+use crate::settings_form::{ButtonBar, GatedControl, SettingsForm, is_on};
 use crate::theme::BUTTON_SIZE;
-use crate::{Button, Platform, UiAction, labels, widgets};
+use crate::{Button, Platform, UiAction, widgets};
 
-const INPUT_METHODS: [(InputMethodValue, &str); 3] = [
-    (InputMethodValue::Telex, labels::INPUT_METHOD_TELEX),
-    (InputMethodValue::Vni, labels::INPUT_METHOD_VNI),
-    (InputMethodValue::SimpleTelex, labels::INPUT_METHOD_SIMPLE_TELEX),
-];
+const fn input_methods(text: &Labels) -> [(InputMethodValue, &'static str); 3] {
+    [
+        (InputMethodValue::Telex, text.input_method_telex),
+        (InputMethodValue::Vni, text.input_method_vni),
+        (InputMethodValue::SimpleTelex, text.input_method_simple_telex),
+    ]
+}
 
-pub(crate) const CODE_TABLES: [(CodeTableValue, &str); 5] = [
-    (CodeTableValue::Unicode, labels::CODE_TABLE_UNICODE),
-    (CodeTableValue::Tcvn3, labels::CODE_TABLE_TCVN3),
-    (CodeTableValue::VniWindows, labels::CODE_TABLE_VNI_WINDOWS),
-    (CodeTableValue::UnicodeCompound, labels::CODE_TABLE_UNICODE_COMPOUND),
-    (CodeTableValue::Cp1258, labels::CODE_TABLE_CP1258),
-];
+pub(crate) const fn code_tables(text: &Labels) -> [(CodeTableValue, &'static str); 5] {
+    [
+        (CodeTableValue::Unicode, text.code_table_unicode),
+        (CodeTableValue::Tcvn3, text.code_table_tcvn3),
+        (CodeTableValue::VniWindows, text.code_table_vni_windows),
+        (CodeTableValue::UnicodeCompound, text.code_table_unicode_compound),
+        (CodeTableValue::Cp1258, text.code_table_cp1258),
+    ]
+}
 
-const LANGUAGES: [(LanguageValue, &str); 2] = [
-    (LanguageValue::Vietnamese, labels::LANGUAGE_VIETNAMESE),
-    (LanguageValue::English, labels::LANGUAGE_ENGLISH),
-];
+const fn typing_languages(text: &Labels) -> [(LanguageValue, &'static str); 2] {
+    [
+        (LanguageValue::Vietnamese, text.language_vietnamese),
+        (LanguageValue::English, text.language_english),
+    ]
+}
+
+/// The interface languages, each named in itself whatever the language of `text`, so a user who cannot read the one
+/// showing still finds their own.
+const fn interface_languages(text: &Labels) -> [(InterfaceLanguageValue, &'static str); 2] {
+    [
+        (InterfaceLanguageValue::Vietnamese, text.interface_vietnamese),
+        (InterfaceLanguageValue::English, text.interface_english),
+    ]
+}
 
 /// The window's inner size with the controls used every day only, the size it opens at. With the shared style, the
-/// rows measure at most 474 x 185 points in Segoe UI and the other fonts the window may borrow, 212 high with a line
-/// for an error message; the margins and the bottom bar come on top, so nothing scrolls or clips. The width is the
-/// expanded window's, so expanding only moves the bottom edge and the bar's buttons stay where they were.
-pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 300.0);
+/// rows measure at most 474 x 223 points in Segoe UI and the other fonts the window may borrow, in either interface
+/// language, 250 high with a line for an error message; the margins and the bottom bar come on top, so nothing scrolls
+/// or clips. The width is the expanded window's, so expanding only moves the bottom edge and the bar's buttons stay
+/// where they were.
+pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 340.0);
 
-/// The window's inner size with every section. The options sit two to a row, and the widest needs 257 points, so two
-/// columns fit in this width. The sections are taller than a small screen, so they scroll above the bottom bar; this
-/// height shows the controls used every day and the whole first section.
+/// The window's inner size with every section. The options sit two to a row, and the widest needs 257 points in either
+/// interface language, so two columns fit in this width. The sections are taller than a small screen, so they scroll
+/// above the bottom bar; this height shows the controls used every day and the whole first section.
 pub const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
@@ -74,10 +94,11 @@ fn radios<T: Copy + PartialEq>(ui: &mut Ui, current: T, choices: &[(T, &str)]) -
     (selected != current).then_some(selected)
 }
 
-/// An on/off preference: its label, where its value lives in the view, and the form's setter for it.
+/// An on/off preference: where its label is among the texts, where its value lives in the view, and the form's setter
+/// for it.
 #[derive(Debug, Clone, Copy)]
 struct OptionBox {
-    label: &'static str,
+    label: fn(&Labels) -> &'static str,
     /// The form's rule that hides or greys the box, if any.
     gate: Option<GatedControl>,
     value: fn(&PreferencesView) -> Toggle,
@@ -85,7 +106,11 @@ struct OptionBox {
 }
 
 impl OptionBox {
-    const fn new(label: &'static str, value: fn(&PreferencesView) -> Toggle, set: fn(&mut SettingsForm, bool)) -> Self {
+    const fn new(
+        label: fn(&Labels) -> &'static str,
+        value: fn(&PreferencesView) -> Toggle,
+        set: fn(&mut SettingsForm, bool),
+    ) -> Self {
         Self {
             label,
             gate: None,
@@ -103,91 +128,91 @@ impl OptionBox {
     }
 }
 
-/// The [`OptionBox`] labelled `labels::$label` for the view's field at `$path`, which the form's `$set` changes.
+/// The [`OptionBox`] labelled with the text `$label` for the view's field at `$path`, which the form's `$set` changes.
 macro_rules! option_box {
     ($label:ident, $($path:ident).+, $set:ident) => {
-        OptionBox::new(labels::$label, |view| view.$($path).+, SettingsForm::$set)
+        OptionBox::new(|text| text.$label, |view| view.$($path).+, SettingsForm::$set)
     };
 }
 
-const BEEP: OptionBox = option_box!(BEEP, switching.beep, set_beep);
+const BEEP: OptionBox = option_box!(beep, switching.beep, set_beep);
 
 const TYPING_OPTIONS: [OptionBox; 11] = [
-    option_box!(NEW_TONE_STYLE, typing.new_tone_style, set_new_tone_style),
-    option_box!(FIX_AUTOCOMPLETE, compatibility.fix_autocomplete, set_fix_autocomplete)
+    option_box!(new_tone_style, typing.new_tone_style, set_new_tone_style),
+    option_box!(fix_autocomplete, compatibility.fix_autocomplete, set_fix_autocomplete)
         .gated(GatedControl::FixAutocomplete),
-    option_box!(SPELL_CHECK, typing.spell_check, set_spell_check),
+    option_box!(spell_check, typing.spell_check, set_spell_check),
     option_box!(
-        RESTORE_INVALID_WORD,
+        restore_invalid_word,
         typing.restore_invalid_word,
         set_restore_invalid_word
     )
     .gated(GatedControl::RestoreInvalidWord),
     option_box!(
-        ALLOW_ZWJF_CONSONANTS,
+        allow_zwjf_consonants,
         typing.allow_zwjf_consonants,
         set_allow_zwjf_consonants
     )
     .gated(GatedControl::AllowZwjfConsonants),
     option_box!(
-        CAPITALIZE_SENTENCES,
+        capitalize_sentences,
         typing.capitalize_sentences,
         set_capitalize_sentences
     ),
-    option_box!(SMART_SWITCH, switching.smart_switch, set_smart_switch),
+    option_box!(smart_switch, switching.smart_switch, set_smart_switch),
     option_box!(
-        REMEMBER_CODE_TABLE,
+        remember_code_table,
         switching.remember_code_table,
         set_remember_code_table
     ),
     option_box!(
-        WORK_IN_OTHER_LANGUAGES,
+        work_in_other_languages,
         switching.work_in_other_languages,
         set_work_in_other_languages
     ),
-    option_box!(KEEP_W, behaviours.keep_w, set_keep_w),
-    option_box!(ONLY_TEXT_BOXES, behaviours.only_text_boxes, set_only_text_boxes),
+    option_box!(keep_w, behaviours.keep_w, set_keep_w),
+    option_box!(only_text_boxes, behaviours.only_text_boxes, set_only_text_boxes),
 ];
 
 const MACRO_OPTIONS: [OptionBox; 6] = [
-    option_box!(USE_MACROS, macros.use_macros, set_use_macros),
-    option_box!(MACROS_IN_ENGLISH, macros.macros_in_english, set_macros_in_english),
-    option_box!(MACRO_MATCH_CASE, macros.match_case, set_macro_match_case),
-    option_box!(QUICK_TELEX, typing.quick_telex, set_quick_telex),
+    option_box!(use_macros, macros.use_macros, set_use_macros),
+    option_box!(macros_in_english, macros.macros_in_english, set_macros_in_english),
+    option_box!(macro_match_case, macros.match_case, set_macro_match_case),
+    option_box!(quick_telex, typing.quick_telex, set_quick_telex),
     option_box!(
-        QUICK_FIRST_CONSONANT,
+        quick_first_consonant,
         typing.quick_first_consonant,
         set_quick_first_consonant
     ),
     option_box!(
-        QUICK_LAST_CONSONANT,
+        quick_last_consonant,
         typing.quick_last_consonant,
         set_quick_last_consonant
     ),
 ];
 
 const SYSTEM_OPTIONS: [OptionBox; 7] = [
-    option_box!(START_WITH_WINDOWS, system.start_with_windows, set_start_with_windows),
+    option_box!(start_with_windows, system.start_with_windows, set_start_with_windows),
     option_box!(
-        SHOW_SETTINGS_AT_STARTUP,
+        show_settings_at_startup,
         system.show_settings_at_startup,
         set_show_settings_at_startup
     ),
-    option_box!(DESKTOP_SHORTCUT, system.desktop_shortcut, set_desktop_shortcut).gated(GatedControl::DesktopShortcut),
+    option_box!(desktop_shortcut, system.desktop_shortcut, set_desktop_shortcut).gated(GatedControl::DesktopShortcut),
     option_box!(
-        RUN_AS_ADMINISTRATOR,
+        run_as_administrator,
         system.run_as_administrator,
         set_run_as_administrator
     )
     .gated(GatedControl::RunAsAdministrator),
     option_box!(
-        STORE_APP_SUPPORT,
+        store_app_support,
         compatibility.store_app_support,
         set_store_app_support
     )
     .gated(GatedControl::StoreAppSupport),
-    option_box!(CHROMIUM_FIX, compatibility.chromium_fix, set_chromium_fix).gated(GatedControl::ChromiumFix),
-    option_box!(CLIPBOARD_INPUT, compatibility.clipboard_input, set_clipboard_input)
+    option_box!(chromium_fix, compatibility.chromium_fix, set_chromium_fix).gated(GatedControl::ChromiumFix),
+    option_box!(clipboard_input, compatibility.clipboard_input, set_clipboard_input)
         .gated(GatedControl::ClipboardInput),
 ];
 
@@ -195,24 +220,30 @@ const SYSTEM_OPTIONS: [OptionBox; 7] = [
 /// window, if any.
 #[derive(Debug, Clone, Copy)]
 struct Section {
-    title: &'static str,
+    /// The id of the options' grid. It is not the title, which changes with the language, so the grid keeps its layout
+    /// when the language changes.
+    id: &'static str,
+    title: fn(&Labels) -> &'static str,
     options: &'static [OptionBox],
     button: Option<Button>,
 }
 
 const SECTIONS: [Section; 3] = [
     Section {
-        title: labels::SECTION_TYPING,
+        id: "typing_options",
+        title: |text| text.section_typing,
         options: &TYPING_OPTIONS,
         button: Some(Button::OpenAlwaysOn),
     },
     Section {
-        title: labels::SECTION_MACROS,
+        id: "macro_options",
+        title: |text| text.section_macros,
         options: &MACRO_OPTIONS,
         button: Some(Button::OpenMacros),
     },
     Section {
-        title: labels::SECTION_SYSTEM,
+        id: "system_options",
+        title: |text| text.section_system,
         options: &SYSTEM_OPTIONS,
         button: None,
     },
@@ -222,10 +253,8 @@ const SECTIONS: [Section; 3] = [
 fn option_checkbox(ui: &mut Ui, form: &mut SettingsForm, option: &OptionBox) {
     let enabled = option.gate.is_none_or(|gate| form.is_enabled(gate));
     let current = (option.value)(form.view());
-    if let Some(on) = ui
-        .add_enabled_ui(enabled, |ui| checkbox(ui, option.label, current))
-        .inner
-    {
+    let label = (option.label)(labels_for(form.view()));
+    if let Some(on) = ui.add_enabled_ui(enabled, |ui| checkbox(ui, label, current)).inner {
         (option.set)(form, on);
     }
 }
@@ -261,23 +290,24 @@ fn section_title(ui: &mut Ui, title: &str) -> egui::Response {
 }
 
 fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, actions: &mut Vec<UiAction>) {
-    drop(section_title(ui, section.title));
-    options_in_two_columns(ui, form, section.title, section.options);
+    let text = labels_for(form.view());
+    drop(section_title(ui, (section.title)(text)));
+    options_in_two_columns(ui, form, section.id, section.options);
     if let Some(button) = section.button
-        && ui.button(button_label(form, button)).clicked()
+        && ui.button(button_label(text, button, form.is_expanded())).clicked()
     {
         actions.extend(button.action());
     }
 }
 
 /// The about text, the last section. When `about_to_reveal` asks for it, the scroll area brings it into view once.
-fn about_section(ui: &mut Ui, about_to_reveal: &mut bool) {
-    let title = section_title(ui, labels::SECTION_ABOUT);
-    ui.label(labels::ABOUT_NAME);
-    ui.label(labels::ABOUT_VERSION);
-    ui.label(labels::ABOUT_LICENSE);
-    ui.hyperlink(labels::ABOUT_URL);
-    ui.label(labels::ABOUT_CREDITS);
+fn about_section(ui: &mut Ui, text: &Labels, about_to_reveal: &mut bool) {
+    let title = section_title(ui, text.section_about);
+    ui.label(text.about_name);
+    ui.label(text.about_version);
+    ui.label(text.about_license);
+    ui.hyperlink(text.about_url);
+    ui.label(text.about_credits);
     // egui draws a pass it will discard again at once and drops what that pass asked of the scroll area, so the
     // request waits for the pass that is kept.
     if *about_to_reveal && !ui.ctx().will_discard() {
@@ -291,65 +321,85 @@ fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut
     for section in &SECTIONS {
         options_section(ui, form, section, actions);
     }
-    about_section(ui, about_to_reveal);
+    about_section(ui, labels_for(form.view()), about_to_reveal);
 }
 
 /// The controls used every day, as grid cells: a label, then its control. Each hotkey editor sits in one cell and
 /// draws the same parts in the same order, so the modifier boxes and key fields of the two hotkey rows line up.
 fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
-    ui.label(labels::INPUT_METHOD);
-    if let Some(method) = combo(ui, "input_method", form.view().typing.input_method, &INPUT_METHODS) {
+    let text = labels_for(form.view());
+    let interface_language = form.view().system.interface_language;
+    ui.label(text.input_method);
+    if let Some(method) = combo(
+        ui,
+        "input_method",
+        form.view().typing.input_method,
+        &input_methods(text),
+    ) {
         form.set_input_method(method);
     }
     ui.end_row();
 
-    ui.label(labels::CODE_TABLE);
-    if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, &CODE_TABLES) {
+    ui.label(text.code_table);
+    if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, &code_tables(text)) {
         form.set_code_table(table);
     }
     ui.end_row();
 
-    ui.label(labels::SWITCH_HOTKEY);
-    if let Some(hotkey) = show_hotkey(ui, "switch_hotkey", form.view().switching.hotkey) {
+    ui.label(text.switch_hotkey);
+    if let Some(hotkey) = show_hotkey(ui, "switch_hotkey", form.view().switching.hotkey, interface_language) {
         form.set_switch_hotkey(hotkey);
     }
     option_checkbox(ui, form, &BEEP);
     ui.end_row();
 
-    ui.label(labels::SETTINGS_HOTKEY);
-    if let Some(hotkey) = show_hotkey(ui, "settings_hotkey", form.view().behaviours.settings_hotkey) {
+    ui.label(text.settings_hotkey);
+    let settings_hotkey = form.view().behaviours.settings_hotkey;
+    if let Some(hotkey) = show_hotkey(ui, "settings_hotkey", settings_hotkey, interface_language) {
         form.set_settings_hotkey(hotkey);
     }
     ui.end_row();
 
-    ui.label(labels::LANGUAGE);
-    if let Some(language) = radios(ui, form.view().language, &LANGUAGES) {
+    ui.label(text.language);
+    if let Some(language) = radios(ui, form.view().language, &typing_languages(text)) {
         form.set_language(language);
+    }
+    ui.end_row();
+
+    ui.label(text.interface_language);
+    if let Some(language) = radios(ui, interface_language, &interface_languages(text)) {
+        form.set_interface_language(language);
     }
     ui.end_row();
 }
 
-fn button_label(form: &SettingsForm, button: Button) -> &'static str {
+/// What `button` reads, in the window expanded or not.
+const fn button_label(text: &Labels, button: Button, expanded: bool) -> &'static str {
     match button {
-        Button::CloseWindow => labels::BUTTON_CLOSE,
-        Button::ExitApp => labels::BUTTON_EXIT,
-        Button::ResetToDefaults => labels::BUTTON_RESET,
-        Button::OpenMacros => labels::MACRO_TABLE,
-        Button::OpenAlwaysOn => labels::ALWAYS_ON_APPS,
-        Button::ToggleExpanded if form.is_expanded() => labels::BUTTON_COLLAPSE,
-        Button::ToggleExpanded => labels::BUTTON_EXPAND,
+        Button::CloseWindow => text.button_close,
+        Button::ExitApp => text.button_exit,
+        Button::ResetToDefaults => text.button_reset,
+        Button::OpenMacros => text.macro_table,
+        Button::OpenAlwaysOn => text.always_on_apps,
+        Button::ToggleExpanded if expanded => text.button_collapse,
+        Button::ToggleExpanded => text.button_expand,
     }
 }
 
-/// Every label a bar button can show, in either mode, so the buttons keep their width when the window expands or
-/// collapses.
-const BAR_LABELS: [&str; 5] = [
-    labels::BUTTON_EXPAND,
-    labels::BUTTON_COLLAPSE,
-    labels::BUTTON_EXIT,
-    labels::BUTTON_CLOSE,
-    labels::BUTTON_RESET,
-];
+/// Every label the bar shows in either mode, in the language of `text`, so the buttons keep their width when the
+/// window expands or collapses.
+fn bar_labels(text: &Labels) -> Vec<&'static str> {
+    [false, true]
+        .into_iter()
+        .flat_map(|expanded| {
+            let bar = ButtonBar::for_expanded(expanded);
+            bar.left
+                .into_iter()
+                .chain(bar.right)
+                .map(move |button| button_label(text, button, expanded))
+        })
+        .collect()
+}
 
 /// The width every bar button takes: the theme's button width, or more when the widest of `labels` needs it, so no
 /// label is ever cut.
@@ -363,15 +413,18 @@ fn bar_button_width(ui: &Ui, labels: &[&str]) -> f32 {
 
 /// One button of the bottom bar, `size` like the others. Returns whether it was clicked.
 fn bar_button(ui: &mut Ui, form: &SettingsForm, button: Button, size: egui::Vec2) -> bool {
-    ui.add_sized(size, egui::Button::new(button_label(form, button)))
-        .clicked()
+    let label = button_label(labels_for(form.view()), button, form.is_expanded());
+    ui.add_sized(size, egui::Button::new(label)).clicked()
 }
 
 /// The buttons of the bottom bar, where the form puts them: the left one at the left edge, the others ending at the
 /// right edge. They are added left to right, so the keyboard reaches them in reading order. Returns the button clicked.
 fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
     let bar = form.bar();
-    let size = egui::vec2(bar_button_width(ui, &BAR_LABELS), BUTTON_SIZE.y);
+    let size = egui::vec2(
+        bar_button_width(ui, &bar_labels(labels_for(form.view()))),
+        BUTTON_SIZE.y,
+    );
     ui.horizontal(|ui| {
         let mut clicked = None;
         if let Some(button) = bar.left
@@ -498,6 +551,12 @@ impl SettingsWindow {
     #[must_use]
     pub const fn size(&self) -> egui::Vec2 {
         window_size(&self.form)
+    }
+
+    /// The language the window speaks: the interface language of the preferences it edits.
+    #[must_use]
+    pub const fn interface_language(&self) -> InterfaceLanguageValue {
+        self.form.view().system.interface_language
     }
 
     /// Replaces the edited preferences, after a reset or when the background process changed something.

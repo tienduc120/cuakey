@@ -1,20 +1,25 @@
-//! The conversion window drawn with egui. Every change returns the whole edited view to store; `Chuyển mã` returns a
-//! request to convert. What the controls do lives in [`ConvertForm`]; this file only draws it.
+//! The conversion window drawn with egui. Every change returns the whole edited view to store; the convert button
+//! returns a request to convert. What the controls do lives in [`ConvertForm`]; this file only draws it, in the
+//! interface language of the view it edits.
 
-use cuakey_application::{ConvertCaseValue, HotkeyView, PreferencesView, Toggle};
+use cuakey_application::{ConvertCaseValue, HotkeyView, InterfaceLanguageValue, PreferencesView, Toggle};
 use egui::Ui;
 
+use crate::UiAction;
 use crate::convert_form::ConvertForm;
 use crate::hotkey_editor::show_hotkey;
-use crate::settings_window::{CODE_TABLES, checkbox, combo};
-use crate::{UiAction, labels, widgets};
+use crate::labels::{Labels, labels_for};
+use crate::settings_window::{checkbox, code_tables, combo};
+use crate::widgets;
 
-const CASES: [(ConvertCaseValue, &str); 4] = [
-    (ConvertCaseValue::Upper, labels::CONVERT_UPPER),
-    (ConvertCaseValue::Lower, labels::CONVERT_LOWER),
-    (ConvertCaseValue::SentenceStart, labels::CONVERT_SENTENCE_START),
-    (ConvertCaseValue::EachWord, labels::CONVERT_EACH_WORD),
-];
+const fn cases(text: &Labels) -> [(ConvertCaseValue, &'static str); 4] {
+    [
+        (ConvertCaseValue::Upper, text.convert_upper),
+        (ConvertCaseValue::Lower, text.convert_lower),
+        (ConvertCaseValue::SentenceStart, text.convert_sentence_start),
+        (ConvertCaseValue::EachWord, text.convert_each_word),
+    ]
+}
 
 /// What the hotkey field shows while no quick convert key is set.
 const NO_HOTKEY: HotkeyView = HotkeyView {
@@ -26,7 +31,7 @@ const NO_HOTKEY: HotkeyView = HotkeyView {
 };
 
 fn case_boxes(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>) {
-    for (case, label) in CASES {
+    for (case, label) in cases(labels_for(form.view())) {
         let on = form.is_case_ticked(case);
         if widgets::checkbox(ui, label, on).changed() {
             actions.push(form.set_case(case, !on));
@@ -35,46 +40,51 @@ fn case_boxes(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>) 
 }
 
 fn option_boxes(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>) {
-    if let Some(on) = checkbox(ui, labels::CONVERT_REMOVE_ACCENTS, form.view().convert.remove_accents) {
+    let text = labels_for(form.view());
+    if let Some(on) = checkbox(ui, text.convert_remove_accents, form.view().convert.remove_accents) {
         actions.push(form.set_remove_accents(on));
     }
-    if let Some(on) = checkbox(ui, labels::CONVERT_NOTIFY, form.view().convert.notify_when_done) {
+    if let Some(on) = checkbox(ui, text.convert_notify, form.view().convert.notify_when_done) {
         actions.push(form.set_notify_when_done(on));
     }
     ui.horizontal(|ui| {
-        ui.label(labels::CONVERT_HOTKEY);
+        ui.label(text.convert_hotkey);
         let hotkey = form.view().convert.quick_convert_hotkey.unwrap_or(NO_HOTKEY);
-        if let Some(edited) = show_hotkey(ui, "quick_convert_hotkey", hotkey) {
+        let language = form.view().system.interface_language;
+        if let Some(edited) = show_hotkey(ui, "quick_convert_hotkey", hotkey, language) {
             actions.push(form.set_quick_hotkey(edited));
         }
     });
 }
 
 fn table_row(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>) {
+    let text = labels_for(form.view());
+    let tables = code_tables(text);
     ui.horizontal(|ui| {
-        ui.label(labels::CONVERT_FROM);
-        if let Some(table) = combo(ui, "convert_from", form.view().convert.from, &CODE_TABLES) {
+        ui.label(text.convert_from);
+        if let Some(table) = combo(ui, "convert_from", form.view().convert.from, &tables) {
             actions.push(form.set_from(table));
         }
-        if ui.button(labels::CONVERT_SWAP).clicked() {
+        if ui.button(text.convert_swap).clicked() {
             actions.push(form.swap_tables());
         }
-        ui.label(labels::CONVERT_TO);
-        if let Some(table) = combo(ui, "convert_to", form.view().convert.to, &CODE_TABLES) {
+        ui.label(text.convert_to);
+        if let Some(table) = combo(ui, "convert_to", form.view().convert.to, &tables) {
             actions.push(form.set_to(table));
         }
     });
 }
 
 fn bottom_bar(ui: &mut Ui, form: &ConvertForm, actions: &mut Vec<UiAction>) {
+    let text = labels_for(form.view());
     if let Some(message) = form.error() {
         ui.colored_label(ui.visuals().error_fg_color, message);
     }
     ui.horizontal(|ui| {
-        if ui.button(labels::CONVERT_RUN).clicked() {
+        if ui.button(text.convert_run).clicked() {
             actions.push(form.convert());
         }
-        if ui.button(labels::BUTTON_CLOSE).clicked() {
+        if ui.button(text.button_close).clicked() {
             actions.push(ConvertForm::close());
         }
     });
@@ -92,6 +102,12 @@ impl ConvertWindow {
         Self {
             form: ConvertForm::new(prefs),
         }
+    }
+
+    /// The language the window speaks: the interface language of the preferences it edits.
+    #[must_use]
+    pub const fn interface_language(&self) -> InterfaceLanguageValue {
+        self.form.view().system.interface_language
     }
 
     /// Replaces the edited preferences, when the background process changed something.

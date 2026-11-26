@@ -2,7 +2,9 @@
 //! message under the controls and the buttons of the bottom bar. It holds no drawing, so a test drives every control
 //! without a window.
 
-use cuakey_application::{CodeTableValue, HotkeyView, InputMethodValue, LanguageValue, PreferencesView, Toggle};
+use cuakey_application::{
+    CodeTableValue, HotkeyView, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+};
 
 use crate::{Button, Platform};
 
@@ -51,6 +53,18 @@ pub struct ButtonBar {
     pub left: Option<Button>,
     /// The buttons at the right end, left to right.
     pub right: [Button; 3],
+}
+
+impl ButtonBar {
+    /// The bar of a window that shows every section when `expanded`, or only the controls used every day. The reset,
+    /// which only the expanded window offers, sits alone at the left end, away from the buttons clicked every day.
+    #[must_use]
+    pub const fn for_expanded(expanded: bool) -> Self {
+        Self {
+            left: if expanded { Some(Button::ResetToDefaults) } else { None },
+            right: BAR_RIGHT,
+        }
+    }
 }
 
 /// The preferences being edited, and what the window shows around them.
@@ -144,22 +158,20 @@ impl SettingsForm {
         self.expanded = !self.expanded;
     }
 
-    /// The buttons of the bottom bar and where they sit. The reset, which only the expanded window offers, sits alone
-    /// at the left end, away from the buttons clicked every day.
+    /// The buttons of the bottom bar and where they sit.
     #[must_use]
     pub const fn bar(&self) -> ButtonBar {
-        ButtonBar {
-            left: if self.expanded {
-                Some(Button::ResetToDefaults)
-            } else {
-                None
-            },
-            right: BAR_RIGHT,
-        }
+        ButtonBar::for_expanded(self.expanded)
     }
 
     pub fn set_language(&mut self, language: LanguageValue) {
         self.view.language = language;
+        self.changed = true;
+    }
+
+    /// The language the app's windows, menus and messages speak.
+    pub fn set_interface_language(&mut self, language: InterfaceLanguageValue) {
+        self.view.system.interface_language = language;
         self.changed = true;
     }
 

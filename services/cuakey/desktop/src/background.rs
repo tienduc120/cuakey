@@ -16,7 +16,9 @@ use std::process::{Child, Command, ExitCode};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, mpsc};
 
-use cuakey_application::{LanguageValue, LayoutFlags, MacroView, PreferencesView, SessionError, Toggle, TypingSession};
+use cuakey_application::{
+    InterfaceLanguageValue, LanguageValue, LayoutFlags, MacroView, PreferencesView, SessionError, Toggle, TypingSession,
+};
 use cuakey_interfaces::{
     MenuEffect, MenuId, Notice, WindowKind, apply, convert_error_message, labels, load_error_message,
     load_macros_error_message, model, notice_message, save_error_message,
@@ -30,12 +32,12 @@ use platform_windows::{
 };
 
 use self::hook::{HookHandler, HookWorld, Report, SessionUpdate};
-use self::menu::{MenuMap, menu_app, tray_icon};
+use self::menu::{MenuMap, menu_app, tray_icon, tray_tooltip};
 use self::system::{SystemChanges, startup_mode, system_changes};
 use self::tray_clicks::{TrayClicks, TrayResponse};
 use crate::args::{Mode, window_args};
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, shown_window, take_instance, window_kind};
-use crate::stores::{OpenStoresError, Origin, Stores};
+use crate::stores::{OpenStoresError, Origin, Stores, stored_interface_language};
 
 /// This process, as the single-instance functions name it; its focus log plays no part there.
 const THIS_PROCESS: Mode = Mode::Background { focus_log: None };
@@ -66,8 +68,12 @@ pub(crate) fn run(focus_log: Option<&Path>, args: &[String]) -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(error = ?error, "the background process could not start");
+            let language = stored_interface_language();
             // The process ends next, which would take a notice on a thread of its own with it.
-            show_notice_and_wait(labels::NOTICE_TITLE, notice_message(Notice::NotStarted));
+            show_notice_and_wait(
+                labels(language).notice_title,
+                notice_message(Notice::NotStarted, language),
+            );
             ExitCode::FAILURE
         }
     }
@@ -79,13 +85,14 @@ fn start(focus_log: Option<&Path>, args: &[String]) -> Result<(), StartError> {
     };
     let stores = Stores::open().map_err(StartError::Stores)?;
     let prefs = load_preferences(&stores);
-    let macros = load_macros(&stores);
+    let language = prefs.view.system.interface_language;
+    let macros = load_macros(&stores, language);
     let Some(_guard) = elevate_if_asked(guard, &prefs, args)? else {
         return Ok(());
     };
     // The defaults in place of unread preferences are not the user's way to start, so Windows keeps its own.
     if prefs.origin.may_save() {
-        apply_startup_mode(startup_mode(&prefs.view.system));
+        apply_startup_mode(startup_mode(&prefs.view.system), language);
     }
     serve(stores, prefs, macros, focus_log)
 }
@@ -103,15 +110,16 @@ fn load_preferences(stores: &Stores) -> Loaded {
     let (view, origin, error) = Origin::of(stores.load_preferences());
     if let Some(error) = error {
         tracing::warn!(error = ?error, "could not load the preferences");
-        notify(notice_message(Notice::DefaultsNotSaved));
+        let language = view.system.interface_language;
+        notify(language, notice_message(Notice::DefaultsNotSaved, language));
     }
     Loaded { view, origin }
 }
 
-fn load_macros(stores: &Stores) -> Vec<MacroView> {
+fn load_macros(stores: &Stores, language: InterfaceLanguageValue) -> Vec<MacroView> {
     stores.load_macros().unwrap_or_else(|error| {
         tracing::warn!(error = ?error, "could not load the macros");
-        notify(load_macros_error_message(&error));
+        notify(language, load_macros_error_message(&error, language));
         Vec::new()
     })
 }
@@ -136,7 +144,8 @@ fn elevate_if_asked(
             Notice::ElevationFailed
         }
     };
-    notify(notice_message(notice));
+    let language = prefs.view.system.interface_language;
+    notify(language, notice_message(notice, language));
     take_instance(&THIS_PROCESS).map_err(StartError::Instance)
 }
 
@@ -147,7 +156,6 @@ fn serve(stores: Stores, prefs: Loaded, macros: Vec<MacroView>, focus_log: Optio
     let (updates, session_updates) = mpsc::channel();
     let (reports, session_reports) = mpsc::channel();
     let last_app = Arc::new(Mutex::new(None));
-    let language = prefs.language;
     let show_settings = prefs.system.show_settings_at_startup == Toggle::On;
     let background = Rc::new(Background {
         stores,
@@ -166,7 +174,7 @@ fn serve(stores: Stores, prefs: Loaded, macros: Vec<MacroView>, focus_log: Optio
         MessageWindow::new(BACKGROUND_CLASS, move |message| background.on_message(message))
             .map_err(StartError::MessageWindow)?
     };
-    background.show_tray(language)?;
+    background.show_tray()?;
     let cell = Arc::new(FocusCell::new());
     let watch = FocusWatch::start(Arc::clone(&cell), on_focus(updates, last_app), focus_log, SystemClock)
         .map_err(StartError::FocusWatch)?;
@@ -275,10 +283,15 @@ struct Background {
 }
 
 impl Background {
-    /// Adds the icon. Its handler holds a weak reference, since the tray it is part of is held here.
-    fn show_tray(self: &Rc<Self>, language: LanguageValue) -> Result<(), StartError> {
+    /// Adds the icon, for the language being typed and in the interface language. Its handler holds a weak reference,
+    /// since the tray it is part of is held here.
+    fn show_tray(self: &Rc<Self>) -> Result<(), StartError> {
         let weak = Rc::downgrade(self);
-        let tray = Tray::add(tray_icon(language), labels::WINDOW_TITLE, move |event| {
+        let (icon, tooltip) = {
+            let prefs = self.prefs.borrow();
+            (tray_icon(prefs.language), tray_tooltip(prefs.system.interface_language))
+        };
+        let tray = Tray::add(icon, tooltip, move |event| {
             if let Some(background) = weak.upgrade() {
                 background.on_tray(event);
             }
@@ -344,11 +357,12 @@ impl Background {
         if !self.origin.may_save() {
             return None;
         }
+        let language = self.interface_language();
         let stored = match self.stores.load_preferences() {
             Ok(stored) => stored,
             Err(error) => {
                 tracing::warn!(error = ?error, "could not load the preferences to save over");
-                notify(load_error_message(&error));
+                notify(language, load_error_message(&error, language));
                 return None;
             }
         };
@@ -360,7 +374,7 @@ impl Background {
             }
             Err(error) => {
                 tracing::warn!(error = ?error, "could not save the preferences");
-                notify(save_error_message(&error));
+                notify(language, save_error_message(&error, language));
                 None
             }
         }
@@ -372,17 +386,20 @@ impl Background {
             Ok(prefs) => prefs,
             Err(error) => {
                 tracing::warn!(error = ?error, "could not load the preferences");
-                notify(load_error_message(&error));
+                let language = self.interface_language();
+                notify(language, load_error_message(&error, language));
                 return;
             }
         };
+        let language = prefs.system.interface_language;
         let macros = self.stores.load_macros().unwrap_or_else(|error| {
             tracing::warn!(error = ?error, "could not load the macros");
-            notify(load_macros_error_message(&error));
+            notify(language, load_macros_error_message(&error, language));
             self.macros.borrow().clone()
         });
-        apply_system_changes(system_changes(&self.prefs.borrow().system, &prefs.system));
+        apply_system_changes(system_changes(&self.prefs.borrow().system, &prefs.system), language);
         self.show_language(prefs.language);
+        self.show_interface_language(language);
         self.send_to_session(prefs.clone(), macros.clone());
         *self.prefs.borrow_mut() = prefs;
         *self.macros.borrow_mut() = macros;
@@ -410,6 +427,21 @@ impl Background {
         {
             tracing::warn!(error = ?error, "could not change the icon");
         }
+    }
+
+    /// Words the icon's tooltip in `language`. The menu needs nothing: it is built from the preferences each time it
+    /// opens.
+    fn show_interface_language(&self, language: InterfaceLanguageValue) {
+        if let Some(tray) = self.tray.get()
+            && let Err(error) = tray.set_tooltip(tray_tooltip(language))
+        {
+            tracing::warn!(error = ?error, "could not change the tooltip");
+        }
+    }
+
+    /// The language the app speaks, as the preferences last loaded or stored ask.
+    fn interface_language(&self) -> InterfaceLanguageValue {
+        self.prefs.borrow().system.interface_language
     }
 
     fn on_tray(&self, event: TrayEvent) {
@@ -480,21 +512,23 @@ impl Background {
             }
             Err(error) => {
                 tracing::warn!(error = ?error, "could not start the window process");
-                notify(notice_message(Notice::WindowNotOpened));
+                let language = self.interface_language();
+                notify(language, notice_message(Notice::WindowNotOpened, language));
             }
         }
     }
 
     fn quick_convert(&self) {
+        let language = self.interface_language();
         match self.stores.quick_convert() {
             Ok(result) => {
                 if result.notify {
-                    notify(notice_message(Notice::ConvertDone));
+                    notify(language, notice_message(Notice::ConvertDone, language));
                 }
             }
             Err(error) => {
                 tracing::warn!(error = ?error, "quick convert failed");
-                notify(convert_error_message(&error));
+                notify(language, convert_error_message(&error, language));
             }
         }
     }
@@ -541,16 +575,17 @@ fn tell_window_process(message: AppMessage) {
     }
 }
 
-fn apply_system_changes(changes: SystemChanges) {
+/// Carries out `changes` in Windows, telling in `language` what could not be done.
+fn apply_system_changes(changes: SystemChanges, language: InterfaceLanguageValue) {
     if let Some(mode) = changes.startup {
-        apply_startup_mode(mode);
+        apply_startup_mode(mode, language);
     }
     if let Some(shortcut) = changes.shortcut {
-        put_shortcut(shortcut);
+        put_shortcut(shortcut, language);
     }
 }
 
-fn apply_startup_mode(mode: StartupMode) {
+fn apply_startup_mode(mode: StartupMode, language: InterfaceLanguageValue) {
     let notice = match apply_startup(mode) {
         Ok(()) => return,
         Err(StartupError::NeedsElevation) => Notice::StartupNeedsAdministrator,
@@ -559,26 +594,27 @@ fn apply_startup_mode(mode: StartupMode) {
             Notice::StartupNotChanged
         }
     };
-    notify(notice_message(notice));
+    notify(language, notice_message(notice, language));
 }
 
-fn put_shortcut(shortcut: Toggle) {
+fn put_shortcut(shortcut: Toggle, language: InterfaceLanguageValue) {
     let exe = match std::env::current_exe() {
         Ok(exe) => exe,
         Err(error) => {
             tracing::warn!(error = ?error, "could not find the program's own path");
-            notify(notice_message(Notice::ShortcutNotChanged));
+            notify(language, notice_message(Notice::ShortcutNotChanged, language));
             return;
         }
     };
     if let Err(error) = set_desktop_shortcut(shortcut == Toggle::On, &exe) {
         tracing::warn!(error = ?error, "could not change the desktop shortcut");
-        notify(notice_message(Notice::ShortcutNotChanged));
+        notify(language, notice_message(Notice::ShortcutNotChanged, language));
     }
 }
 
-fn notify(text: &str) {
-    show_notice(labels::NOTICE_TITLE, text);
+/// Shows `text`, worded in `language`, under the notice title of that language.
+fn notify(language: InterfaceLanguageValue, text: &str) {
+    show_notice(labels(language).notice_title, text);
 }
 
 #[cfg(test)]

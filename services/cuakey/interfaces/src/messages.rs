@@ -1,12 +1,12 @@
-//! The text each refusal shows. This is the one place an outcome becomes a message on screen, and every `match` is
-//! exhaustive, so a new outcome cannot reach the user unworded.
+//! The text each refusal shows, in the interface language. This is the one place an outcome becomes a message on
+//! screen, and every `match` is exhaustive, so a new outcome cannot reach the user unworded.
 
 use cuakey_application::{
-    ExportMacrosError, ImportMacrosError, InvalidMacro, LoadMacrosError, LoadPreferencesError, QuickConvertError,
-    ResetPreferencesError, SaveMacrosError, SavePreferencesError, UpdateError,
+    ExportMacrosError, ImportMacrosError, InterfaceLanguageValue, InvalidMacro, LoadMacrosError, LoadPreferencesError,
+    QuickConvertError, ResetPreferencesError, SaveMacrosError, SavePreferencesError, UpdateError,
 };
 
-const SETTINGS_NOT_SAVED: &str = "Không lưu được cài đặt";
+use crate::labels::labels;
 
 /// What the app tells the user about itself and the system, rather than about one setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,107 +34,109 @@ pub enum Notice {
 }
 
 #[must_use]
-pub const fn notice_message(notice: Notice) -> &'static str {
+pub const fn notice_message(notice: Notice, language: InterfaceLanguageValue) -> &'static str {
+    let text = labels(language);
     match notice {
-        Notice::ConvertDone => "Chuyển mã thành công!",
-        Notice::DefaultsNotSaved => {
-            "Không đọc được cài đặt. CuaKey dùng cài đặt gốc và không lưu thay đổi cho đến khi được khởi động lại"
-        }
-        Notice::SettingsUnreadNotSaved => "Không đọc được cài đặt nên thay đổi ở cửa sổ này không được lưu",
-        Notice::MacrosUnreadNotSaved => "Không đọc được bảng gõ tắt nên thay đổi ở cửa sổ này không được lưu",
-        Notice::ElevationRefused => "Không được cấp quyền Admin, CuaKey chạy với quyền thường",
-        Notice::ElevationFailed => "Không khởi động lại được CuaKey với quyền Admin",
-        Notice::StartupNeedsAdministrator => "Cần chạy CuaKey với quyền Admin để đổi cách khởi động cùng Windows",
-        Notice::StartupNotChanged => "Không đổi được cài đặt khởi động cùng Windows",
-        Notice::ShortcutNotChanged => "Không đổi được biểu tượng trên Desktop",
-        Notice::NotStarted => "Không khởi động được CuaKey",
-        Notice::WindowNotOpened => "Không mở được cửa sổ CuaKey",
+        Notice::ConvertDone => text.notice_convert_done,
+        Notice::DefaultsNotSaved => text.notice_defaults_not_saved,
+        Notice::SettingsUnreadNotSaved => text.notice_settings_unread_not_saved,
+        Notice::MacrosUnreadNotSaved => text.notice_macros_unread_not_saved,
+        Notice::ElevationRefused => text.notice_elevation_refused,
+        Notice::ElevationFailed => text.notice_elevation_failed,
+        Notice::StartupNeedsAdministrator => text.notice_startup_needs_administrator,
+        Notice::StartupNotChanged => text.notice_startup_not_changed,
+        Notice::ShortcutNotChanged => text.notice_shortcut_not_changed,
+        Notice::NotStarted => text.notice_not_started,
+        Notice::WindowNotOpened => text.notice_window_not_opened,
     }
 }
 
 /// Why the stored preferences could not be read.
 #[must_use]
-pub const fn load_error_message(error: &LoadPreferencesError) -> &'static str {
+pub const fn load_error_message(error: &LoadPreferencesError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        LoadPreferencesError::Storage(_) => "Không đọc được cài đặt",
+        LoadPreferencesError::Storage(_) => labels(language).settings_not_read,
     }
 }
 
 #[must_use]
-pub const fn error_message(error: UpdateError) -> &'static str {
+pub const fn error_message(error: UpdateError, language: InterfaceLanguageValue) -> &'static str {
+    let text = labels(language);
     match error {
-        UpdateError::EmptyProfileId => "Tên hồ sơ không được để trống",
-        UpdateError::EmptyAppName => "Tên ứng dụng không được để trống",
-        UpdateError::EmptyHotkey => "Phím tắt cần có phím bổ trợ hoặc một phím",
-        UpdateError::InvalidHotkeyKey => "Phím tắt không thể kết thúc bằng phím này",
-        UpdateError::SwitchEqualsSettings => "Hai phím tắt không được trùng nhau",
-        UpdateError::QuickConvertClashes => "Phím chuyển mã nhanh không được trùng với phím tắt khác",
+        UpdateError::EmptyProfileId => text.empty_profile_id,
+        UpdateError::EmptyAppName => text.empty_app_name,
+        UpdateError::EmptyHotkey => text.empty_hotkey,
+        UpdateError::InvalidHotkeyKey => text.invalid_hotkey_key,
+        UpdateError::SwitchEqualsSettings => text.switch_equals_settings,
+        UpdateError::QuickConvertClashes => text.quick_convert_clashes,
     }
 }
 
 #[must_use]
-pub const fn save_error_message(error: &SavePreferencesError) -> &'static str {
+pub const fn save_error_message(error: &SavePreferencesError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        SavePreferencesError::Invalid(invalid) => error_message(*invalid),
-        SavePreferencesError::Storage(_) => SETTINGS_NOT_SAVED,
+        SavePreferencesError::Invalid(invalid) => error_message(*invalid, language),
+        SavePreferencesError::Storage(_) => labels(language).settings_not_saved,
     }
 }
 
 #[must_use]
-pub const fn reset_error_message(error: &ResetPreferencesError) -> &'static str {
+pub const fn reset_error_message(error: &ResetPreferencesError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        ResetPreferencesError::Invalid(invalid) => error_message(*invalid),
-        ResetPreferencesError::Storage(_) => SETTINGS_NOT_SAVED,
+        ResetPreferencesError::Invalid(invalid) => error_message(*invalid, language),
+        ResetPreferencesError::Storage(_) => labels(language).settings_not_saved,
     }
 }
 
 /// Why a macro was refused. The row that caused it stays in the table, so the message need not repeat its shortcut.
 #[must_use]
-pub const fn macro_error_message(error: &InvalidMacro) -> &'static str {
+pub const fn macro_error_message(error: &InvalidMacro, language: InterfaceLanguageValue) -> &'static str {
+    let text = labels(language);
     match error {
-        InvalidMacro::EmptyShortcut => "Từ gõ tắt không được để trống",
-        InvalidMacro::Whitespace(_) => "Từ gõ tắt không được chứa khoảng trắng",
-        InvalidMacro::Colon(_) => "Từ gõ tắt không được chứa dấu hai chấm",
-        InvalidMacro::Semicolon(_) => "Từ gõ tắt không được bắt đầu bằng dấu chấm phẩy",
-        InvalidMacro::LineBreak(_) => "Nội dung đầy đủ không được xuống dòng",
+        InvalidMacro::EmptyShortcut => text.macro_empty_shortcut,
+        InvalidMacro::Whitespace(_) => text.macro_whitespace,
+        InvalidMacro::Colon(_) => text.macro_colon,
+        InvalidMacro::Semicolon(_) => text.macro_semicolon,
+        InvalidMacro::LineBreak(_) => text.macro_line_break,
     }
 }
 
 #[must_use]
-pub const fn load_macros_error_message(error: &LoadMacrosError) -> &'static str {
+pub const fn load_macros_error_message(error: &LoadMacrosError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        LoadMacrosError::Storage(_) => "Không đọc được bảng gõ tắt",
+        LoadMacrosError::Storage(_) => labels(language).macros_not_read,
     }
 }
 
 #[must_use]
-pub const fn save_macros_error_message(error: &SaveMacrosError) -> &'static str {
+pub const fn save_macros_error_message(error: &SaveMacrosError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        SaveMacrosError::Invalid(invalid) => macro_error_message(invalid),
-        SaveMacrosError::Storage(_) => "Không lưu được bảng gõ tắt",
+        SaveMacrosError::Invalid(invalid) => macro_error_message(invalid, language),
+        SaveMacrosError::Storage(_) => labels(language).macros_not_saved,
     }
 }
 
 #[must_use]
-pub const fn import_macros_error_message(error: &ImportMacrosError) -> &'static str {
+pub const fn import_macros_error_message(error: &ImportMacrosError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        ImportMacrosError::Storage(_) => "Không nạp được bảng gõ tắt từ file",
+        ImportMacrosError::Storage(_) => labels(language).macros_not_imported,
     }
 }
 
 #[must_use]
-pub const fn export_macros_error_message(error: &ExportMacrosError) -> &'static str {
+pub const fn export_macros_error_message(error: &ExportMacrosError, language: InterfaceLanguageValue) -> &'static str {
     match error {
-        ExportMacrosError::Storage(_) => "Không xuất được bảng gõ tắt ra file",
+        ExportMacrosError::Storage(_) => labels(language).macros_not_exported,
     }
 }
 
 #[must_use]
-pub const fn convert_error_message(error: &QuickConvertError) -> &'static str {
+pub const fn convert_error_message(error: &QuickConvertError, language: InterfaceLanguageValue) -> &'static str {
+    let text = labels(language);
     match error {
-        QuickConvertError::NoText => "Bộ nhớ tạm không có văn bản để chuyển mã",
-        QuickConvertError::Clipboard(_) => "Không dùng được bộ nhớ tạm",
-        QuickConvertError::Storage(_) => "Không đọc được tùy chọn chuyển mã",
+        QuickConvertError::NoText => text.convert_no_text,
+        QuickConvertError::Clipboard(_) => text.clipboard_unavailable,
+        QuickConvertError::Storage(_) => text.convert_options_not_read,
     }
 }
 
