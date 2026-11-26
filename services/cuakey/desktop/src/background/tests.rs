@@ -1,4 +1,6 @@
-use cuakey_application::{AppMemoryView, CodeTableValue, LanguageValue, PreferencesView, Toggle};
+use cuakey_application::{
+    AppMemoryView, CodeTableValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+};
 use cuakey_interfaces::MenuId;
 
 use super::{rebase_menu_change, rebase_session};
@@ -50,4 +52,25 @@ fn a_menu_change_applies_to_the_rebased_preferences() {
     assert_eq!(saved.typing.spell_check, Toggle::Off, "kept from the store");
     assert_eq!(saved.always_on, stored().always_on, "kept from the store");
     assert_eq!(saved.language, LanguageValue::English, "the session's");
+}
+
+#[test]
+fn a_session_save_keeps_the_stored_interface_language() {
+    let mut stored = stored();
+    stored.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    // The session switched the language with the preferences it started on, which hold the default interface.
+    let switched = PreferencesView {
+        language: LanguageValue::Vietnamese,
+        ..session()
+    };
+    assert_eq!(switched.system.interface_language, InterfaceLanguageValue::English);
+
+    let saved = rebase_session(stored, &switched);
+
+    assert_eq!(saved.language, LanguageValue::Vietnamese, "the switch");
+    assert_eq!(
+        saved.system.interface_language,
+        InterfaceLanguageValue::Vietnamese,
+        "the interface the store holds"
+    );
 }

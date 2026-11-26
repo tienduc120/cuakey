@@ -96,3 +96,19 @@ fn the_keyboard_opens_the_settings_and_undoes_nothing() {
 
     assert_eq!(responses, [switch(), TrayResponse::OpenSettings]);
 }
+
+#[test]
+fn a_click_past_the_double_click_time_switches_again() {
+    let responses = run(&[
+        (TrayEvent::Click, 0),
+        (TrayEvent::DoubleClick, 200),
+        (TrayEvent::Click, 250),
+        (TrayEvent::Click, 800),
+    ]);
+
+    assert_eq!(
+        responses,
+        [switch(), switch(), TrayResponse::OpenSettings, switch()],
+        "the click that ends the double click is ignored, a later one is a click of its own"
+    );
+}
