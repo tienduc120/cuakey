@@ -1,19 +1,24 @@
 # CuaKey
 
-Vietnamese typing for Windows, written in Rust.
+Vietnamese typing for Windows, small and written in Rust.
+
+## Why CuaKey
+
+- **Game-friendly.** Vietnamese applies only in real text boxes, so game keys like WASD and skill hotkeys are never turned into ư or â. To type Vietnamese in a game's own chat, add the game to the always-on list.
+- **A w at the start of a word stays w.** In Telex, `windows` and `web` type as they are instead of starting with ư. This can be turned off in Settings.
+- **Never in password boxes.**
+- **One click to switch.** Click the tray icon or press Ctrl+Shift.
+- **No surprise switching.** The language stays as you set it when you move between apps; per-app memory is off unless you turn it on.
+- **Nothing installed into Windows.** No keyboard layout or input method is added.
 
 ## Features
 
-- Telex, VNI and Simple Telex input methods.
-- Five code tables: Unicode, TCVN3, VNI Windows, Unicode Composite and Vietnamese Locale CP1258.
+- Telex, VNI and Simple Telex.
+- Five code tables: Unicode, TCVN3, VNI Windows, Unicode Composite and CP1258.
 - Spell check that restores the keys you typed when a word is not Vietnamese.
 - Macros in a `macros.txt` file, compatible with OpenKey and UniKey.
-- Conversion between code tables, and quick convert from the clipboard.
-- Per-app memory of the typing language and the code table, both off by default and turned on in Settings.
-- A list of apps where Vietnamese is always on.
-- Vietnamese only in text boxes, never in password boxes.
-- No Windows keyboard layout or input method is added.
-- The interface is in English or Vietnamese, switched in Settings.
+- Code table conversion, and quick convert from the clipboard.
+- An English or Vietnamese interface; windows reopen where you closed them.
 
 ## Install
 
@@ -34,8 +39,7 @@ On PCs with Smart App Control turned on, unsigned builds may be blocked.
 ## How it works
 
 - A low-level keyboard hook sees each key, and `SendInput` replaces the text it changes.
-- UI Automation tells a text box from a password box, so Vietnamese is turned off where it should not apply.
-- No keyboard layout or input method is installed.
+- UI Automation tells a text box from a password box or a game, so Vietnamese applies only where text is typed.
 - The typing engine is written in Rust from scratch and checked against OpenKey's behaviour with `cargo xtask compare-openkey`.
 - Windows open in a separate process, so the background process stays small.
 
