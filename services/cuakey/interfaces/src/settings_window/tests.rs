@@ -617,6 +617,26 @@ fn about_is_two_by_two() {
 }
 
 #[test]
+fn a_greyed_option_ignores_a_click() {
+    let mut view = PreferencesView::default();
+    view.typing.spell_check = Toggle::Off;
+    let restore = view.typing.restore_invalid_word;
+    let ctx = themed();
+    let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
+
+    let greyed = click(&ctx, &mut window, ENGLISH.restore_invalid_word);
+    assert!(greyed.actions.is_empty(), "{:?}", greyed.actions);
+    assert_eq!(window.form.view().typing.restore_invalid_word, restore);
+
+    let enabled = click(&ctx, &mut window, ENGLISH.spell_check);
+    assert!(
+        matches!(enabled.actions.as_slice(), [UiAction::Save(view)] if view.typing.spell_check == Toggle::On),
+        "an option that is not greyed takes the click: {:?}",
+        enabled.actions
+    );
+}
+
+#[test]
 fn system_section_comes_first() {
     for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
         let ctx = themed();
