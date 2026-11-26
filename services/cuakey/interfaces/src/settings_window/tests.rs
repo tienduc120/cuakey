@@ -1,8 +1,8 @@
 use cuakey_application::{InterfaceLanguageValue, KeyName, PreferencesView, Toggle};
 use egui::epaint::RectShape;
 
-use super::{COMPACT_SIZE, EXPANDED_SIZE, SettingsWindow, bar_button_width, bar_labels, checkbox};
-use crate::labels::{ENGLISH, VIETNAMESE};
+use super::{COMPACT_SIZE, EXPANDED_SIZE, SECTIONS, SettingsWindow, bar_button_width, bar_labels, checkbox};
+use crate::labels::{ENGLISH, Labels, VIETNAMESE};
 use crate::theme::{self, BUTTON_SIZE};
 use crate::{Platform, UiAction, widgets};
 
@@ -184,6 +184,11 @@ fn button_of(shown: &Shown, label: &str) -> egui::Rect {
 
 fn near(a: f32, b: f32) -> bool {
     (a - b).abs() < 0.5
+}
+
+/// The width of `label` on one line, as a button draws it.
+fn button_text_width(ui: &egui::Ui, label: &str) -> f32 {
+    widgets::text_width(ui, label, egui::TextStyle::Button)
 }
 
 /// Clicks the button labelled `label` and returns the pass that saw the release.
@@ -423,10 +428,7 @@ fn buttons_sit_in_a_bottom_bar() {
         VIETNAMESE.button_exit,
         VIETNAMESE.button_close,
     ];
-    let size = egui::vec2(
-        pass(&ctx, Vec::new(), |ui| bar_button_width(ui, &bar_labels(&VIETNAMESE))),
-        BUTTON_SIZE.y,
-    );
+    let size = egui::vec2(pass(&ctx, Vec::new(), |ui| bar_button_width(ui)), BUTTON_SIZE.y);
 
     let compact = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
     let buttons = right.map(|label| button_of(&compact, label));
@@ -514,21 +516,24 @@ fn sections_use_two_columns() {
 }
 
 #[test]
-fn bar_buttons_take_the_widest_label() {
-    let long_label = "Reset to defaults and start over";
-    let (short, long, needed) = pass(&themed(), Vec::new(), |ui| {
-        (
-            bar_button_width(ui, &[ENGLISH.button_close]),
-            bar_button_width(ui, &[ENGLISH.button_close, long_label]),
-            widgets::button_text_width(ui, long_label) + 2.0 * ui.spacing().button_padding.x,
-        )
+fn bar_buttons_take_the_widest_label_of_either_language() {
+    let (width, needs) = pass(&themed(), Vec::new(), |ui| {
+        let padding = 2.0 * ui.spacing().button_padding.x;
+        let needs: Vec<(&str, f32)> = [&VIETNAMESE, &ENGLISH]
+            .into_iter()
+            .flat_map(bar_labels)
+            .map(|label| (label, button_text_width(ui, label) + padding))
+            .collect();
+        (bar_button_width(ui), needs)
     });
+    for (label, need) in &needs {
+        assert!(width + 0.01 >= *need, "{width} holds {label}, which needs {need}");
+    }
+    let widest = needs.iter().map(|(_, need)| *need).fold(BUTTON_SIZE.x, f32::max);
     assert!(
-        near(short, BUTTON_SIZE.x),
-        "short labels keep the smallest width: {short}"
+        near(width, widest),
+        "{width} is the smallest width or the widest label's, {widest}"
     );
-    assert!(long > BUTTON_SIZE.x, "a long label widens the buttons: {long}");
-    assert!(near(long, needed), "{long} holds the long label, which needs {needed}");
 }
 
 #[test]
@@ -547,11 +552,11 @@ fn bar_labels_are_never_cut() {
         for (label, button) in bar.iter().zip(buttons) {
             assert_eq!(button.size(), buttons[0].size(), "{label} is as large as the others");
             let need = pass(&ctx, Vec::new(), |ui| {
-                widgets::button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
+                button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
             });
             assert!(button.width() + 0.5 >= need, "{label} needs {need}: {button:?}");
             let drawn = place_of(&shown, label).unwrap().width();
-            let full = pass(&ctx, Vec::new(), |ui| widgets::button_text_width(ui, label));
+            let full = pass(&ctx, Vec::new(), |ui| button_text_width(ui, label));
             assert!(near(drawn, full), "{label} is drawn whole: {drawn} of {full}");
         }
     }
@@ -579,9 +584,12 @@ fn the_english_bar_fits_the_expanded_window() {
         close.right() <= EXPANDED_SIZE.x - margin() + 0.5,
         "the last button ends inside the window: {close:?}"
     );
+    // The bar takes the width of the wider Vietnamese labels, which the test font's 9 points a letter make wider than
+    // the real fonts do; this gap only has to stand out from the room between the other buttons.
     let gap = collapse.left() - reset.right();
+    let spacing = ctx.global_style().spacing.item_spacing.x;
     assert!(
-        gap >= 24.0,
+        gap >= 2.0 * spacing,
         "the reset stays apart from the buttons used every day: {gap}"
     );
 }
@@ -828,6 +836,135 @@ fn interface_radios_name_each_language_in_itself() {
             );
         }
     }
+}
+
+/// `view` speaking `language`.
+fn speaking(mut view: PreferencesView, language: InterfaceLanguageValue) -> PreferencesView {
+    view.system.interface_language = language;
+    view
+}
+
+/// What the last of a few passes of `window` drew on a big screen, once its grids took their widths.
+fn settled(ctx: &egui::Context, window: &mut SettingsWindow) -> Shown {
+    let mut shown = show(ctx, window, BIG_SCREEN, Vec::new());
+    for _ in 0..2 {
+        shown = show(ctx, window, BIG_SCREEN, Vec::new());
+    }
+    shown
+}
+
+/// Where each control used every day starts, in a window drawn in the language of `text`, named for the message of a
+/// failed comparison. A box or radio sits a fixed step before its label and a key is centred in its field, so these
+/// labels move with their controls.
+fn control_starts(shown: &Shown, text: &Labels) -> Vec<(&'static str, f32)> {
+    let row = |label: &str| place_of(shown, label).unwrap_or_else(|| panic!("{label} is drawn"));
+    let first_choice = |label: &str, choice: &str| {
+        let row = row(label);
+        places_of(shown, choice)
+            .into_iter()
+            .find(|place| near(place.center().y, row.center().y))
+            .unwrap_or_else(|| panic!("{choice} in the {label} row"))
+            .left()
+    };
+    let ctrl = places_of(shown, text.key_ctrl);
+    let key = places_of(shown, "F5");
+    vec![
+        ("input method", button_of(shown, text.input_method_telex).left()),
+        ("code table", button_of(shown, text.code_table_unicode).left()),
+        ("switch hotkey's first box", ctrl[0].left()),
+        ("switch hotkey's key", key[0].left()),
+        ("beep", row(text.beep).left()),
+        ("settings hotkey's first box", ctrl[1].left()),
+        ("settings hotkey's key", key[1].left()),
+        (
+            "typing's first radio",
+            first_choice(text.language, text.language_vietnamese),
+        ),
+        (
+            "interface's first radio",
+            first_choice(text.interface_language, text.interface_vietnamese),
+        ),
+    ]
+}
+
+/// The bar's buttons in a window drawn in the language of `text`, left to right.
+fn bar_of(shown: &Shown, text: &Labels, expanded: bool) -> Vec<egui::Rect> {
+    let labels: &[&str] = if expanded {
+        &[
+            text.button_reset,
+            text.button_collapse,
+            text.button_exit,
+            text.button_close,
+        ]
+    } else {
+        &[text.button_expand, text.button_exit, text.button_close]
+    };
+    labels.iter().map(|label| button_of(shown, label)).collect()
+}
+
+/// Where each option of the expanded sections starts, in the order the sections list them.
+fn option_starts(shown: &Shown, text: &Labels) -> Vec<(&'static str, f32)> {
+    SECTIONS
+        .iter()
+        .flat_map(|section| section.options)
+        .map(|option| {
+            let label = (option.label)(&ENGLISH);
+            let place = place_of(shown, (option.label)(text)).unwrap_or_else(|| panic!("{label} is drawn"));
+            (label, place.left())
+        })
+        .collect()
+}
+
+fn assert_same_starts(vietnamese: &[(&str, f32)], english: &[(&str, f32)]) {
+    assert_eq!(vietnamese.len(), english.len());
+    for ((name, vi), (_, en)) in vietnamese.iter().zip(english) {
+        assert!(near(*vi, *en), "{name} starts at {vi} in Vietnamese, {en} in English");
+    }
+}
+
+fn assert_same_buttons(vietnamese: &[egui::Rect], english: &[egui::Rect]) {
+    assert_eq!(vietnamese.len(), english.len());
+    for (vi, en) in vietnamese.iter().zip(english) {
+        assert!(
+            near(vi.left(), en.left()) && near(vi.width(), en.width()),
+            "a bar button at {vi:?} in Vietnamese is at {en:?} in English"
+        );
+    }
+}
+
+#[test]
+fn switching_language_moves_no_control() {
+    let mut view = vietnamese();
+    view.switching.hotkey.key = Some(KeyName::F5);
+    view.behaviours.settings_hotkey.key = Some(KeyName::F5);
+    let english = speaking(view.clone(), InterfaceLanguageValue::English);
+    let ctx = themed();
+    let mut window = SettingsWindow::new(view.clone(), Platform::Windows);
+
+    let compact_vi = settled(&ctx, &mut window);
+    window.set_preferences(english);
+    let compact_en = settled(&ctx, &mut window);
+    assert_same_starts(
+        &control_starts(&compact_vi, &VIETNAMESE),
+        &control_starts(&compact_en, &ENGLISH),
+    );
+    assert_same_buttons(
+        &bar_of(&compact_vi, &VIETNAMESE, false),
+        &bar_of(&compact_en, &ENGLISH, false),
+    );
+
+    window.expand();
+    let expanded_en = settled(&ctx, &mut window);
+    window.set_preferences(view);
+    let expanded_vi = settled(&ctx, &mut window);
+    assert_same_starts(
+        &option_starts(&expanded_vi, &VIETNAMESE),
+        &option_starts(&expanded_en, &ENGLISH),
+    );
+    assert_same_buttons(
+        &bar_of(&expanded_vi, &VIETNAMESE, true),
+        &bar_of(&expanded_en, &ENGLISH, true),
+    );
 }
 
 #[test]

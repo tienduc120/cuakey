@@ -122,15 +122,12 @@ pub(crate) fn show_hotkey(
     (edited != hotkey).then_some(edited)
 }
 
-/// The key field's width, whatever it shows, so the parts after it stay in place: the widest text it can show in
-/// `language`, in the font it is drawn with, and the button padding.
-fn key_field_width(ui: &egui::Ui, language: InterfaceLanguageValue) -> f32 {
-    let widest = KEYS
-        .iter()
-        .map(|(_, name)| key_label(*name, language))
-        .chain([labels(language).hotkey_other_key])
-        .map(|text| widgets::button_text_width(ui, text))
-        .fold(0.0, f32::max);
+/// The key field's width, whatever it shows and in either interface language, so the parts after it stay in place:
+/// the widest text it can show, in the font it is drawn with, and the button padding.
+fn key_field_width(ui: &egui::Ui) -> f32 {
+    let widest = widgets::widest_in_both_languages(ui, &egui::TextStyle::Button, |text| {
+        KEYS.iter().map(|(key, _)| key.name()).chain([text.hotkey_other_key])
+    });
     widest + 2.0 * ui.spacing().button_padding.x
 }
 
@@ -138,7 +135,7 @@ fn key_field_width(ui: &egui::Ui, language: InterfaceLanguageValue) -> f32 {
 /// key is set; the hint says what to do.
 fn key_field(ui: &mut egui::Ui, hotkey: HotkeyView, language: InterfaceLanguageValue) -> HotkeyView {
     let idle_text = hotkey.key.map_or("", |name| key_label(name, language));
-    let size = egui::vec2(key_field_width(ui, language), ui.spacing().interact_size.y);
+    let size = egui::vec2(key_field_width(ui), ui.spacing().interact_size.y);
     let response = ui
         .add_sized(size, egui::Button::new(idle_text).truncate())
         .on_hover_text(labels(language).hotkey_field_hint);

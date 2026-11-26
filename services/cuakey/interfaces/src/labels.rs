@@ -508,6 +508,9 @@ pub const ENGLISH: Labels = Labels {
     convert_options_not_read: "Could not read the conversion options",
 };
 
+/// The texts of every interface language.
+pub(crate) const EVERY_LANGUAGE: [&Labels; 2] = [&VIETNAMESE, &ENGLISH];
+
 /// The texts of `language`.
 #[must_use]
 pub const fn labels(language: InterfaceLanguageValue) -> &'static Labels {

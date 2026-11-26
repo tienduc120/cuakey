@@ -5,6 +5,8 @@ use egui::{
     pos2, vec2,
 };
 
+use crate::labels::{EVERY_LANGUAGE, Labels};
+
 /// The side of a checkbox's box: one step larger than egui's, so the box reads at a glance.
 pub(crate) const CHECKBOX_SIZE: f32 = 15.0;
 
@@ -18,12 +20,26 @@ const TICK: [Vec2; 3] = [vec2(0.22, 0.52), vec2(0.42, 0.72), vec2(0.78, 0.30)];
 /// glance without filling the box.
 const TICK_WIDTH: f32 = 2.0 / 15.0;
 
-/// The width of `text` on one line, as a button draws it in the ui's current font.
-pub(crate) fn button_text_width(ui: &Ui, text: &str) -> f32 {
+/// The width of `text` on one line, in `style` of the ui's current font.
+pub(crate) fn text_width(ui: &Ui, text: &str, style: TextStyle) -> f32 {
     WidgetText::from(text)
-        .into_galley(ui, Some(TextWrapMode::Extend), f32::INFINITY, TextStyle::Button)
+        .into_galley(ui, Some(TextWrapMode::Extend), f32::INFINITY, style)
         .size()
         .x
+}
+
+/// The width of the widest text `texts` picks from the labels of either interface language, on one line in `style` of
+/// the ui's current font. A place this wide holds its text in both languages, so what follows it stays where it is when
+/// the language changes.
+pub(crate) fn widest_in_both_languages<I>(ui: &Ui, style: &TextStyle, texts: impl Fn(&'static Labels) -> I) -> f32
+where
+    I: IntoIterator<Item = &'static str>,
+{
+    EVERY_LANGUAGE
+        .into_iter()
+        .flat_map(texts)
+        .map(|text| text_width(ui, text, style.clone()))
+        .fold(0.0, f32::max)
 }
 
 fn tick(icon: Rect) -> Vec<Pos2> {

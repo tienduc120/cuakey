@@ -1,7 +1,8 @@
 use egui::epaint::{RectShape, TextShape};
-use egui::{Context, Event, Key, Modifiers, PointerButton, Pos2, RawInput, Rect, Response, Shape};
+use egui::{Context, Event, Key, Modifiers, PointerButton, Pos2, RawInput, Rect, Response, Shape, TextStyle};
 
-use super::{CHECKBOX_GAP, CHECKBOX_SIZE, checkbox};
+use super::{CHECKBOX_GAP, CHECKBOX_SIZE, checkbox, text_width, widest_in_both_languages};
+use crate::labels::{ENGLISH, Labels, VIETNAMESE};
 
 const LABEL: &str = "Kêu Beep";
 
@@ -179,6 +180,30 @@ fn a_ticked_box_shows_hover_and_focus() {
     assert_ne!(hovered.stroke, at_rest.stroke, "the pointer outlines the box");
     assert_ne!(focused.stroke, at_rest.stroke, "the focus outlines the box");
     assert_ne!(focused.stroke, hovered.stroke, "focus reads apart from hover");
+}
+
+#[test]
+fn the_widest_text_of_either_language_sets_the_width() {
+    let mut output = Context::default().run_ui(RawInput::default(), |ui| {
+        let width = |text| text_width(ui, text, TextStyle::Button);
+        let longer_in_vietnamese: fn(&Labels) -> &'static str = |text| text.button_reset;
+        let longer_in_english: fn(&Labels) -> &'static str = |text| text.about_name;
+        assert!(width(longer_in_vietnamese(&VIETNAMESE)) > width(longer_in_vietnamese(&ENGLISH)));
+        assert!(width(longer_in_english(&ENGLISH)) > width(longer_in_english(&VIETNAMESE)));
+
+        for (pick, widest) in [
+            (longer_in_vietnamese, longer_in_vietnamese(&VIETNAMESE)),
+            (longer_in_english, longer_in_english(&ENGLISH)),
+        ] {
+            let measured = widest_in_both_languages(ui, &TextStyle::Button, |text| [pick(text), text.button_close]);
+            assert!(
+                (measured - width(widest)).abs() < 0.01,
+                "{measured} is the width of {widest}, {}",
+                width(widest)
+            );
+        }
+    });
+    output.textures_delta.clear();
 }
 
 #[test]

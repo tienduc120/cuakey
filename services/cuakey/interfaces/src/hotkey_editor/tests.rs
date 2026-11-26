@@ -125,6 +125,39 @@ fn key_field_size(key: Option<KeyName>) -> egui::Vec2 {
 }
 
 #[test]
+fn key_field_takes_the_same_room_in_either_language() {
+    let size_in = |language| {
+        pass(&themed(), Vec::new(), |ui| {
+            ui.scope(|ui| key_field(ui, ctrl_shift(None), language))
+                .response
+                .rect
+                .size()
+        })
+    };
+    let (width, needed) = pass(&themed(), Vec::new(), |ui| {
+        let width = ui
+            .scope(|ui| key_field(ui, ctrl_shift(None), VIETNAMESE))
+            .response
+            .rect
+            .width();
+        let widest = [labels::VIETNAMESE.hotkey_other_key, labels::ENGLISH.hotkey_other_key]
+            .map(|text| crate::widgets::text_width(ui, text, egui::TextStyle::Button))
+            .into_iter()
+            .fold(0.0, f32::max);
+        (width, widest + 2.0 * ui.spacing().button_padding.x)
+    });
+    assert_eq!(
+        size_in(VIETNAMESE),
+        size_in(InterfaceLanguageValue::English),
+        "what follows the field stays in place when the language changes"
+    );
+    assert!(
+        width >= needed,
+        "{width} holds either language's text, which needs {needed}"
+    );
+}
+
+#[test]
 fn key_field_width_is_fixed() {
     assert_eq!(
         key_field_size(None),

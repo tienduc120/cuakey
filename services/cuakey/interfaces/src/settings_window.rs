@@ -6,7 +6,7 @@
 use cuakey_application::{
     CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
 };
-use egui::Ui;
+use egui::{TextStyle, Ui};
 
 use crate::hotkey_editor::show_hotkey;
 use crate::labels::{Labels, labels_for};
@@ -261,17 +261,27 @@ fn option_checkbox(ui: &mut Ui, form: &mut SettingsForm, option: &OptionBox) {
     }
 }
 
-/// Lays `options` out two to a row, in their order, leaving out those the form hides. The columns split the width
-/// evenly, so the second column starts at the same place in every section.
+/// The width of each options column: the widest option of any section in either interface language, box included,
+/// so the second column starts at the same place in every section and in both languages.
+fn option_column_width(ui: &Ui) -> f32 {
+    let widest = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| {
+        SECTIONS
+            .iter()
+            .flat_map(|section| section.options)
+            .map(|option| (option.label)(text))
+    });
+    widgets::CHECKBOX_SIZE + widgets::CHECKBOX_GAP + widest
+}
+
+/// Lays `options` out two to a row, in their order, leaving out those the form hides.
 fn options_in_two_columns(ui: &mut Ui, form: &mut SettingsForm, id_salt: &str, options: &[OptionBox]) {
     let shown: Vec<&OptionBox> = options
         .iter()
         .filter(|option| option.gate.is_none_or(|gate| form.is_visible(gate)))
         .collect();
-    let column_width = (ui.available_width() - ui.spacing().item_spacing.x) / 2.0;
     egui::Grid::new(id_salt)
         .num_columns(2)
-        .min_col_width(column_width)
+        .min_col_width(option_column_width(ui))
         .show(ui, |ui| {
             for row in shown.chunks(2) {
                 for option in row {
@@ -326,12 +336,44 @@ fn expanded_sections(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut
     about_section(ui, labels_for(form.view()), about_to_reveal);
 }
 
-/// The controls used every day, as grid cells: a label, then its control. Each hotkey editor sits in one cell and
+/// Adds what `add_contents` draws in a cell `width` wide, whatever its own width, so the next cell on the row starts at
+/// the same place in both interface languages.
+fn fixed_width_cell<R>(ui: &mut Ui, width: f32, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    let size = egui::vec2(width, ui.spacing().interact_size.y);
+    ui.allocate_ui_with_layout(size, egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        ui.set_min_width(width);
+        add_contents(ui)
+    })
+    .inner
+}
+
+/// The labels of the controls used every day, which share one column.
+const fn control_labels(text: &Labels) -> [&'static str; 6] {
+    [
+        text.input_method,
+        text.code_table,
+        text.switch_hotkey,
+        text.settings_hotkey,
+        text.language,
+        text.interface_language,
+    ]
+}
+
+/// The label of a control row, in the label column `width` wide.
+fn row_label(ui: &mut Ui, width: f32, label: &str) {
+    fixed_width_cell(ui, width, |ui| {
+        ui.label(label);
+    });
+}
+
+/// The controls used every day, as grid cells: a label, then its control. The labels take the room of the widest in
+/// either interface language, so the controls start at the same place in both. Each hotkey editor sits in one cell and
 /// draws the same parts in the same order, so the modifier boxes and key fields of the two hotkey rows line up.
 fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
     let text = labels_for(form.view());
     let interface_language = form.view().system.interface_language;
-    ui.label(text.input_method);
+    let label_width = widgets::widest_in_both_languages(ui, &TextStyle::Body, control_labels);
+    row_label(ui, label_width, text.input_method);
     if let Some(method) = combo(
         ui,
         "input_method",
@@ -342,33 +384,33 @@ fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
     }
     ui.end_row();
 
-    ui.label(text.code_table);
+    row_label(ui, label_width, text.code_table);
     if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, &code_tables(text)) {
         form.set_code_table(table);
     }
     ui.end_row();
 
-    ui.label(text.switch_hotkey);
+    row_label(ui, label_width, text.switch_hotkey);
     if let Some(hotkey) = show_hotkey(ui, "switch_hotkey", form.view().switching.hotkey, interface_language) {
         form.set_switch_hotkey(hotkey);
     }
     option_checkbox(ui, form, &BEEP);
     ui.end_row();
 
-    ui.label(text.settings_hotkey);
+    row_label(ui, label_width, text.settings_hotkey);
     let settings_hotkey = form.view().behaviours.settings_hotkey;
     if let Some(hotkey) = show_hotkey(ui, "settings_hotkey", settings_hotkey, interface_language) {
         form.set_settings_hotkey(hotkey);
     }
     ui.end_row();
 
-    ui.label(text.language);
+    row_label(ui, label_width, text.language);
     if let Some(language) = radios(ui, form.view().language, &typing_languages(text)) {
         form.set_language(language);
     }
     ui.end_row();
 
-    ui.label(text.interface_language);
+    row_label(ui, label_width, text.interface_language);
     if let Some(language) = radios(ui, interface_language, &interface_languages(text)) {
         form.set_interface_language(language);
     }
@@ -403,13 +445,10 @@ fn bar_labels(text: &Labels) -> Vec<&'static str> {
         .collect()
 }
 
-/// The width every bar button takes when the window has room: the theme's button width, or more when the widest of
-/// `labels` needs it, so no label is cut.
-fn bar_button_width(ui: &Ui, labels: &[&str]) -> f32 {
-    let widest = labels
-        .iter()
-        .map(|label| widgets::button_text_width(ui, label))
-        .fold(0.0, f32::max);
+/// The width every bar button takes when the window has room: the theme's button width, or more when the widest label
+/// of the bar in either interface language needs it, so no label is cut and no button moves when the language changes.
+fn bar_button_width(ui: &Ui) -> f32 {
+    let widest = widgets::widest_in_both_languages(ui, &TextStyle::Button, bar_labels);
     BUTTON_SIZE.x.max(widest + 2.0 * ui.spacing().button_padding.x)
 }
 
@@ -433,7 +472,7 @@ fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
     let bar = form.bar();
     let spacing = ui.spacing().item_spacing.x;
     let count = bar.left.iter().chain(&bar.right).map(|_| 1.0).sum();
-    let wanted = bar_button_width(ui, &bar_labels(labels_for(form.view())));
+    let wanted = bar_button_width(ui);
     let size = egui::vec2(
         fitted_button_width(wanted, ui.available_width(), count, spacing),
         BUTTON_SIZE.y,
