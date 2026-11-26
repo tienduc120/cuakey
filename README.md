@@ -2,11 +2,14 @@
 
 Vietnamese typing for Windows, small and written in Rust.
 
+![The CuaKey control panel](docs/images/ui-sample.png)
+
 ## Why CuaKey
 
 - **Game-friendly.** Vietnamese applies only in real text boxes, so game keys like WASD and skill hotkeys are never turned into ư or â. To type Vietnamese in a game's own chat, add the game to the always-on list.
 - **A w at the start of a word stays w.** In Telex, `windows` and `web` type as they are instead of starting with ư. This can be turned off in Settings.
 - **Never in password boxes.**
+- **No Vietnamese on other keyboard layouts.** With a Japanese or any other non-English layout active, keys pass through as typed, so you can keep an English and a Japanese keyboard side by side. This is the "Type with other keyboard layouts" setting.
 - **No switching between apps.** The language stays as you set it when you move between apps; per-app memory is off unless you turn it on.
 
 ## Features
