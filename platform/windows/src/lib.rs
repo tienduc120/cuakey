@@ -47,6 +47,8 @@ mod startup;
 #[cfg(windows)]
 mod task_scheduler;
 mod tray;
+#[cfg(windows)]
+mod working_set;
 
 #[cfg(windows)]
 pub use clipboard::{ClipboardError, read_clipboard_text, write_clipboard_text};
@@ -92,6 +94,8 @@ pub use startup::{StartupMode, run_value};
 pub use tray::{MenuItem, TrayEvent, TrayIcon};
 #[cfg(windows)]
 pub use tray::{Tray, TrayError};
+#[cfg(windows)]
+pub use working_set::{TrimError, trim_working_set};
 
 /// The `dwExtraInfo` tag on every input the app sends ("CUKY" in ASCII), so its own keyboard hook can tell that input
 /// from the user's and let it through untouched.

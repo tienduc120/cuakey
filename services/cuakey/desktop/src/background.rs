@@ -29,6 +29,7 @@ use platform_windows::{
     RelaunchError, SingleInstanceError, SingleInstanceGuard, StartFocusWatchError, StartHookError, StartupError,
     StartupMode, Tray, TrayError, TrayEvent, apply_startup, beep, double_click_time, foreground_layout, ime_open,
     is_elevated, is_english, post_to, relaunch_elevated, set_desktop_shortcut, show_notice, show_notice_and_wait,
+    trim_working_set,
 };
 
 use self::hook::{HookHandler, HookWorld, Report, SessionUpdate};
@@ -188,6 +189,10 @@ fn serve(stores: Stores, prefs: Loaded, macros: Vec<MacroView>, focus_log: Optio
     let hook = KeyboardHook::start(move |event| handler.handle(event, &world)).map_err(StartError::Hook)?;
     if show_settings {
         background.open_window(WindowKind::Settings);
+    }
+    // Pages touched only while starting are handed back, so the steady-state memory is what the hook and tray really use.
+    if let Err(error) = trim_working_set() {
+        tracing::warn!(error = ?error, "could not trim the working set");
     }
     window.run_loop();
     // The icon goes first, so it is never left behind while the threads stop.
