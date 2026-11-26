@@ -550,7 +550,8 @@ impl<S: PreferencesStore> SavePreferences<S> {
     }
 }
 
-/// Puts every setting back to its default, keeping the apps that are always on and what each app last used.
+/// Puts every setting back to its default, keeping the apps that are always on, what each app last used, and the
+/// interface language.
 #[derive(Debug)]
 pub struct ResetPreferences<S> {
     store: S,
@@ -563,12 +564,14 @@ impl<S: PreferencesStore> ResetPreferences<S> {
 
     /// Saves the defaults and returns them.
     pub async fn execute(&self, current: &PreferencesView) -> Result<PreferencesView, ResetPreferencesError> {
-        let defaults = PreferencesView {
+        let mut defaults = PreferencesView {
             profile_id: current.profile_id.clone(),
             always_on: current.always_on.clone(),
             app_memory: current.app_memory.clone(),
             ..PreferencesView::default()
         };
+        // A user who reads only one of the languages must still be able to read the window after the reset.
+        defaults.system.interface_language = current.system.interface_language;
         let preferences = defaults.to_preferences()?;
         self.store
             .save(&preferences)

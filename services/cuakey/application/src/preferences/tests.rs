@@ -216,14 +216,42 @@ async fn reset_keeps_always_on_and_memory() {
 
     let prefs = reset.execute(&current).await.unwrap();
 
-    let expected = PreferencesView {
+    let mut expected = PreferencesView {
         profile_id: current.profile_id.clone(),
         always_on: current.always_on.clone(),
         app_memory: current.app_memory.clone(),
         ..PreferencesView::default()
     };
-    assert_eq!(prefs, expected, "defaults, with the app lists kept");
+    expected.system.interface_language = current.system.interface_language;
+    assert_eq!(
+        prefs, expected,
+        "defaults, with the app lists and the interface language kept"
+    );
     assert_eq!(reset.store().saved(), vec![expected], "saved");
+}
+
+#[tokio::test]
+async fn reset_keeps_the_interface_language() {
+    let reset = ResetPreferences::new(FakePreferencesStore::new(Health::Working));
+    let defaults = PreferencesView::default();
+    let mut current = PreferencesView::default();
+    current.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    current.typing.input_method = InputMethodValue::Vni;
+    assert_ne!(current.system.interface_language, defaults.system.interface_language);
+    assert_ne!(current.typing.input_method, defaults.typing.input_method);
+
+    let prefs = reset.execute(&current).await.unwrap();
+
+    assert_eq!(
+        prefs.system.interface_language,
+        InterfaceLanguageValue::Vietnamese,
+        "a user who reads only Vietnamese can still read the window after a reset"
+    );
+    assert_eq!(
+        prefs.typing.input_method, defaults.typing.input_method,
+        "every setting goes back to its default"
+    );
+    assert_eq!(reset.store().saved(), vec![prefs], "saved");
 }
 
 #[tokio::test]

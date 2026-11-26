@@ -1,5 +1,5 @@
 use cuakey_application::{
-    AppMemoryView, CodeTableValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+    AppMemoryView, CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
 };
 use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind, labels};
 use eframe::egui;
@@ -333,4 +333,32 @@ fn a_window_takes_the_title_of_its_interface_language() {
             "{kind:?} is retitled once, not every frame"
         );
     }
+}
+
+#[test]
+fn a_reset_keeps_the_open_window_in_its_language() {
+    let dir = std::env::temp_dir().join(format!("cuakey-ui-process-{}-reset-language", std::process::id()));
+    let stores = Stores::in_folder(dir.clone()).unwrap();
+    let mut vietnamese = PreferencesView::default();
+    vietnamese.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    vietnamese.typing.input_method = InputMethodValue::Vni;
+    stores.save_preferences(&vietnamese).unwrap();
+    let mut window = Window::open(WindowKind::Settings, &stores);
+    assert_eq!(window.title(), labels::VIETNAMESE.window_title);
+
+    // What the window process does for the reset button: reset what is stored, then show it in every window.
+    let reset = stores.reset_preferences(&stores.load_preferences().unwrap()).unwrap();
+    window.set_preferences(reset);
+
+    assert_eq!(
+        stores.load_preferences().unwrap().typing.input_method,
+        PreferencesView::default().typing.input_method,
+        "the settings went back to their defaults"
+    );
+    assert_eq!(window.interface_language(), InterfaceLanguageValue::Vietnamese);
+    assert!(
+        titles(&commands_drawing(&mut window)).is_empty(),
+        "the window keeps its Vietnamese title"
+    );
+    std::fs::remove_dir_all(dir).unwrap();
 }
