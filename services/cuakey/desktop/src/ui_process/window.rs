@@ -217,11 +217,14 @@ impl Window {
         self.view.size()
     }
 
-    /// The native window this one opens in.
+    /// The native window this one opens in. The user can neither resize nor maximize it: each size holds what the
+    /// window shows, and only the window itself changes it.
     pub(super) fn viewport(&self, icon: &Arc<IconData>) -> ViewportBuilder {
         ViewportBuilder::default()
             .with_title(self.title())
             .with_inner_size(self.opened_size)
+            .with_resizable(false)
+            .with_maximize_button(false)
             .with_icon(Arc::clone(icon))
     }
 

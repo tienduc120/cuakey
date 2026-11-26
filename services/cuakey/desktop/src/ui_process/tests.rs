@@ -227,6 +227,23 @@ fn a_window_of_its_own_is_resized_only_by_what_it_draws() {
 }
 
 #[test]
+fn every_window_is_fixed_size() {
+    let stores = empty_stores("fixed-size");
+    let icon = Arc::new(egui::IconData::default());
+    for kind in [
+        WindowKind::Settings,
+        WindowKind::About,
+        WindowKind::Macros,
+        WindowKind::Convert,
+        WindowKind::AlwaysOn,
+    ] {
+        let viewport = Window::open(kind, &stores).viewport(&icon);
+        assert_eq!(viewport.resizable, Some(false), "the user cannot resize {kind:?}");
+        assert_eq!(viewport.maximize_button, Some(false), "{kind:?} has no maximize button");
+    }
+}
+
+#[test]
 fn the_about_menu_opens_the_settings_window_expanded() {
     let stores = empty_stores("about");
 
