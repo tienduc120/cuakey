@@ -18,6 +18,8 @@ pub(crate) enum FileError {
     SetAside { path: PathBuf, source: io::Error },
     #[error("could not encode the preferences")]
     Encode(#[source] serde_json::Error),
+    #[error("could not encode the window places")]
+    EncodePlaces(#[source] serde_json::Error),
     #[error("the stored preferences are invalid")]
     Stored(#[source] cuakey_domain::PreferencesError),
 }

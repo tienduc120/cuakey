@@ -8,8 +8,10 @@ mod macro_file;
 mod preferences_file;
 #[cfg(test)]
 mod test_dir;
+mod window_places_file;
 
 #[cfg(windows)]
 pub use clipboard::WindowsClipboard;
 pub use macro_file::TextMacroStore;
 pub use preferences_file::JsonPreferencesStore;
+pub use window_places_file::JsonWindowPlacesStore;
