@@ -24,7 +24,7 @@ use platform_windows::{
     show_notice_and_wait, system_fonts,
 };
 
-use self::place::placed_window;
+use self::place::{placed_window, point_of};
 use self::window::Window;
 use crate::args::Mode;
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, take_instance, window_kind};
@@ -205,11 +205,18 @@ impl eframe::App for UiApp {
 }
 
 /// Gives the root viewport to `window` once the window it held closed: the root stays open, takes the window's title,
-/// and takes the size of what the window shows now.
+/// and takes the size of what the window shows now. It also moves to where the window's own native window was, so the
+/// window does not jump to the closed one's place and later save that place as its own; a window that never said
+/// where it was leaves the root where it is.
 fn move_into_root(ctx: &Context, window: &Window) {
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::CancelClose);
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Title(window.title().to_owned()));
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::InnerSize(window.size()));
+    if let Some(place) = window.last_place() {
+        let pixels_per_point = ctx.input_for(ViewportId::ROOT, |input| input.pixels_per_point);
+        let point = point_of(place, pixels_per_point);
+        ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::OuterPosition(point));
+    }
 }
 
 /// Draws `window` into `ui`, the root ui of its viewport, with the clipboard and the browser at hand.

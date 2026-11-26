@@ -158,9 +158,16 @@ fn empty_stores(test: &str) -> Stores {
 
 /// What `send` tells the root viewport in one pass.
 fn root_commands(send: impl FnOnce(&egui::Context)) -> Vec<egui::ViewportCommand> {
+    root_commands_in(egui::ViewportInfo::default(), send)
+}
+
+/// What `send` tells the root viewport in one pass, its native window being the one `native` describes.
+fn root_commands_in(native: egui::ViewportInfo, send: impl FnOnce(&egui::Context)) -> Vec<egui::ViewportCommand> {
     let ctx = egui::Context::default();
     let mut send = Some(send);
-    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+    let mut input = egui::RawInput::default();
+    input.viewports.insert(egui::ViewportId::ROOT, native);
+    let mut output = ctx.run_ui(input, |ui| {
         if let Some(send) = send.take() {
             send(ui.ctx());
         }
@@ -626,6 +633,33 @@ fn each_kind_remembers_its_own_place() {
         let reopened = Window::open(kind, &stores).at_place(&saved, 1.0, on_screen);
         assert_eq!(reopened.viewport(&icon).position, corner, "{kind:?}");
     }
+}
+
+#[test]
+fn a_window_moved_into_the_root_keeps_its_own_place() {
+    let stores = empty_stores("root-place");
+    let mut window = Window::open(WindowKind::Macros, &stores);
+    // Its own native window was at 300 by 120 pixels, on a monitor at 150%.
+    drop(draw_at(&mut window, egui::pos2(200.0, 80.0), 1.5));
+    // The root's native window is on a monitor at 125%, where those pixels are 240 by 96 points.
+    let root = egui::ViewportInfo {
+        native_pixels_per_point: Some(1.25),
+        ..egui::ViewportInfo::default()
+    };
+
+    let commands = root_commands_in(root, |ctx| move_into_root(ctx, &window));
+
+    assert!(
+        commands.contains(&egui::ViewportCommand::OuterPosition(egui::pos2(240.0, 96.0))),
+        "the root moves to where the window was, so it does not jump: {commands:?}"
+    );
+
+    let unplaced = Window::open(WindowKind::Convert, &stores);
+    let commands = root_commands_moving(&unplaced);
+    assert!(
+        !moves(&commands),
+        "a window that never said where it was leaves the root where it is: {commands:?}"
+    );
 }
 
 #[test]

@@ -61,7 +61,13 @@ pub(super) fn reported_place(input: &InputState) -> Option<WindowPlace> {
 pub(super) fn correction(target: WindowPlace, now: WindowPlace, pixels_per_point: f32) -> Option<Pos2> {
     // Whole pixels apart by less than half a pixel are the same pixel.
     let off = (target.x - now.x).abs() >= 0.5 || (target.y - now.y).abs() >= 0.5;
-    off.then(|| pos2(target.x, target.y) / pixels_per_point)
+    off.then(|| point_of(target, pixels_per_point))
+}
+
+/// `place` in the points of a viewport whose pixels per point are `pixels_per_point`, as a command to move its native
+/// window takes them: egui turns them back into the same pixels whatever monitor the window is on.
+pub(super) fn point_of(place: WindowPlace, pixels_per_point: f32) -> Pos2 {
+    pos2(place.x, place.y) / pixels_per_point
 }
 
 /// `value` rounded to whole pixels, as Windows takes them.
