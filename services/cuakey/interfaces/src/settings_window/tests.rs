@@ -32,9 +32,14 @@ fn themed() -> egui::Context {
     ctx
 }
 
-/// The room the theme leaves between the window's edge and what it shows.
+/// The room the theme leaves between the window's side edges and what it shows.
 fn margin() -> f32 {
     f32::from(themed().global_style().spacing.window_margin.left)
+}
+
+/// The room the theme leaves between the window's bottom edge and what it shows.
+fn bottom_margin() -> f32 {
+    f32::from(themed().global_style().spacing.window_margin.bottom)
 }
 
 /// The default preferences with the Vietnamese interface. The tests of the bar's place at the window's own size use
@@ -255,15 +260,33 @@ fn a_checkbox_reports_the_flipped_value() {
     }
 }
 
+/// The inner size `commands` ask of the native window, if any.
+fn asked_size(commands: &[egui::ViewportCommand]) -> Option<egui::Vec2> {
+    commands.iter().find_map(|command| {
+        if let egui::ViewportCommand::InnerSize(size) = command {
+            Some(*size)
+        } else {
+            None
+        }
+    })
+}
+
+/// The compact window's size once it measured what it shows: the first frame fits it to the test font.
+fn fitted(ctx: &egui::Context, window: &mut SettingsWindow) -> egui::Vec2 {
+    show(ctx, window, BIG_SCREEN, Vec::new());
+    window.size()
+}
+
 #[test]
 fn error_shows_in_compact_mode() {
     let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
-    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, COMPACT_SIZE);
     window.show_error(Some(MESSAGE));
     assert!(!window.form.is_expanded());
+    let size = fitted(&ctx, &mut window);
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, size);
 
-    let shown = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
+    let shown = show(&ctx, &mut window, size, Vec::new());
     let place = place_of(&shown, MESSAGE).expect("the message is drawn");
     assert!(
         screen.contains_rect(place),
@@ -275,9 +298,66 @@ fn error_shows_in_compact_mode() {
     window.form.toggle_expanded();
     show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     window.form.toggle_expanded();
-    let shown = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
+    assert_eq!(window.size(), size, "the compact size keeps the message's line");
+    let shown = show(&ctx, &mut window, size, Vec::new());
     let place = place_of(&shown, MESSAGE).expect("the message stays after collapsing");
     assert!(screen.contains_rect(place), "{place:?}");
+}
+
+#[test]
+fn the_rows_keep_their_place_from_frame_to_frame() {
+    let mut view = PreferencesView::default();
+    view.switching.hotkey.key = Some(KeyName::F5);
+    let ctx = themed();
+    let mut window = SettingsWindow::new(view, Platform::Windows);
+    let first = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+    for frame in 1..4 {
+        let next = show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+        assert_eq!(
+            next.texts, first.texts,
+            "frame {frame} draws every text where the first did"
+        );
+    }
+}
+
+#[test]
+fn compact_has_no_empty_space_above_the_bar() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    let size = fitted(&ctx, &mut window);
+    assert!(near(size.x, COMPACT_SIZE.x), "only the height follows: {size:?}");
+
+    let shown = show(&ctx, &mut window, size, Vec::new());
+    assert!(
+        !resizes(&shown.commands),
+        "a fitted window is not resized again: {:?}",
+        shown.commands
+    );
+    let bar = [ENGLISH.button_expand, ENGLISH.button_exit, ENGLISH.button_close];
+    let last_row = shown
+        .texts
+        .iter()
+        .filter(|(text, _)| !bar.contains(&text.as_str()))
+        .map(|(_, place)| place.bottom())
+        .fold(f32::MIN, f32::max);
+    let gap = button_of(&shown, ENGLISH.button_close).top() - last_row;
+    let allowed = ctx.global_style().spacing.item_spacing.y + bottom_margin();
+    assert!(
+        gap > 0.0 && gap <= allowed,
+        "{gap} between the last row and the bar, at most {allowed}"
+    );
+
+    window.show_error(Some(MESSAGE));
+    let grown = asked_size(&show(&ctx, &mut window, size, Vec::new()).commands).expect("the window grows");
+    assert!(grown.y > size.y, "{grown:?} makes room for the message: {size:?}");
+    assert!(
+        is_visible(&show(&ctx, &mut window, grown, Vec::new()), MESSAGE),
+        "the message shows whole in the grown window"
+    );
+
+    window.show_error(None);
+    let shrunk = asked_size(&show(&ctx, &mut window, grown, Vec::new()).commands);
+    assert_eq!(shrunk, Some(size), "the window shrinks back when the message clears");
 }
 
 #[test]
@@ -299,10 +379,10 @@ fn the_expand_button_resizes_the_window_and_asks_nothing() {
     let collapsed = click(&ctx, &mut window, ENGLISH.button_collapse);
     assert!(!window.form.is_expanded());
     assert!(collapsed.actions.is_empty(), "{:?}", collapsed.actions);
+    let compact = window.size();
+    assert!(compact.y < EXPANDED_SIZE.y, "back to the compact size: {compact:?}");
     assert!(
-        collapsed
-            .commands
-            .contains(&egui::ViewportCommand::InnerSize(COMPACT_SIZE)),
+        collapsed.commands.contains(&egui::ViewportCommand::InnerSize(compact)),
         "{:?}",
         collapsed.commands
     );
@@ -337,6 +417,8 @@ fn a_window_revealing_about_takes_its_size_on_the_next_frame() {
     let native = compact_on_a_short_screen();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     let places = |shown: &Shown| moved_to(&shown.commands).is_some() || resizes(&shown.commands);
+    // The first frame fits the compact window to what it shows in the test font.
+    show_in(&ctx, &mut window, (BIG_SCREEN, &native), Vec::new());
     let compact = show_in(&ctx, &mut window, (BIG_SCREEN, &native), Vec::new());
     assert!(!places(&compact), "{:?}", compact.commands);
 
@@ -430,7 +512,8 @@ fn buttons_sit_in_a_bottom_bar() {
     ];
     let size = egui::vec2(pass(&ctx, Vec::new(), |ui| bar_button_width(ui)), BUTTON_SIZE.y);
 
-    let compact = show(&ctx, &mut window, COMPACT_SIZE, Vec::new());
+    let compact_size = fitted(&ctx, &mut window);
+    let compact = show(&ctx, &mut window, compact_size, Vec::new());
     let buttons = right.map(|label| button_of(&compact, label));
     let lowest_row = compact
         .texts
@@ -442,14 +525,14 @@ fn buttons_sit_in_a_bottom_bar() {
         assert_eq!(button.size(), size, "{label}");
         assert!(button.top() > lowest_row, "{label} sits below every row");
         assert!(
-            near(button.bottom(), COMPACT_SIZE.y - margin()),
+            near(button.bottom(), compact_size.y - bottom_margin()),
             "{label} sits on the bottom edge: {button:?}"
         );
     }
     let [expand, exit, close] = buttons;
     assert!(expand.right() < exit.left() && exit.right() < close.left(), "in order");
     assert!(
-        near(close.right(), COMPACT_SIZE.x - margin()),
+        near(close.right(), compact_size.x - margin()),
         "right-aligned: {close:?}"
     );
 
@@ -461,7 +544,7 @@ fn buttons_sit_in_a_bottom_bar() {
     assert!(near(reset.left(), margin()), "the reset at the left end: {reset:?}");
     assert!(near(reset.top(), close.top()), "on the same bar");
     assert!(
-        near(close.bottom(), EXPANDED_SIZE.y - margin()),
+        near(close.bottom(), EXPANDED_SIZE.y - bottom_margin()),
         "the bar stays on the bottom edge, past the scrolling sections: {close:?}"
     );
 }

@@ -209,7 +209,8 @@ impl Window {
     }
 
     /// The size of what the window shows now, in points: the size it opens at, and the size it takes in the root
-    /// viewport. The settings window changes it when it expands or collapses. Each other size holds every row and
+    /// viewport. The settings window changes it when it expands or collapses, and when its compact rows change height,
+    /// as an error message comes or goes. Each other size holds every row and
     /// button, and a line for an error message, in either interface language, with the shared style in Segoe UI and in
     /// the fonts the windows may borrow instead.
     pub(super) const fn size(&self) -> Vec2 {

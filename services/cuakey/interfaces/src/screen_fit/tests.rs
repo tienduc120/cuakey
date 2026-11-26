@@ -110,7 +110,8 @@ fn a_window_at_the_top_of_a_short_screen_stays_there() {
 
 #[test]
 fn a_screen_shorter_than_the_open_window_never_shrinks_it() {
-    let monitor = vec2(533.0, 400.0);
+    // 20 points too short for the compact window, its title bar, its border and the taskbar.
+    let monitor = vec2(533.0, COMPACT_SIZE.y + TITLE_BAR + BORDER + TASKBAR - 20.0);
     let (outer, inner) = compact_centred_on(monitor);
 
     let placed = fit_on_screen(outer, inner, monitor, EXPANDED_SIZE);

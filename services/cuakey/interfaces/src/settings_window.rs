@@ -49,12 +49,12 @@ const fn interface_languages(text: &Labels) -> [(InterfaceLanguageValue, &'stati
     ]
 }
 
-/// The window's inner size with the controls used every day only, the size it opens at. With the shared style, the
-/// rows measure at most 474 x 223 points in Segoe UI and the other fonts the window may borrow, in either interface
-/// language, 250 high with a line for an error message; the margins and the bottom bar come on top, so nothing scrolls
-/// or clips. The width is the expanded window's, so expanding only moves the bottom edge and the bar's buttons stay
-/// where they were.
-pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 340.0);
+/// The window's inner size with the controls used every day only, the size it opens at: its rows, the bottom bar and
+/// the margins, with nothing to spare, as the shared style draws them in Segoe UI in either interface language. Each
+/// frame measures the rows, so in Tahoma or Arial, which the window borrows when Segoe UI is missing, it is a few
+/// points shorter, and a line for an error message makes it taller. The width is the expanded window's, so expanding
+/// only moves the bottom edge and the bar's buttons stay where they were.
+pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 267.0);
 
 /// The window's inner size with every section, where the screen has room for it; a shorter screen gets a shorter
 /// window. The options sit two to a row, and the widest needs 257 points in either interface language, so two columns
@@ -254,10 +254,13 @@ const SECTIONS: [Section; 3] = [
 /// Draws `option` as a checkbox, greyed when the form's rule says so, and stores a click.
 fn option_checkbox(ui: &mut Ui, form: &mut SettingsForm, option: &OptionBox) {
     let enabled = option.gate.is_none_or(|gate| form.is_enabled(gate));
-    let current = (option.value)(form.view());
+    let on = is_on((option.value)(form.view()));
     let label = (option.label)(labels_for(form.view()));
-    if let Some(on) = ui.add_enabled_ui(enabled, |ui| checkbox(ui, label, current)).inner {
-        (option.set)(form, on);
+    // Greyed in place rather than in a scope of its own: in a grid row taller than the box, such a scope grows the row
+    // a little more on every frame.
+    let box_response = ui.add_enabled(enabled, |ui: &mut Ui| widgets::checkbox(ui, label, on));
+    if box_response.changed() {
+        (option.set)(form, !on);
     }
 }
 
@@ -507,44 +510,60 @@ fn split_off_bar(ui: &Ui) -> (egui::Rect, egui::Rect) {
     )
 }
 
+/// What a frame of the window drew that the window acts on afterwards.
+struct Drawn {
+    /// The bar button clicked, if any.
+    clicked: Option<Button>,
+    /// The height of the controls used every day and the message under them: all the compact window shows above its
+    /// bar.
+    rows_height: f32,
+}
+
 /// What the window shows, then the bar pinned along its bottom edge, outside the scrolling sections. The bar is drawn
-/// last so the keyboard reaches the controls first and the reset last. Returns the button clicked.
+/// last so the keyboard reaches the controls first and the reset last.
 fn window_contents(
     ui: &mut Ui,
     form: &mut SettingsForm,
     about_to_reveal: &mut bool,
     actions: &mut Vec<UiAction>,
-) -> Option<Button> {
+) -> Drawn {
     let (above, bar) = split_off_bar(ui);
-    ui.scope_builder(egui::UiBuilder::new().max_rect(above), |ui| {
-        ui.shrink_clip_rect(above);
-        contents(ui, form, about_to_reveal, actions);
-    });
-    ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| bar_buttons(ui, form))
-        .inner
+    let rows_height = ui
+        .scope_builder(egui::UiBuilder::new().max_rect(above), |ui| {
+            ui.shrink_clip_rect(above);
+            contents(ui, form, about_to_reveal, actions)
+        })
+        .inner;
+    let clicked = ui
+        .scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| bar_buttons(ui, form))
+        .inner;
+    Drawn { clicked, rows_height }
 }
 
-/// The controls used every day, the message of the last refused change under them, and, when expanded, the other
-/// sections in a scroll area below. In compact mode nothing scrolls.
-fn contents(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut bool, actions: &mut Vec<UiAction>) {
+/// The controls used every day and, when expanded, the other sections in a scroll area below; in compact mode nothing
+/// scrolls. Returns the height of the controls used every day and the message under them.
+fn contents(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut bool, actions: &mut Vec<UiAction>) -> f32 {
+    let rows_height = ui.scope(|ui| daily_controls(ui, form)).response.rect.height();
+    if form.is_expanded() {
+        egui::ScrollArea::vertical().show(ui, |ui| expanded_sections(ui, form, about_to_reveal, actions));
+    }
+    rows_height
+}
+
+/// The controls used every day, and the message of the last refused change under them.
+fn daily_controls(ui: &mut Ui, form: &mut SettingsForm) {
     egui::Grid::new("control_rows")
         .num_columns(3)
         .show(ui, |ui| control_rows(ui, form));
     if let Some(message) = form.error() {
         ui.colored_label(ui.visuals().error_fg_color, message);
     }
-    if form.is_expanded() {
-        egui::ScrollArea::vertical().show(ui, |ui| expanded_sections(ui, form, about_to_reveal, actions));
-    }
 }
 
-/// The inner size of a window showing what `form` shows.
-const fn window_size(form: &SettingsForm) -> egui::Vec2 {
-    if form.is_expanded() {
-        EXPANDED_SIZE
-    } else {
-        COMPACT_SIZE
-    }
+/// The inner height of a compact window whose controls used every day, with the message under them, are `rows_height`
+/// high: the margin above them, the margin between them and the bar, the bar, and the margin below it.
+fn compact_height(margin: egui::Margin, rows_height: f32) -> f32 {
+    f32::from(margin.top) + rows_height + 2.0 * f32::from(margin.bottom) + BUTTON_SIZE.y
 }
 
 /// Gives the native window of `ctx`'s viewport the inner size `wanted`, moved up or made shorter as
@@ -576,6 +595,8 @@ pub struct SettingsWindow {
     about_to_reveal: bool,
     /// What the window shows changed size, and its native window is to take the new size on the next frame.
     resize_pending: bool,
+    /// The inner size of the compact window: the size it opens at, until a frame measures what it shows.
+    compact_size: egui::Vec2,
 }
 
 impl SettingsWindow {
@@ -585,6 +606,7 @@ impl SettingsWindow {
             form: SettingsForm::new(prefs, platform),
             about_to_reveal: false,
             resize_pending: false,
+            compact_size: COMPACT_SIZE,
         }
     }
 
@@ -625,10 +647,27 @@ impl SettingsWindow {
         actions.extend(button.action());
     }
 
+    /// Takes `height` as the compact window's inner height when it differs from the one it has by a point or more, and
+    /// resizes a compact window to it. A smaller difference is rounding, which would resize the window on every frame.
+    fn fit_compact_height(&mut self, height: f32) {
+        if (height - self.compact_size.y).abs() < 1.0 {
+            return;
+        }
+        self.compact_size.y = height;
+        if !self.form.is_expanded() {
+            self.resize_pending = true;
+        }
+    }
+
     /// The inner size of what the window shows now: the size to open it at, or to give it in another native window.
+    /// Compact, it is as high as its rows and bar, measured on the last frame.
     #[must_use]
     pub const fn size(&self) -> egui::Vec2 {
-        window_size(&self.form)
+        if self.form.is_expanded() {
+            EXPANDED_SIZE
+        } else {
+            self.compact_size
+        }
     }
 
     /// The language the window speaks: the interface language of the preferences it edits.
@@ -652,12 +691,17 @@ impl SettingsWindow {
         let mut actions = Vec::new();
         let form = &mut self.form;
         let about_to_reveal = &mut self.about_to_reveal;
-        let frame = egui::Frame::central_panel(ui.style()).inner_margin(ui.spacing().window_margin);
-        let clicked = egui::CentralPanel::default()
+        let margin = ui.spacing().window_margin;
+        let frame = egui::Frame::central_panel(ui.style()).inner_margin(margin);
+        let drawn = egui::CentralPanel::default()
             .frame(frame)
             .show(ui, |ui| window_contents(ui, form, about_to_reveal, &mut actions))
             .inner;
-        if let Some(button) = clicked {
+        // A pass egui will discard lays the grids out for the first time, before they know their sizes.
+        if !ui.ctx().will_discard() {
+            self.fit_compact_height(compact_height(margin, drawn.rows_height));
+        }
+        if let Some(button) = drawn.clicked {
             self.press(button, &mut actions);
         }
         if self.resize_pending {

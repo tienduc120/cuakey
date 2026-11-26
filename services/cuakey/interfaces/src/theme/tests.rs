@@ -22,22 +22,41 @@ fn with_corners(mut visuals: Visuals, corners: CornerRadius) -> Visuals {
 }
 
 #[test]
-fn theme_sets_spacing_and_rounding() {
+fn theme_rows_are_tighter() {
     let ctx = Context::default();
     let before = ctx.style_of(Theme::Dark);
     apply(&ctx);
-    let style = ctx.style_of(Theme::Dark);
+    let spacing = &ctx.style_of(Theme::Dark).spacing;
 
-    let spacing = &style.spacing;
-    assert_eq!(spacing.window_margin, Margin::same(16));
     assert_eq!(
         spacing.item_spacing,
-        vec2(before.spacing.item_spacing.x, 10.0),
-        "more room between rows, the same between controls on a row"
+        vec2(before.spacing.item_spacing.x, 7.0),
+        "rows 7 apart, the same room between controls on a row"
     );
-    assert_eq!(spacing.button_padding, vec2(12.0, 6.0));
-    assert_eq!(spacing.interact_size, vec2(before.spacing.interact_size.x, 28.0));
+    assert_eq!(
+        spacing.interact_size,
+        vec2(before.spacing.interact_size.x, 24.0),
+        "controls 24 high"
+    );
+    assert_eq!(
+        spacing.window_margin,
+        Margin {
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: 12,
+        },
+        "16 at the sides, 12 at the top and bottom"
+    );
+}
 
+#[test]
+fn theme_pads_buttons_and_rounds_corners() {
+    let ctx = Context::default();
+    apply(&ctx);
+    let style = ctx.style_of(Theme::Dark);
+
+    assert_eq!(style.spacing.button_padding, vec2(12.0, 6.0));
     assert_eq!(
         style.visuals,
         with_corners(Visuals::dark(), CORNERS),

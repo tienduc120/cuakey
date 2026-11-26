@@ -1,6 +1,6 @@
-//! What every window of the app shares: egui's dark theme, whatever theme Windows uses, with more room between the
+//! What every window of the app shares: egui's dark theme, whatever theme Windows uses, with its own room between the
 //! controls and rounder corners. Only spacing and corner radius change, so every colour stays the theme's own. The
-//! wider window margin set here is the settings window's alone; the other windows keep their panel's own margin.
+//! window margin set here is the settings window's alone; the other windows keep their panel's own margin.
 
 use egui::{CornerRadius, Margin, Style, Vec2, vec2};
 
@@ -8,17 +8,19 @@ use egui::{CornerRadius, Margin, Style, Vec2, vec2};
 /// too wide for it widens every bar button alike.
 pub const BUTTON_SIZE: Vec2 = vec2(110.0, 32.0);
 
-/// The room between a window's edge and what it shows.
-const WINDOW_MARGIN: Margin = Margin::same(16);
+/// The room between a window's edge and what it shows: less at the top and bottom, so the rows and the bar keep the
+/// window short.
+const WINDOW_MARGIN: Margin = Margin::symmetric(16, 12);
 
 /// The room between one row of controls and the next.
-const ROW_SPACING: f32 = 10.0;
+const ROW_SPACING: f32 = 7.0;
 
 /// The room between a button's frame and its text.
 const BUTTON_PADDING: Vec2 = vec2(12.0, 6.0);
 
-/// The height of a control: a button, a combo box, a checkbox row.
-const CONTROL_HEIGHT: f32 = 28.0;
+/// The least height of a control: a checkbox or radio row is this high, a button or combo box as high as its text and
+/// padding need when that is more.
+const CONTROL_HEIGHT: f32 = 24.0;
 
 /// One radius for the corners of every widget, whatever its state, and of every window.
 const CORNERS: CornerRadius = CornerRadius::same(6);
