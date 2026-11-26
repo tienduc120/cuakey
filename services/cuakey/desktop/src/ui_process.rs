@@ -2,6 +2,7 @@
 //! process. Each open window has a native window of its own; the first is eframe's root viewport, and the process
 //! ends when the last one closes.
 
+mod place;
 mod system;
 mod window;
 
@@ -11,18 +12,19 @@ use std::process::ExitCode;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use cuakey_application::{ImportMode, InterfaceLanguageValue, MacroView, PreferencesView};
+use cuakey_application::{ImportMode, InterfaceLanguageValue, MacroView, PreferencesView, WindowPlaces};
 use cuakey_interfaces::{
     Notice, UiAction, WindowKind, convert_error_message, export_macros_error_message, import_macros_error_message,
     install_system_font, labels, load_error_message, notice_message, reset_error_message, save_error_message,
     save_macros_error_message, theme,
 };
-use eframe::egui::{Context, IconData, Ui, ViewportCommand, ViewportId};
+use eframe::egui::{Context, IconData, Options, Ui, ViewportCommand, ViewportId};
 use platform_windows::{
-    AppMessage, KnownFolderError, MessageWindow, SingleInstanceError, post_to, show_notice, show_notice_and_wait,
-    system_fonts,
+    AppMessage, KnownFolderError, MessageWindow, SingleInstanceError, is_on_a_monitor, post_to, show_notice,
+    show_notice_and_wait, system_fonts,
 };
 
+use self::place::placed_window;
 use self::window::Window;
 use crate::args::Mode;
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, take_instance, window_kind};
@@ -68,16 +70,10 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
     let stores = Stores::open().map_err(StartError::Stores)?;
     let fonts = system_fonts().map_err(StartError::Fonts)?;
     let icon = Arc::new(window_icon());
-    let first = Window::open(kind, &stores);
-    let options = eframe::NativeOptions {
-        viewport: first.viewport(&icon),
-        centered: true,
-        // The windows bring their own font; eframe would only warn about the ones it is missing.
-        system_font_fallback: false,
-        // eframe's clipboard is not built in, and it would swallow Ctrl+V; the windows take the shortcuts themselves.
-        clipboard_shortcuts: false,
-        ..eframe::NativeOptions::default()
-    };
+    let places = stores.window_places();
+    // No context exists yet, so the zoom is the one a new context starts with.
+    let first = Window::open(kind, &stores).at_place(&places, Options::default().zoom_factor, is_on_a_monitor);
+    let options = native_options(&first, &icon);
     eframe::run_native(
         APP_NAME,
         options,
@@ -96,6 +92,7 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
             Ok(Box::new(UiApp {
                 stores,
                 windows: vec![first],
+                places,
                 icon,
                 inbox,
                 _messages: messages,
@@ -103,6 +100,36 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
         }),
     )
     .map_err(StartError::Windows)
+}
+
+/// How eframe opens the first window: at its place when it has one, centred otherwise.
+fn native_options(first: &Window, icon: &Arc<IconData>) -> eframe::NativeOptions {
+    eframe::NativeOptions {
+        viewport: first.viewport(icon),
+        // eframe would move a centred window off its place.
+        centered: !first.opens_at_place(),
+        // The windows bring their own font; eframe would only warn about the ones it is missing.
+        system_font_fallback: false,
+        // eframe's clipboard is not built in, and it would swallow Ctrl+V; the windows take the shortcuts themselves.
+        clipboard_shortcuts: false,
+        ..eframe::NativeOptions::default()
+    }
+}
+
+/// Takes into `places` where each of `windows` was last drawn, and saves them, so each opens there next time. Writes
+/// nothing when none of them said where it was. A failed save is only logged: the windows then open where they would
+/// without a place, which is not worth the user's attention.
+fn keep_places<'a>(stores: &Stores, places: &mut WindowPlaces, windows: impl IntoIterator<Item = &'a Window>) {
+    let mut noted = false;
+    for window in windows {
+        if let Some(place) = window.last_place() {
+            places.set(placed_window(window.kind()), place);
+            noted = true;
+        }
+    }
+    if noted && let Err(error) = stores.save_window_places(places) {
+        tracing::warn!(error = ?error, "could not save the window places");
+    }
 }
 
 /// The icon of every window: the "V" icon the executable shows, from the icon file it was built with.
@@ -119,6 +146,8 @@ struct UiApp {
     stores: Stores,
     /// The open windows, one of each kind at most; the first is drawn in the root viewport.
     windows: Vec<Window>,
+    /// Where each window last closed: what was stored when the process started, and each window closed since.
+    places: WindowPlaces,
     icon: Arc<IconData>,
     /// What the background process posted, taken at the start of each pass.
     inbox: Rc<RefCell<Vec<AppMessage>>>,
@@ -336,7 +365,8 @@ impl UiApp {
         let shown = shown_kind(kind);
         let Some(index) = self.windows.iter().position(|window| window.kind() == shown) else {
             // The kind asked for, not the one shown: the About menu item opens the settings window expanded.
-            self.windows.push(Window::open(kind, &self.stores));
+            let window = Window::open(kind, &self.stores).at_place(&self.places, ctx.zoom_factor(), is_on_a_monitor);
+            self.windows.push(window);
             return;
         };
         let viewport = match self.windows.get(index) {
@@ -352,13 +382,15 @@ impl UiApp {
         ctx.send_viewport_cmd_to(viewport, ViewportCommand::Focus);
     }
 
-    /// Closes `kind`. A window in a viewport of its own goes once it is no longer drawn; when the window in the root
-    /// viewport closes, the next one moves into it, since closing the root viewport ends the process.
+    /// Closes `kind` and saves where it was. A window in a viewport of its own goes once it is no longer drawn; when
+    /// the window in the root viewport closes, the next one moves into it, since closing the root viewport ends the
+    /// process.
     fn close(&mut self, ctx: &Context, kind: WindowKind) {
         let Some(index) = self.windows.iter().position(|window| window.kind() == kind) else {
             return;
         };
-        self.windows.remove(index);
+        let closed = self.windows.remove(index);
+        keep_places(&self.stores, &mut self.places, [&closed]);
         if index > 0 {
             return;
         }
@@ -368,7 +400,9 @@ impl UiApp {
         }
     }
 
+    /// Closes every window and saves where each was, with one write.
     fn close_all(&mut self, ctx: &Context) {
+        keep_places(&self.stores, &mut self.places, &self.windows);
         self.windows.clear();
         ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Close);
     }

@@ -93,3 +93,4 @@ This project stands on public work. Material that is copied or adapted is listed
 | [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) and [Rust Style Guide](https://doc.rust-lang.org/style-guide/) | lowercase error messages, acronyms as one word, no `#[path]` |
 | [Rust Foundation safety-critical coding guidelines](https://coding-guidelines.arewesafetycriticalyet.org/) (draft) | no `as _` casts |
 | [Canonical Rust best practices](https://canonical.github.io/rust-best-practices/) | lowercase hex literals, unsafe discipline |
+| [egui-winit window settings](https://github.com/emilk/egui/blob/main/crates/egui-winit/src/window_settings.rs) | a window's place kept in physical pixels with its monitor's scale, and set again once the window exists |

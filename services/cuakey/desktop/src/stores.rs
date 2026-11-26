@@ -6,11 +6,12 @@ use std::path::PathBuf;
 
 use cuakey_application::{
     ExportMacros, ExportMacrosCommand, ExportMacrosError, ImportMacros, ImportMacrosCommand, ImportMacrosError,
-    ImportMode, InterfaceLanguageValue, LoadMacros, LoadMacrosError, LoadPreferences, LoadPreferencesError, MacroView,
-    PreferencesView, QuickConvert, QuickConvertError, QuickConvertResult, ResetPreferences, ResetPreferencesError,
-    SaveMacros, SaveMacrosError, SavePreferences, SavePreferencesError,
+    ImportMode, InterfaceLanguageValue, LoadMacros, LoadMacrosError, LoadPreferences, LoadPreferencesError,
+    LoadWindowPlaces, MacroView, PreferencesView, QuickConvert, QuickConvertError, QuickConvertResult,
+    ResetPreferences, ResetPreferencesError, SaveMacros, SaveMacrosError, SavePreferences, SavePreferencesError,
+    SaveWindowPlaces, SaveWindowPlacesError, WindowPlaces,
 };
-use cuakey_infrastructure::{JsonPreferencesStore, TextMacroStore, WindowsClipboard};
+use cuakey_infrastructure::{JsonPreferencesStore, JsonWindowPlacesStore, TextMacroStore, WindowsClipboard};
 use platform_clock::SystemClock;
 use platform_windows::{KnownFolderError, roaming_app_data};
 use tokio::runtime::Runtime;
@@ -80,6 +81,10 @@ impl Stores {
         TextMacroStore::new(self.dir.clone())
     }
 
+    fn window_places_store(&self) -> JsonWindowPlacesStore {
+        JsonWindowPlacesStore::new(self.dir.clone())
+    }
+
     pub(crate) fn load_preferences(&self) -> Result<PreferencesView, LoadPreferencesError> {
         self.runtime
             .block_on(LoadPreferences::new(self.preferences()).execute())
@@ -114,6 +119,22 @@ impl Stores {
     pub(crate) fn export_macros(&self, path: PathBuf) -> Result<(), ExportMacrosError> {
         let command = ExportMacrosCommand { path };
         self.runtime.block_on(ExportMacros::new(self.macros()).execute(command))
+    }
+
+    /// Where each window last closed. When the places cannot be read there are none, which is only logged: a window
+    /// then opens where it would without one, which is not worth the user's attention.
+    pub(crate) fn window_places(&self) -> WindowPlaces {
+        self.runtime
+            .block_on(LoadWindowPlaces::new(self.window_places_store()).execute())
+            .unwrap_or_else(|error| {
+                tracing::warn!(error = ?error, "could not load the window places");
+                WindowPlaces::default()
+            })
+    }
+
+    pub(crate) fn save_window_places(&self, places: &WindowPlaces) -> Result<(), SaveWindowPlacesError> {
+        self.runtime
+            .block_on(SaveWindowPlaces::new(self.window_places_store()).execute(places))
     }
 
     /// Converts the text on the clipboard in place, with the options last stored.

@@ -2,13 +2,15 @@
 
 use std::sync::Arc;
 
-use cuakey_application::{InterfaceLanguageValue, MacroView, PreferencesView};
+use cuakey_application::{InterfaceLanguageValue, MacroView, PreferencesView, WindowPlace, WindowPlaces};
 use cuakey_interfaces::{
     AlwaysOnWindow, ConvertWindow, MacroWindow, Notice, Platform, SettingsWindow, UiAction, WindowKind, labels,
     notice_message,
 };
-use eframe::egui::{Context, IconData, Ui, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
+use eframe::egui::{Context, IconData, Pos2, Ui, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
+use platform_windows::ScreenRect;
 
+use super::place::{correction, opening_point, placed_window, reported_place};
 use crate::args::window_name;
 use crate::stores::{Origin, Stores};
 
@@ -24,6 +26,13 @@ pub(super) struct Window {
     /// The size it opened at. Its native window takes later sizes from what the window draws, which keeps it on
     /// screen; a viewport of its own given a new size would resize it again, past that.
     opened_size: Vec2,
+    /// Where its native window opens, in points: the place it last closed at. Without one it opens where it always
+    /// did, the first window centred and the others where Windows puts them.
+    opens_at: Option<Pos2>,
+    /// That place, until the native window first says where it is.
+    settling_at: Option<WindowPlace>,
+    /// Where its native window was when last drawn, kept for when it closes.
+    last_place: Option<WindowPlace>,
 }
 
 #[derive(Debug)]
@@ -97,9 +106,37 @@ impl Window {
             view,
             prefs: prefs_origin,
             macros: macros_origin,
+            opens_at: None,
+            settling_at: None,
+            last_place: None,
         };
         window.show_error(window.unread_message());
         window
+    }
+
+    /// The window opening at its place in `places`, at egui's `zoom`, when its title bar there is on a monitor as
+    /// `on_a_monitor` says. It keeps its size: a place left over from the expanded window may put the bottom of the
+    /// compact one off the screen, and the user can still take hold of the title bar.
+    pub(super) fn at_place(
+        mut self,
+        places: &WindowPlaces,
+        zoom: f32,
+        on_a_monitor: impl FnOnce(ScreenRect) -> bool,
+    ) -> Self {
+        let saved = places.get(placed_window(self.kind()));
+        self.opens_at = saved.and_then(|saved| opening_point(saved, self.size(), zoom, on_a_monitor));
+        self.settling_at = saved.filter(|_| self.opens_at.is_some());
+        self
+    }
+
+    /// Whether the window opens at a place it remembers, rather than where it would without one.
+    pub(super) const fn opens_at_place(&self) -> bool {
+        self.opens_at.is_some()
+    }
+
+    /// Where its native window was when last drawn, if it said.
+    pub(super) const fn last_place(&self) -> Option<WindowPlace> {
+        self.last_place
     }
 
     /// Why this window saves nothing, when what it shows could not be read.
@@ -148,7 +185,24 @@ impl Window {
             View::AlwaysOn(window) => window.show(ui),
         };
         self.follow_title(ui.ctx());
+        self.follow_place(ui.ctx());
         actions
+    }
+
+    /// Notes where the native window of `ctx`'s viewport is. The first time it says, a window that landed off the place
+    /// it opened at is moved onto it, once, so the user can move it from then on.
+    fn follow_place(&mut self, ctx: &Context) {
+        let Some((now, pixels_per_point)) =
+            ctx.input(|input| reported_place(input).map(|place| (place, input.pixels_per_point)))
+        else {
+            return;
+        };
+        if let Some(target) = self.settling_at.take()
+            && let Some(point) = correction(target, now, pixels_per_point)
+        {
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(point));
+        }
+        self.last_place = Some(now);
     }
 
     /// Tells the native window of `ctx`'s viewport its title when it no longer says what it shows.
@@ -218,14 +272,19 @@ impl Window {
     }
 
     /// The native window this one opens in. The user can neither resize nor maximize it: each size holds what the
-    /// window shows, and only the window itself changes it.
+    /// window shows, and only the window itself changes it. The place it opens at stays the same in every frame, so
+    /// it never moves the native window back after the user moved it.
     pub(super) fn viewport(&self, icon: &Arc<IconData>) -> ViewportBuilder {
-        ViewportBuilder::default()
+        let builder = ViewportBuilder::default()
             .with_title(self.title())
             .with_inner_size(self.opened_size)
             .with_resizable(false)
             .with_maximize_button(false)
-            .with_icon(Arc::clone(icon))
+            .with_icon(Arc::clone(icon));
+        match self.opens_at {
+            Some(point) => builder.with_position(point),
+            None => builder,
+        }
     }
 
     /// The viewport of the window when it is not in the root one.

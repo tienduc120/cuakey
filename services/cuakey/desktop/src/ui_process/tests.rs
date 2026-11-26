@@ -2,13 +2,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use cuakey_application::{
-    AppMemoryView, CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+    AppMemoryView, CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PlacedWindow,
+    PreferencesView, Toggle, WindowPlace, WindowPlaces,
 };
 use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind, labels};
 use eframe::egui;
+use platform_windows::ScreenRect;
 
 use super::window::Window;
-use super::{Edit, edit_of, largest_png, move_into_root, rebase, shown_kind};
+use super::{Edit, edit_of, keep_places, largest_png, move_into_root, native_options, rebase, shown_kind};
 use crate::stores::Stores;
 
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -424,4 +426,225 @@ fn a_reset_keeps_the_open_window_in_its_language() {
         titles(&commands_drawing(&mut window)).is_empty(),
         "the window keeps its Vietnamese title"
     );
+}
+
+fn place(x: f32, y: f32, scale: f32) -> WindowPlace {
+    WindowPlace { x, y, scale }
+}
+
+/// A monitor check that finds every place on a monitor.
+const fn on_screen(_: ScreenRect) -> bool {
+    true
+}
+
+/// Draws `window` once in a native window whose frame's top-left corner is at `corner`, in the points of a monitor of
+/// `scale`, and returns what it told that native window.
+fn draw_at(window: &mut Window, corner: egui::Pos2, scale: f32) -> Vec<egui::ViewportCommand> {
+    let ctx = egui::Context::default();
+    let mut input = egui::RawInput::default();
+    let native = egui::ViewportInfo {
+        native_pixels_per_point: Some(scale),
+        outer_rect: Some(egui::Rect::from_min_size(corner, window.size())),
+        ..egui::ViewportInfo::default()
+    };
+    input.viewports.insert(egui::ViewportId::ROOT, native);
+    let mut output = ctx.run_ui(input, |ui| drop(window.show(ui)));
+    // No renderer takes the font texture here.
+    output.textures_delta.clear();
+    output
+        .viewport_output
+        .get(&egui::ViewportId::ROOT)
+        .map(|viewport| viewport.commands.clone())
+        .unwrap_or_default()
+}
+
+/// Whether `commands` move the native window.
+fn moves(commands: &[egui::ViewportCommand]) -> bool {
+    commands
+        .iter()
+        .any(|command| matches!(command, egui::ViewportCommand::OuterPosition(_)))
+}
+
+#[test]
+fn a_window_opens_at_its_saved_place() {
+    let stores = empty_stores("saved-place");
+    let icon = Arc::new(egui::IconData::default());
+    let mut places = WindowPlaces::default();
+    // Saved on a monitor at 150%, where 1500 by 300 pixels are 1000 by 200 points.
+    places.set(PlacedWindow::Settings, place(1500.0, 300.0, 1.5));
+    places.set(PlacedWindow::Macros, place(1500.0, 300.0, 1.5));
+
+    let first = Window::open(WindowKind::Settings, &stores).at_place(&places, 1.0, on_screen);
+    let options = native_options(&first, &icon);
+    assert_eq!(options.viewport.position, Some(egui::pos2(1000.0, 200.0)));
+    assert!(!options.centered, "eframe would move a centred window off its place");
+    assert_eq!(
+        options.viewport.inner_size,
+        Some(COMPACT_SIZE),
+        "it still opens compact"
+    );
+
+    let own = Window::open(WindowKind::Macros, &stores).at_place(&places, 1.0, on_screen);
+    assert_eq!(
+        own.viewport(&icon).position,
+        Some(egui::pos2(1000.0, 200.0)),
+        "a window in a viewport of its own too"
+    );
+
+    let zoomed = Window::open(WindowKind::Macros, &stores).at_place(&places, 1.25, on_screen);
+    assert_eq!(
+        zoomed.viewport(&icon).position,
+        Some(egui::pos2(800.0, 160.0)),
+        "the zoom makes egui's points larger"
+    );
+}
+
+#[test]
+fn an_off_screen_place_is_ignored() {
+    let stores = empty_stores("off-screen");
+    let icon = Arc::new(egui::IconData::default());
+    let mut places = WindowPlaces::default();
+    places.set(PlacedWindow::Settings, place(1500.0, 300.0, 1.5));
+    let mut asked = None;
+
+    let first = Window::open(WindowKind::Settings, &stores).at_place(&places, 1.0, |title_bar| {
+        asked = Some(title_bar);
+        false
+    });
+
+    let title_bar = ScreenRect {
+        left: 1500,
+        top: 300,
+        right: 1500 + 840,
+        bottom: 300 + 45,
+    };
+    assert_eq!(asked, Some(title_bar), "the check is of its title bar, in pixels");
+    let options = native_options(&first, &icon);
+    assert_eq!(options.viewport.position, None);
+    assert!(options.centered, "it opens centred, as with no place");
+
+    let unplaced = Window::open(WindowKind::Settings, &stores)
+        .at_place(&WindowPlaces::default(), 1.0, |_| panic!("no place, nothing to check"));
+    let options = native_options(&unplaced, &icon);
+    assert_eq!(options.viewport.position, None);
+    assert!(options.centered, "a first run opens centred");
+}
+
+#[test]
+fn a_place_without_a_scale_is_ignored() {
+    let stores = empty_stores("no-scale");
+    let icon = Arc::new(egui::IconData::default());
+    for scale in [0.0, -1.5] {
+        let mut places = WindowPlaces::default();
+        // A file edited by hand can hold anything.
+        places.set(PlacedWindow::Macros, place(1500.0, 300.0, scale));
+
+        let window = Window::open(WindowKind::Macros, &stores).at_place(&places, 1.0, on_screen);
+
+        assert_eq!(window.viewport(&icon).position, None, "scale {scale}");
+    }
+}
+
+#[test]
+fn closing_a_window_that_never_said_where_it_was_writes_nothing() {
+    let folder = TempFolder::new("close-unplaced");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
+    let mut places = stores.window_places();
+    let window = Window::open(WindowKind::Macros, &stores);
+
+    keep_places(&stores, &mut places, [&window]);
+
+    assert!(!folder.0.exists(), "no file, not even a folder, for nothing to keep");
+}
+
+#[test]
+fn closing_a_window_saves_its_place() {
+    let folder = TempFolder::new("close-place");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
+    let mut places = stores.window_places();
+    let mut window = Window::open(WindowKind::Macros, &stores);
+    drop(draw_at(&mut window, egui::pos2(100.0, 50.0), 1.5));
+    // The user moves it before closing it.
+    drop(draw_at(&mut window, egui::pos2(200.0, 80.0), 1.5));
+
+    keep_places(&stores, &mut places, [&window]);
+
+    assert_eq!(
+        stores.window_places().get(PlacedWindow::Macros),
+        Some(place(300.0, 120.0, 1.5)),
+        "the last place it reported, in pixels"
+    );
+}
+
+#[test]
+fn quitting_saves_every_open_window() {
+    let folder = TempFolder::new("quit-places");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
+    let mut places = stores.window_places();
+    let mut settings = Window::open(WindowKind::Settings, &stores);
+    let mut convert = Window::open(WindowKind::Convert, &stores);
+    let never_drawn = Window::open(WindowKind::AlwaysOn, &stores);
+    drop(draw_at(&mut settings, egui::pos2(10.0, 20.0), 1.0));
+    drop(draw_at(&mut convert, egui::pos2(-900.0, 40.0), 1.25));
+
+    keep_places(&stores, &mut places, &[settings, convert, never_drawn]);
+
+    let saved = stores.window_places();
+    assert_eq!(saved.get(PlacedWindow::Settings), Some(place(10.0, 20.0, 1.0)));
+    assert_eq!(saved.get(PlacedWindow::Convert), Some(place(-1125.0, 50.0, 1.25)));
+    assert_eq!(
+        saved.get(PlacedWindow::AlwaysOn),
+        None,
+        "a window that never said where it was keeps no place"
+    );
+}
+
+#[test]
+fn each_kind_remembers_its_own_place() {
+    let folder = TempFolder::new("own-places");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
+    let icon = Arc::new(egui::IconData::default());
+    let mut places = stores.window_places();
+    for (kind, corner) in [
+        (WindowKind::Macros, egui::pos2(100.0, 100.0)),
+        (WindowKind::AlwaysOn, egui::pos2(700.0, 300.0)),
+        (WindowKind::Settings, egui::pos2(400.0, 20.0)),
+    ] {
+        let mut window = Window::open(kind, &stores);
+        drop(draw_at(&mut window, corner, 1.0));
+        keep_places(&stores, &mut places, [&window]);
+    }
+
+    // The next run reads them all.
+    let saved = stores.window_places();
+    for (kind, corner) in [
+        (WindowKind::Macros, Some(egui::pos2(100.0, 100.0))),
+        (WindowKind::AlwaysOn, Some(egui::pos2(700.0, 300.0))),
+        (WindowKind::About, Some(egui::pos2(400.0, 20.0))),
+        (WindowKind::Convert, None),
+    ] {
+        let reopened = Window::open(kind, &stores).at_place(&saved, 1.0, on_screen);
+        assert_eq!(reopened.viewport(&icon).position, corner, "{kind:?}");
+    }
+}
+
+#[test]
+fn a_window_that_lands_off_its_place_is_moved_onto_it() {
+    let stores = empty_stores("settle");
+    let mut places = WindowPlaces::default();
+    places.set(PlacedWindow::Macros, place(1500.0, 300.0, 1.5));
+
+    let mut landed_on = Window::open(WindowKind::Macros, &stores).at_place(&places, 1.0, on_screen);
+    let commands = draw_at(&mut landed_on, egui::pos2(1000.0, 200.0), 1.5);
+    assert!(!moves(&commands), "on its place already: {commands:?}");
+
+    // Created on a monitor at 100%, the window turned the points of its place into pixels at that scale.
+    let mut landed_off = Window::open(WindowKind::Macros, &stores).at_place(&places, 1.0, on_screen);
+    let commands = draw_at(&mut landed_off, egui::pos2(1000.0, 200.0), 1.0);
+    assert!(
+        commands.contains(&egui::ViewportCommand::OuterPosition(egui::pos2(1500.0, 300.0))),
+        "moved onto its place, in the points of the monitor it is on: {commands:?}"
+    );
+    let again = draw_at(&mut landed_off, egui::pos2(1600.0, 200.0), 1.0);
+    assert!(!moves(&again), "only once, so the user can move it: {again:?}");
 }
