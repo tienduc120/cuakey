@@ -69,18 +69,37 @@ pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: Toggle) -> Option<bool
     widgets::checkbox(ui, label, on).changed().then_some(!on)
 }
 
-/// A drop-down of choices. Returns the new choice when the user picked another.
-pub(crate) fn combo<T: Copy + PartialEq>(ui: &mut Ui, id_salt: &str, current: T, choices: &[(T, &str)]) -> Option<T> {
+/// The width of a combo box offering the choices `choices` names: its padding, the widest name in either interface
+/// language and the arrow after it. A combo this wide keeps its width and its right edge whatever it shows.
+fn combo_width<T, const N: usize>(ui: &Ui, choices: impl Fn(&'static Labels) -> [(T, &'static str); N]) -> f32 {
+    let widest =
+        widgets::widest_in_both_languages(ui, &TextStyle::Button, |text| choices(text).map(|(_, label)| label));
+    let spacing = ui.spacing();
+    2.0 * spacing.button_padding.x + widest + spacing.icon_spacing + spacing.icon_width
+}
+
+/// A drop-down of the choices `choices` names, in the language of `text`. Returns the new choice when the user picked
+/// another.
+pub(crate) fn combo<T: Copy + PartialEq, const N: usize>(
+    ui: &mut Ui,
+    id_salt: &str,
+    current: T,
+    choices: impl Fn(&'static Labels) -> [(T, &'static str); N],
+    text: &'static Labels,
+) -> Option<T> {
+    let width = combo_width(ui, &choices);
+    let named = choices(text);
     let mut selected = current;
-    let shown = choices
+    let shown = named
         .iter()
         .find(|(value, _)| *value == current)
         .map_or("", |(_, label)| *label);
     egui::ComboBox::from_id_salt(id_salt)
+        .width(width)
         .selected_text(shown)
         .show_ui(ui, |ui| {
-            for (value, label) in choices {
-                ui.selectable_value(&mut selected, *value, *label);
+            for (value, label) in named {
+                ui.selectable_value(&mut selected, value, label);
             }
         });
     (selected != current).then_some(selected)
@@ -391,18 +410,13 @@ fn control_rows(ui: &mut Ui, form: &mut SettingsForm) {
     let interface_language = form.view().system.interface_language;
     let label_width = widgets::widest_in_both_languages(ui, &TextStyle::Body, control_labels);
     row_label(ui, label_width, text.input_method);
-    if let Some(method) = combo(
-        ui,
-        "input_method",
-        form.view().typing.input_method,
-        &input_methods(text),
-    ) {
+    if let Some(method) = combo(ui, "input_method", form.view().typing.input_method, input_methods, text) {
         form.set_input_method(method);
     }
     ui.end_row();
 
     row_label(ui, label_width, text.code_table);
-    if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, &code_tables(text)) {
+    if let Some(table) = combo(ui, "code_table", form.view().typing.code_table, code_tables, text) {
         form.set_code_table(table);
     }
     ui.end_row();

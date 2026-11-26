@@ -59,17 +59,16 @@ fn option_boxes(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>
 
 fn table_row(ui: &mut Ui, form: &mut ConvertForm, actions: &mut Vec<UiAction>) {
     let text = labels_for(form.view());
-    let tables = code_tables(text);
     ui.horizontal(|ui| {
         ui.label(text.convert_from);
-        if let Some(table) = combo(ui, "convert_from", form.view().convert.from, &tables) {
+        if let Some(table) = combo(ui, "convert_from", form.view().convert.from, code_tables, text) {
             actions.push(form.set_from(table));
         }
         if ui.button(text.convert_swap).clicked() {
             actions.push(form.swap_tables());
         }
         ui.label(text.convert_to);
-        if let Some(table) = combo(ui, "convert_to", form.view().convert.to, &tables) {
+        if let Some(table) = combo(ui, "convert_to", form.view().convert.to, code_tables, text) {
             actions.push(form.set_to(table));
         }
     });

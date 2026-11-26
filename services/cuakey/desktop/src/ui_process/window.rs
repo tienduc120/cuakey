@@ -58,7 +58,7 @@ impl View {
         match self {
             Self::Settings(window) => window.size(),
             Self::Macros(_) => Vec2::new(740.0, 460.0),
-            Self::Convert(_) => Vec2::new(570.0, 380.0),
+            Self::Convert(_) => Vec2::new(680.0, 380.0),
             Self::AlwaysOn(_) => Vec2::new(455.0, 340.0),
         }
     }

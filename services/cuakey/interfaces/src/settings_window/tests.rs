@@ -1,4 +1,4 @@
-use cuakey_application::{InterfaceLanguageValue, KeyName, PreferencesView, Toggle};
+use cuakey_application::{CodeTableValue, InterfaceLanguageValue, KeyName, PreferencesView, Toggle};
 use egui::epaint::RectShape;
 
 use super::{COMPACT_SIZE, EXPANDED_SIZE, SECTIONS, SettingsWindow, bar_button_width, bar_labels, checkbox};
@@ -616,6 +616,31 @@ fn about_is_two_by_two() {
     }
 }
 
+/// Opens the code table combo showing `shown`, picks `choice` in it, and returns the combo's frame as the next pass
+/// draws it.
+fn pick_code_table(ctx: &egui::Context, window: &mut SettingsWindow, shown: &str, choice: &str) -> egui::Rect {
+    click(ctx, window, shown);
+    click(ctx, window, choice);
+    button_of(&show(ctx, window, BIG_SCREEN, Vec::new()), choice)
+}
+
+#[test]
+fn a_combo_keeps_its_width_whatever_it_shows() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+
+    let short = pick_code_table(&ctx, &mut window, ENGLISH.code_table_unicode, ENGLISH.code_table_tcvn3);
+    assert_eq!(window.form.view().typing.code_table, CodeTableValue::Tcvn3);
+    let long = pick_code_table(&ctx, &mut window, ENGLISH.code_table_tcvn3, ENGLISH.code_table_cp1258);
+    assert_eq!(window.form.view().typing.code_table, CodeTableValue::Cp1258);
+
+    assert!(
+        near(short.left(), long.left()) && near(short.width(), long.width()),
+        "the combo keeps its place and width: {short:?} showing a short choice, {long:?} a long one"
+    );
+}
+
 #[test]
 fn a_greyed_option_ignores_a_click() {
     let mut view = PreferencesView::default();
@@ -1038,7 +1063,15 @@ fn control_starts(shown: &Shown, text: &Labels) -> Vec<(&'static str, f32)> {
     let key = places_of(shown, "F5");
     vec![
         ("input method", button_of(shown, text.input_method_telex).left()),
+        (
+            "input method's right edge",
+            button_of(shown, text.input_method_telex).right(),
+        ),
         ("code table", button_of(shown, text.code_table_unicode).left()),
+        (
+            "code table's right edge",
+            button_of(shown, text.code_table_unicode).right(),
+        ),
         ("switch hotkey's first box", ctrl[0].left()),
         ("switch hotkey's key", key[0].left()),
         ("beep", row(text.beep).left()),
@@ -1100,7 +1133,7 @@ fn about_places(shown: &Shown, text: &Labels) -> [(&'static str, egui::Rect); 4]
 fn assert_same_starts(vietnamese: &[(&str, f32)], english: &[(&str, f32)]) {
     assert_eq!(vietnamese.len(), english.len());
     for ((name, vi), (_, en)) in vietnamese.iter().zip(english) {
-        assert!(near(*vi, *en), "{name} starts at {vi} in Vietnamese, {en} in English");
+        assert!(near(*vi, *en), "{name} is at {vi} in Vietnamese, {en} in English");
     }
 }
 
