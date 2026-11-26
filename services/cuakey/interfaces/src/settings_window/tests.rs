@@ -585,33 +585,50 @@ fn hotkey_rows_line_up() {
 }
 
 #[test]
-fn about_is_two_by_two() {
-    assert_eq!(
-        VIETNAMESE.about_version_license,
-        concat!("Phiên bản ", env!("CARGO_PKG_VERSION"), " · Giấy phép MIT")
-    );
-    assert_eq!(
-        ENGLISH.about_version_license,
-        concat!("Version ", env!("CARGO_PKG_VERSION"), " · MIT License")
-    );
+fn about_has_three_items() {
     for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
         let ctx = themed();
         let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
         let shown = settled(&ctx, &mut window);
-        let [name, version, link, credits] = about_places(&shown, text).map(|(_, place)| place);
+        let [name, version, source, link] = about_places(&shown, text).map(|(_, place)| place);
 
         assert!(
-            near(name.center().y, version.center().y) && near(link.center().y, credits.center().y),
-            "two rows: {name:?} {version:?}, then {link:?} {credits:?}"
+            near(name.center().y, source.center().y) && near(source.center().y, link.center().y),
+            "row one: {name:?} then {source:?} {link:?}"
         );
-        assert!(link.top() > name.bottom(), "the link and credits under the name");
+        assert!(version.top() > name.bottom(), "the version under the name");
         assert!(
-            near(name.left(), link.left()) && near(version.left(), credits.left()),
-            "two columns: {name:?} {link:?}, then {version:?} {credits:?}"
+            near(name.left(), version.left()),
+            "one first column: {name:?} {version:?}"
         );
         assert!(
-            version.left() > name.right().max(link.right()),
-            "the second column starts after the first"
+            source.left() > name.right().max(version.right()),
+            "the source link starts after the first column"
+        );
+        assert!(link.left() > source.right(), "the link follows its label");
+        assert_eq!(text.about_source_link, "tienduc120/cuakey");
+        assert!(place_of(&shown, text.about_url).is_none(), "the full URL is not drawn");
+        assert!(
+            shown.texts.iter().all(|(drawn, _)| !drawn.contains("OpenKey")),
+            "no OpenKey text is drawn"
+        );
+    }
+}
+
+#[test]
+fn about_name_says_no_open_source() {
+    for name in [VIETNAMESE.about_name, ENGLISH.about_name] {
+        assert!(!name.contains("nguồn mở") && !name.contains("open-source"), "{name}");
+    }
+}
+
+#[test]
+fn version_is_1_0_0() {
+    for text in [&VIETNAMESE, &ENGLISH] {
+        assert!(
+            text.about_version_license.contains("1.0.0"),
+            "{}",
+            text.about_version_license
         );
     }
 }
@@ -923,7 +940,7 @@ fn about_comes_into_view_when_revealed() {
     for _ in 0..2 {
         shown = show(&ctx, &mut window, screen, Vec::new());
     }
-    for text in [ENGLISH.section_about, ENGLISH.about_credits] {
+    for text in [ENGLISH.section_about, ENGLISH.about_version_license] {
         assert!(is_visible(&shown, text), "{text} is scrolled into view");
     }
     assert!(
@@ -1121,8 +1138,8 @@ fn about_places(shown: &Shown, text: &Labels) -> [(&'static str, egui::Rect); 4]
     [
         ("name", text.about_name),
         ("version and licence", text.about_version_license),
-        ("link", text.about_url),
-        ("credits", text.about_credits),
+        ("source label", text.about_source),
+        ("source link", text.about_source_link),
     ]
     .map(|(name, about)| {
         let place = place_of(shown, about).unwrap_or_else(|| panic!("the {name} is drawn: {about}"));

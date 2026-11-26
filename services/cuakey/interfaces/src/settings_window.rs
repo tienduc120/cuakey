@@ -336,20 +336,22 @@ fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, acti
     }
 }
 
-/// The about texts in two rows of two: the name, then the version with its licence; the link, then the credits. Each
-/// column takes the room of its widest text in either interface language, so the second column stays where it is
-/// when the language changes.
+/// The about texts: the name and the source link in one row, the version with its licence under the name. The first
+/// column and the link's label take the room of their widest text in either interface language, so the link stays
+/// where it is when the language changes.
 fn about_grid(ui: &mut Ui, text: &Labels) {
-    let first = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| [text.about_name, text.about_url]);
-    let second = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| {
-        [text.about_version_license, text.about_credits]
+    let first = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| {
+        [text.about_name, text.about_version_license]
     });
+    let source = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| [text.about_source]);
     egui::Grid::new("about").num_columns(2).show(ui, |ui| {
         fixed_width_cell(ui, first, |ui| ui.label(text.about_name));
-        fixed_width_cell(ui, second, |ui| ui.label(text.about_version_license));
+        ui.horizontal(|ui| {
+            fixed_width_cell(ui, source, |ui| ui.label(text.about_source));
+            ui.hyperlink_to(text.about_source_link, text.about_url);
+        });
         ui.end_row();
-        fixed_width_cell(ui, first, |ui| ui.hyperlink(text.about_url));
-        fixed_width_cell(ui, second, |ui| ui.label(text.about_credits));
+        fixed_width_cell(ui, first, |ui| ui.label(text.about_version_license));
         ui.end_row();
     });
 }

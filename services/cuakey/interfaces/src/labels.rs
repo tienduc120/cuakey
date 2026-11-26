@@ -75,8 +75,10 @@ pub struct Labels {
     pub about_name: &'static str,
     /// The version and the licence, in one text.
     pub about_version_license: &'static str,
+    /// Where the source link leads; the window shows `about_source_link` instead.
     pub about_url: &'static str,
-    pub about_credits: &'static str,
+    pub about_source: &'static str,
+    pub about_source_link: &'static str,
 
     pub button_exit: &'static str,
     pub button_reset: &'static str,
@@ -238,10 +240,11 @@ pub const VIETNAMESE: Labels = Labels {
     chromium_fix: "Sửa lỗi trên Chromium (beta)",
     clipboard_input: "Dùng Clipboard để gửi phím",
 
-    about_name: "CuaKey - Bộ gõ Tiếng Việt nguồn mở",
+    about_name: "CuaKey - Bộ gõ Tiếng Việt",
     about_version_license: concat!("Phiên bản ", env!("CARGO_PKG_VERSION"), " · Giấy phép MIT"),
     about_url: "https://github.com/tienduc120/cuakey",
-    about_credits: "Tham khảo hành vi gõ của OpenKey",
+    about_source: "Mã nguồn:",
+    about_source_link: "tienduc120/cuakey",
 
     button_exit: "Thoát",
     button_reset: "Cài đặt gốc",
@@ -403,10 +406,11 @@ pub const ENGLISH: Labels = Labels {
     chromium_fix: "Chromium fix (beta)",
     clipboard_input: "Send keys through the clipboard",
 
-    about_name: "CuaKey - open-source Vietnamese keyboard",
+    about_name: "CuaKey - Vietnamese keyboard",
     about_version_license: concat!("Version ", env!("CARGO_PKG_VERSION"), " · MIT License"),
     about_url: "https://github.com/tienduc120/cuakey",
-    about_credits: "Typing behavior modeled on OpenKey",
+    about_source: "Source:",
+    about_source_link: "tienduc120/cuakey",
 
     button_exit: "Exit",
     button_reset: "Reset all",
