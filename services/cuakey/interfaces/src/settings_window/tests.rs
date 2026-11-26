@@ -585,6 +585,38 @@ fn hotkey_rows_line_up() {
 }
 
 #[test]
+fn about_is_two_by_two() {
+    assert_eq!(
+        VIETNAMESE.about_version_license,
+        concat!("Phiên bản ", env!("CARGO_PKG_VERSION"), " · Giấy phép MIT")
+    );
+    assert_eq!(
+        ENGLISH.about_version_license,
+        concat!("Version ", env!("CARGO_PKG_VERSION"), " · MIT License")
+    );
+    for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
+        let ctx = themed();
+        let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
+        let shown = settled(&ctx, &mut window);
+        let [name, version, link, credits] = about_places(&shown, text).map(|(_, place)| place);
+
+        assert!(
+            near(name.center().y, version.center().y) && near(link.center().y, credits.center().y),
+            "two rows: {name:?} {version:?}, then {link:?} {credits:?}"
+        );
+        assert!(link.top() > name.bottom(), "the link and credits under the name");
+        assert!(
+            near(name.left(), link.left()) && near(version.left(), credits.left()),
+            "two columns: {name:?} {link:?}, then {version:?} {credits:?}"
+        );
+        assert!(
+            version.left() > name.right().max(link.right()),
+            "the second column starts after the first"
+        );
+    }
+}
+
+#[test]
 fn system_section_comes_first() {
     for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
         let ctx = themed();
@@ -839,9 +871,12 @@ fn about_comes_into_view_when_revealed() {
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
     window.reveal_about();
     assert_eq!(window.size(), EXPANDED_SIZE, "the about text is in the expanded part");
-    let mut shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    // The test font's 9 points a letter put the second about column past the window's right edge; only the height
+    // matters to the scroll.
+    let screen = egui::vec2(BIG_SCREEN.x, EXPANDED_SIZE.y);
+    let mut shown = show(&ctx, &mut window, screen, Vec::new());
     for _ in 0..2 {
-        shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+        shown = show(&ctx, &mut window, screen, Vec::new());
     }
     for text in [ENGLISH.section_about, ENGLISH.about_credits] {
         assert!(is_visible(&shown, text), "{text} is scrolled into view");
@@ -1028,6 +1063,20 @@ fn option_starts(shown: &Shown, text: &Labels) -> Vec<(&'static str, f32)> {
         .collect()
 }
 
+/// Where the about texts of a window drawn in the language of `text` sit, in reading order.
+fn about_places(shown: &Shown, text: &Labels) -> [(&'static str, egui::Rect); 4] {
+    [
+        ("name", text.about_name),
+        ("version and licence", text.about_version_license),
+        ("link", text.about_url),
+        ("credits", text.about_credits),
+    ]
+    .map(|(name, about)| {
+        let place = place_of(shown, about).unwrap_or_else(|| panic!("the {name} is drawn: {about}"));
+        (name, place)
+    })
+}
+
 fn assert_same_starts(vietnamese: &[(&str, f32)], english: &[(&str, f32)]) {
     assert_eq!(vietnamese.len(), english.len());
     for ((name, vi), (_, en)) in vietnamese.iter().zip(english) {
@@ -1077,6 +1126,10 @@ fn switching_language_moves_no_control() {
     assert_same_buttons(
         &bar_of(&expanded_vi, &VIETNAMESE, true),
         &bar_of(&expanded_en, &ENGLISH, true),
+    );
+    assert_same_starts(
+        &about_places(&expanded_vi, &VIETNAMESE).map(|(name, place)| (name, place.left())),
+        &about_places(&expanded_en, &ENGLISH).map(|(name, place)| (name, place.left())),
     );
 }
 

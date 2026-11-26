@@ -73,8 +73,8 @@ pub struct Labels {
     pub clipboard_input: &'static str,
 
     pub about_name: &'static str,
-    pub about_version: &'static str,
-    pub about_license: &'static str,
+    /// The version and the licence, in one text.
+    pub about_version_license: &'static str,
     pub about_url: &'static str,
     pub about_credits: &'static str,
 
@@ -239,8 +239,7 @@ pub const VIETNAMESE: Labels = Labels {
     clipboard_input: "Dùng Clipboard để gửi phím",
 
     about_name: "CuaKey - Bộ gõ Tiếng Việt nguồn mở",
-    about_version: concat!("Phiên bản ", env!("CARGO_PKG_VERSION")),
-    about_license: "Giấy phép MIT",
+    about_version_license: concat!("Phiên bản ", env!("CARGO_PKG_VERSION"), " · Giấy phép MIT"),
     about_url: "https://github.com/tienduc120/cuakey",
     about_credits: "Tham khảo hành vi gõ của OpenKey",
 
@@ -405,8 +404,7 @@ pub const ENGLISH: Labels = Labels {
     clipboard_input: "Send keys through the clipboard",
 
     about_name: "CuaKey - open-source Vietnamese keyboard",
-    about_version: concat!("Version ", env!("CARGO_PKG_VERSION")),
-    about_license: "MIT License",
+    about_version_license: concat!("Version ", env!("CARGO_PKG_VERSION"), " · MIT License"),
     about_url: "https://github.com/tienduc120/cuakey",
     about_credits: "Typing behavior modeled on OpenKey",
 

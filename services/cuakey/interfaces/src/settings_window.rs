@@ -317,14 +317,28 @@ fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, acti
     }
 }
 
+/// The about texts in two rows of two: the name, then the version with its licence; the link, then the credits. Each
+/// column takes the room of its widest text in either interface language, so the second column stays where it is
+/// when the language changes.
+fn about_grid(ui: &mut Ui, text: &Labels) {
+    let first = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| [text.about_name, text.about_url]);
+    let second = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| {
+        [text.about_version_license, text.about_credits]
+    });
+    egui::Grid::new("about").num_columns(2).show(ui, |ui| {
+        fixed_width_cell(ui, first, |ui| ui.label(text.about_name));
+        fixed_width_cell(ui, second, |ui| ui.label(text.about_version_license));
+        ui.end_row();
+        fixed_width_cell(ui, first, |ui| ui.hyperlink(text.about_url));
+        fixed_width_cell(ui, second, |ui| ui.label(text.about_credits));
+        ui.end_row();
+    });
+}
+
 /// The about text, the last section. When `about_to_reveal` asks for it, the scroll area brings it into view once.
 fn about_section(ui: &mut Ui, text: &Labels, about_to_reveal: &mut bool) {
     let title = section_title(ui, text.section_about);
-    ui.label(text.about_name);
-    ui.label(text.about_version);
-    ui.label(text.about_license);
-    ui.hyperlink(text.about_url);
-    ui.label(text.about_credits);
+    about_grid(ui, text);
     // egui draws a pass it will discard again at once and drops what that pass asked of the scroll area, so the
     // request waits for the pass that is kept.
     if *about_to_reveal && !ui.ctx().will_discard() {
@@ -366,9 +380,7 @@ const fn control_labels(text: &Labels) -> [&'static str; 6] {
 
 /// The label of a control row, in the label column `width` wide.
 fn row_label(ui: &mut Ui, width: f32, label: &str) {
-    fixed_width_cell(ui, width, |ui| {
-        ui.label(label);
-    });
+    fixed_width_cell(ui, width, |ui| ui.label(label));
 }
 
 /// The controls used every day, as grid cells: a label, then its control. The labels take the room of the widest in
