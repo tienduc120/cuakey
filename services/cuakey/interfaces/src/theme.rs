@@ -1,5 +1,6 @@
-//! The one look every window of the app shares: egui's dark theme with more room around and between the controls, and
-//! rounder corners. Only spacing and corner radius change, so every colour stays the theme's own.
+//! What every window of the app shares: egui's dark theme, whatever theme Windows uses, with more room between the
+//! controls and rounder corners. Only spacing and corner radius change, so every colour stays the theme's own. The
+//! wider window margin set here is the settings window's alone; the other windows keep their panel's own margin.
 
 use egui::{CornerRadius, Margin, Style, Vec2, vec2};
 
@@ -22,8 +23,10 @@ const CONTROL_HEIGHT: f32 = 28.0;
 /// One radius for the corners of every widget, whatever its state, and of every window.
 const CORNERS: CornerRadius = CornerRadius::same(6);
 
-/// Sets the shared look on `ctx`, for every window it draws, in the dark and the light theme alike.
+/// Sets the shared look on `ctx`, for every window it draws: the dark theme, and the room and corners in the dark and
+/// the light style alike.
 pub fn apply(ctx: &egui::Context) {
+    ctx.set_theme(egui::Theme::Dark);
     ctx.all_styles_mut(set_room_and_corners);
 }
 

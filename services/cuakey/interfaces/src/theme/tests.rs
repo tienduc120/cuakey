@@ -46,6 +46,22 @@ fn theme_sets_spacing_and_rounding() {
 }
 
 #[test]
+fn the_windows_stay_dark_when_the_system_is_light() {
+    let ctx = Context::default();
+    apply(&ctx);
+    let input = egui::RawInput {
+        system_theme: Some(Theme::Light),
+        ..egui::RawInput::default()
+    };
+
+    let mut output = ctx.run_ui(input, |_| {});
+    // No renderer takes the font texture here.
+    output.textures_delta.clear();
+
+    assert_eq!(ctx.theme(), Theme::Dark);
+}
+
+#[test]
 fn the_light_theme_gets_the_same_room() {
     let ctx = Context::default();
     apply(&ctx);
