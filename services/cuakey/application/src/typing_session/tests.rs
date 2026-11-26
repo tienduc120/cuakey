@@ -603,7 +603,7 @@ fn apply_takes_the_new_settings() {
 
 #[test]
 fn a_code_table_chosen_for_an_app_stays_with_it() {
-    let mut typist = Typist::with_defaults();
+    let mut typist = Typist::with(&remembering());
     typist.session.app_switched("word.exe");
     let mut chosen = typist.session.preferences();
     chosen.typing.code_table = CodeTableValue::VniWindows;
