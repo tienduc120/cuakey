@@ -35,6 +35,8 @@ mod known_folder;
 #[cfg(windows)]
 mod message_window;
 #[cfg(windows)]
+mod monitor;
+#[cfg(windows)]
 mod notify;
 mod send;
 #[cfg(windows)]
@@ -76,6 +78,8 @@ pub use elevation::{RelaunchError, is_elevated, relaunch_elevated};
 pub use known_folder::{KnownFolderError, roaming_app_data, system_fonts};
 #[cfg(windows)]
 pub use message_window::{CreateMessageWindowError, MessageWindow, PostError, post_to};
+#[cfg(windows)]
+pub use monitor::{ScreenRect, is_on_a_monitor};
 #[cfg(windows)]
 pub use notify::{show as show_notice, show_and_wait as show_notice_and_wait};
 #[cfg(windows)]
