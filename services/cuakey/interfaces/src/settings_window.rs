@@ -403,8 +403,8 @@ fn bar_labels(text: &Labels) -> Vec<&'static str> {
         .collect()
 }
 
-/// The width every bar button takes: the theme's button width, or more when the widest of `labels` needs it, so no
-/// label is ever cut.
+/// The width every bar button takes when the window has room: the theme's button width, or more when the widest of
+/// `labels` needs it, so no label is cut.
 fn bar_button_width(ui: &Ui, labels: &[&str]) -> f32 {
     let widest = labels
         .iter()
@@ -416,15 +416,26 @@ fn bar_button_width(ui: &Ui, labels: &[&str]) -> f32 {
 /// One button of the bottom bar, `size` like the others. Returns whether it was clicked.
 fn bar_button(ui: &mut Ui, form: &SettingsForm, button: Button, size: egui::Vec2) -> bool {
     let label = button_label(labels_for(form.view()), button, form.is_expanded());
-    ui.add_sized(size, egui::Button::new(label)).clicked()
+    // A button would otherwise grow to its label in a window too narrow for the bar, and push the last ones out.
+    ui.add_sized(size, egui::Button::new(label).truncate()).clicked()
+}
+
+/// The width each of `count` bar buttons takes in `room`: `wanted`, when they fit side by side with `spacing` between
+/// them. A narrower room first takes the gap before the right-hand buttons, down to `spacing`; then the buttons shrink
+/// alike, so the last one still ends inside the window.
+fn fitted_button_width(wanted: f32, room: f32, count: f32, spacing: f32) -> f32 {
+    wanted.min((room - spacing * (count - 1.0)) / count)
 }
 
 /// The buttons of the bottom bar, where the form puts them: the left one at the left edge, the others ending at the
 /// right edge. They are added left to right, so the keyboard reaches them in reading order. Returns the button clicked.
 fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
     let bar = form.bar();
+    let spacing = ui.spacing().item_spacing.x;
+    let count = bar.left.iter().chain(&bar.right).map(|_| 1.0).sum();
+    let wanted = bar_button_width(ui, &bar_labels(labels_for(form.view())));
     let size = egui::vec2(
-        bar_button_width(ui, &bar_labels(labels_for(form.view()))),
+        fitted_button_width(wanted, ui.available_width(), count, spacing),
         BUTTON_SIZE.y,
     );
     ui.horizontal(|ui| {
@@ -434,7 +445,6 @@ fn bar_buttons(ui: &mut Ui, form: &SettingsForm) -> Option<Button> {
         {
             clicked = Some(button);
         }
-        let spacing = ui.spacing().item_spacing.x;
         let right_group = bar.right.iter().map(|_| size.x + spacing).sum::<f32>() - spacing;
         ui.add_space((ui.available_width() - right_group).max(0.0));
         for &button in &bar.right {

@@ -587,6 +587,35 @@ fn the_english_bar_fits_the_expanded_window() {
 }
 
 #[test]
+fn a_window_too_narrow_for_the_bar_keeps_every_button_inside() {
+    let ctx = themed();
+    let narrow = egui::vec2(400.0, EXPANDED_SIZE.y);
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let shown = show(&ctx, &mut window, narrow, Vec::new());
+
+    let bar = [
+        ENGLISH.button_reset,
+        ENGLISH.button_collapse,
+        ENGLISH.button_exit,
+        ENGLISH.button_close,
+    ]
+    .map(|label| button_of(&shown, label));
+    let [reset, collapse, _, close] = bar;
+    assert!(
+        near(close.right(), narrow.x - margin()),
+        "the last button ends at the window's edge: {close:?}"
+    );
+    let spacing = ctx.global_style().spacing.item_spacing.x;
+    assert!(
+        near(collapse.left() - reset.right(), spacing),
+        "the room before the right-hand buttons went first: {reset:?} {collapse:?}"
+    );
+    for button in bar {
+        assert_eq!(button.size(), reset.size(), "the buttons shrank alike: {bar:?}");
+    }
+}
+
+#[test]
 fn section_titles_are_body_size_and_muted() {
     let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
