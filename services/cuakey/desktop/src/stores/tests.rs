@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use cuakey_application::{InterfaceLanguageValue, LoadPreferencesError, PreferencesView, StoreError};
 
 use super::{Origin, Stores};
@@ -37,10 +39,29 @@ fn a_load_gives_what_the_store_holds() {
     assert!(error.is_none());
 }
 
+/// A folder of its own in the temp folder for one test, removed when the test ends, whether it passed or not.
+struct TempFolder(PathBuf);
+
+impl TempFolder {
+    fn new(test: &str) -> Self {
+        let path = std::env::temp_dir().join(format!("cuakey-stores-{}-{test}", std::process::id()));
+        // What an earlier run left would be read as stored.
+        drop(std::fs::remove_dir_all(&path));
+        Self(path)
+    }
+}
+
+impl Drop for TempFolder {
+    fn drop(&mut self) {
+        // A folder left behind is not a failed test.
+        drop(std::fs::remove_dir_all(&self.0));
+    }
+}
+
 #[test]
 fn the_interface_language_is_read_from_the_store() {
-    let dir = std::env::temp_dir().join(format!("cuakey-stores-{}-interface", std::process::id()));
-    let stores = Stores::in_folder(dir.clone()).unwrap();
+    let folder = TempFolder::new("interface");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
     assert_eq!(
         stores.interface_language(),
         InterfaceLanguageValue::English,
@@ -52,5 +73,4 @@ fn the_interface_language_is_read_from_the_store() {
     stores.save_preferences(&prefs).unwrap();
 
     assert_eq!(stores.interface_language(), InterfaceLanguageValue::Vietnamese);
-    std::fs::remove_dir_all(dir).unwrap();
 }

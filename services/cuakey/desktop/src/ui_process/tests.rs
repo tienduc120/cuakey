@@ -1,8 +1,9 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use cuakey_application::{
     AppMemoryView, CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
 };
-use std::sync::Arc;
-
 use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind, labels};
 use eframe::egui;
 
@@ -126,6 +127,25 @@ fn an_icon_file_without_a_png_picture_gives_none() {
     assert_eq!(largest_png(&ico), None);
     assert_eq!(largest_png(&[]), None, "an empty file");
     assert_eq!(largest_png(&ico[..10]), None, "a directory cut short");
+}
+
+/// A folder of its own in the temp folder for one test, removed when the test ends, whether it passed or not.
+struct TempFolder(PathBuf);
+
+impl TempFolder {
+    fn new(test: &str) -> Self {
+        let path = std::env::temp_dir().join(format!("cuakey-ui-process-{}-{test}", std::process::id()));
+        // What an earlier run left would be read as stored.
+        drop(std::fs::remove_dir_all(&path));
+        Self(path)
+    }
+}
+
+impl Drop for TempFolder {
+    fn drop(&mut self) {
+        // A folder left behind is not a failed test.
+        drop(std::fs::remove_dir_all(&self.0));
+    }
 }
 
 /// Stores on a folder that does not exist: every window shows the defaults, and opening one writes nothing.
@@ -364,8 +384,8 @@ fn a_window_takes_the_title_of_its_interface_language() {
 
 #[test]
 fn a_reset_keeps_the_open_window_in_its_language() {
-    let dir = std::env::temp_dir().join(format!("cuakey-ui-process-{}-reset-language", std::process::id()));
-    let stores = Stores::in_folder(dir.clone()).unwrap();
+    let folder = TempFolder::new("reset-language");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
     let mut vietnamese = PreferencesView::default();
     vietnamese.system.interface_language = InterfaceLanguageValue::Vietnamese;
     vietnamese.typing.input_method = InputMethodValue::Vni;
@@ -387,5 +407,4 @@ fn a_reset_keeps_the_open_window_in_its_language() {
         titles(&commands_drawing(&mut window)).is_empty(),
         "the window keeps its Vietnamese title"
     );
-    std::fs::remove_dir_all(dir).unwrap();
 }
