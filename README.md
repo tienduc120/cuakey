@@ -9,9 +9,11 @@ Vietnamese typing for Windows, written in Rust.
 - Spell check that restores the keys you typed when a word is not Vietnamese.
 - Macros in a `macros.txt` file, compatible with OpenKey and UniKey.
 - Conversion between code tables, and quick convert from the clipboard.
-- Per-app memory of the input mode, and a list of apps where Vietnamese is always on.
+- Per-app memory of the typing language and the code table, both off by default and turned on in Settings.
+- A list of apps where Vietnamese is always on.
 - Vietnamese only in text boxes, never in password boxes.
 - No Windows keyboard layout or input method is added.
+- The interface is in English or Vietnamese, switched in Settings.
 
 ## Install
 
