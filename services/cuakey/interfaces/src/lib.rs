@@ -11,6 +11,7 @@ pub mod labels;
 mod macro_form;
 mod macro_window;
 mod messages;
+mod screen_fit;
 mod settings_form;
 mod settings_window;
 pub mod theme;

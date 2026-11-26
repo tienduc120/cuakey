@@ -111,13 +111,24 @@ fn collect(shape: &egui::Shape, clip: egui::Rect, shown: &mut Shown) {
     }
 }
 
-/// Draws one pass of `window` in a screen of `size`, fed `events`.
+/// Draws one pass of `window` in a screen of `size`, fed `events`, with nothing known of its native window.
 fn show(ctx: &egui::Context, window: &mut SettingsWindow, size: egui::Vec2, events: Vec<egui::Event>) -> Shown {
-    let input = egui::RawInput {
+    show_in(ctx, window, (size, &egui::ViewportInfo::default()), events)
+}
+
+/// Draws one pass of `window` in a screen of the size given, in the native window `native` describes, fed `events`.
+fn show_in(
+    ctx: &egui::Context,
+    window: &mut SettingsWindow,
+    (size, native): (egui::Vec2, &egui::ViewportInfo),
+    events: Vec<egui::Event>,
+) -> Shown {
+    let mut input = egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
         events,
         ..egui::RawInput::default()
     };
+    input.viewports.insert(egui::ViewportId::ROOT, native.clone());
     let mut actions = Vec::new();
     // eframe hands the app the root ui of each pass, as `run_ui` does.
     let mut output = ctx.run_ui(input, |ui| actions = window.show(ui));
@@ -177,15 +188,52 @@ fn near(a: f32, b: f32) -> bool {
 
 /// Clicks the button labelled `label` and returns the pass that saw the release.
 fn click(ctx: &egui::Context, window: &mut SettingsWindow, label: &str) -> Shown {
-    let before = show(ctx, window, BIG_SCREEN, Vec::new());
+    click_in(ctx, window, &egui::ViewportInfo::default(), label)
+}
+
+/// Clicks the button labelled `label` in the native window `native` describes, and returns the pass that saw the
+/// release.
+fn click_in(ctx: &egui::Context, window: &mut SettingsWindow, native: &egui::ViewportInfo, label: &str) -> Shown {
+    let screen = (BIG_SCREEN, native);
+    let before = show_in(ctx, window, screen, Vec::new());
     let at = place_of(&before, label).unwrap().center();
-    show(
+    show_in(
         ctx,
         window,
-        BIG_SCREEN,
+        screen,
         vec![egui::Event::PointerMoved(at), primary(at, true)],
     );
-    show(ctx, window, BIG_SCREEN, vec![primary(at, false)])
+    show_in(ctx, window, screen, vec![primary(at, false)])
+}
+
+/// The compact window as it first opens on a 1920x1080 screen at 150%: centred, with the title bar and the resize
+/// border Windows draws around it. Grown in place, it would end under the taskbar.
+fn compact_on_a_short_screen() -> egui::ViewportInfo {
+    let corner = egui::pos2(360.0, 190.0);
+    egui::ViewportInfo {
+        monitor_size: Some(egui::vec2(1280.0, 720.0)),
+        outer_rect: Some(egui::Rect::from_min_size(corner, COMPACT_SIZE + egui::vec2(16.0, 39.0))),
+        inner_rect: Some(egui::Rect::from_min_size(corner + egui::vec2(8.0, 31.0), COMPACT_SIZE)),
+        ..egui::ViewportInfo::default()
+    }
+}
+
+/// Where `commands` move the native window, if anywhere.
+fn moved_to(commands: &[egui::ViewportCommand]) -> Option<egui::Pos2> {
+    commands.iter().find_map(|command| {
+        if let egui::ViewportCommand::OuterPosition(corner) = command {
+            Some(*corner)
+        } else {
+            None
+        }
+    })
+}
+
+/// Whether `commands` resize the native window.
+fn resizes(commands: &[egui::ViewportCommand]) -> bool {
+    commands
+        .iter()
+        .any(|command| matches!(command, egui::ViewportCommand::InnerSize(_)))
 }
 
 #[test]
@@ -252,6 +300,54 @@ fn the_expand_button_resizes_the_window_and_asks_nothing() {
             .contains(&egui::ViewportCommand::InnerSize(COMPACT_SIZE)),
         "{:?}",
         collapsed.commands
+    );
+}
+
+#[test]
+fn expanding_near_the_taskbar_moves_the_window_up() {
+    let ctx = egui::Context::default();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    let native = compact_on_a_short_screen();
+
+    let expanded = click_in(&ctx, &mut window, &native, ENGLISH.button_expand);
+
+    let corner = moved_to(&expanded.commands).expect("the window moves");
+    let opened_at = native.outer_rect.unwrap().min;
+    assert!(
+        corner.y < opened_at.y && corner.y >= 0.0,
+        "up, and still on screen: {corner:?}"
+    );
+    assert!(
+        expanded
+            .commands
+            .ends_with(&[egui::ViewportCommand::InnerSize(EXPANDED_SIZE)]),
+        "moved first, then grown: {:?}",
+        expanded.commands
+    );
+}
+
+#[test]
+fn a_window_revealing_about_takes_its_size_on_the_next_frame() {
+    let ctx = egui::Context::default();
+    let native = compact_on_a_short_screen();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+    let places = |shown: &Shown| moved_to(&shown.commands).is_some() || resizes(&shown.commands);
+    let compact = show_in(&ctx, &mut window, (BIG_SCREEN, &native), Vec::new());
+    assert!(!places(&compact), "{:?}", compact.commands);
+
+    window.reveal_about();
+    let grown = show_in(&ctx, &mut window, (BIG_SCREEN, &native), Vec::new());
+    assert!(moved_to(&grown.commands).is_some(), "{:?}", grown.commands);
+    assert!(resizes(&grown.commands), "{:?}", grown.commands);
+
+    let next = show_in(&ctx, &mut window, (BIG_SCREEN, &native), Vec::new());
+    assert!(!places(&next), "once: {:?}", next.commands);
+    window.reveal_about();
+    let again = show_in(&ctx, &mut window, (BIG_SCREEN, &native), Vec::new());
+    assert!(
+        !places(&again),
+        "an expanded window keeps the size the user gave it: {:?}",
+        again.commands
     );
 }
 

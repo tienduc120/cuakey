@@ -183,17 +183,6 @@ fn move_into_root(ctx: &Context, window: &Window) {
     ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::InnerSize(window.size()));
 }
 
-/// Shows the about text in `window`, the settings window open in `viewport`. The text is the last of the sections only
-/// the expanded window shows, so a compact window expands, an expanded one keeps the size the user gave it, and either
-/// scrolls the text into view.
-fn expand_for_about(ctx: &Context, window: &mut Window, viewport: ViewportId) {
-    let before = window.size();
-    window.reveal_about();
-    if window.size() != before {
-        ctx.send_viewport_cmd_to(viewport, ViewportCommand::InnerSize(window.size()));
-    }
-}
-
 /// Draws `window` into `ui`, the root ui of its viewport, with the clipboard and the browser at hand.
 fn draw(window: &mut Window, ui: &mut Ui) -> Vec<UiAction> {
     let ctx = ui.ctx().clone();
@@ -341,7 +330,8 @@ impl UiApp {
     }
 
     /// Brings `kind` to the front, opening it when it is not open. "About" also expands a settings window that is open
-    /// compact, so the about text shows.
+    /// compact, which grows its native window on screen as it is next drawn, and scrolls the about text into view; an
+    /// expanded one keeps the size the user gave it.
     fn open(&mut self, ctx: &Context, kind: WindowKind) {
         let shown = shown_kind(kind);
         let Some(index) = self.windows.iter().position(|window| window.kind() == shown) else {
@@ -356,7 +346,7 @@ impl UiApp {
         if kind == WindowKind::About
             && let Some(window) = self.windows.get_mut(index)
         {
-            expand_for_about(ctx, window, viewport);
+            window.reveal_about();
         }
         ctx.send_viewport_cmd_to(viewport, ViewportCommand::Minimized(false));
         ctx.send_viewport_cmd_to(viewport, ViewportCommand::Focus);

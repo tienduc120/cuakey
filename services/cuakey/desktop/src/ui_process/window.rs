@@ -21,6 +21,9 @@ pub(super) struct Window {
     macros: Origin,
     /// The title its native window shows, so a change of interface language can retitle it.
     shown_title: &'static str,
+    /// The size it opened at. Its native window takes later sizes from what the window draws, which keeps it on
+    /// screen; a viewport of its own given a new size would resize it again, past that.
+    opened_size: Vec2,
 }
 
 #[derive(Debug)]
@@ -48,6 +51,15 @@ impl View {
             Self::Macros(_) => text.macro_window_title,
             Self::Convert(_) => text.convert_window_title,
             Self::AlwaysOn(_) => text.always_on_window_title,
+        }
+    }
+
+    const fn size(&self) -> Vec2 {
+        match self {
+            Self::Settings(window) => window.size(),
+            Self::Macros(_) => Vec2::new(740.0, 460.0),
+            Self::Convert(_) => Vec2::new(570.0, 380.0),
+            Self::AlwaysOn(_) => Vec2::new(455.0, 340.0),
         }
     }
 }
@@ -81,6 +93,7 @@ impl Window {
         }
         let mut window = Self {
             shown_title: view.title(),
+            opened_size: view.size(),
             view,
             prefs: prefs_origin,
             macros: macros_origin,
@@ -200,19 +213,14 @@ impl Window {
     /// button, and a line for an error message, in either interface language, with the shared style in Segoe UI and in
     /// the fonts the windows may borrow instead.
     pub(super) const fn size(&self) -> Vec2 {
-        match &self.view {
-            View::Settings(window) => window.size(),
-            View::Macros(_) => Vec2::new(740.0, 460.0),
-            View::Convert(_) => Vec2::new(570.0, 380.0),
-            View::AlwaysOn(_) => Vec2::new(455.0, 340.0),
-        }
+        self.view.size()
     }
 
     /// The native window this one opens in.
     pub(super) fn viewport(&self, icon: &Arc<IconData>) -> ViewportBuilder {
         ViewportBuilder::default()
             .with_title(self.title())
-            .with_inner_size(self.size())
+            .with_inner_size(self.opened_size)
             .with_icon(Arc::clone(icon))
     }
 

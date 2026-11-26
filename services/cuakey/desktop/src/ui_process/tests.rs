@@ -1,11 +1,13 @@
 use cuakey_application::{
     AppMemoryView, CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
 };
+use std::sync::Arc;
+
 use cuakey_interfaces::{COMPACT_SIZE, EXPANDED_SIZE, WindowKind, labels};
 use eframe::egui;
 
 use super::window::Window;
-use super::{Edit, edit_of, expand_for_about, largest_png, move_into_root, rebase, shown_kind};
+use super::{Edit, edit_of, largest_png, move_into_root, rebase, shown_kind};
 use crate::stores::Stores;
 
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -155,25 +157,52 @@ fn root_commands_moving(window: &Window) -> Vec<egui::ViewportCommand> {
     root_commands(|ctx| move_into_root(ctx, window))
 }
 
+/// Whether `commands` resize the native window.
+fn resizes(commands: &[egui::ViewportCommand]) -> bool {
+    commands
+        .iter()
+        .any(|command| matches!(command, egui::ViewportCommand::InnerSize(_)))
+}
+
 #[test]
 fn about_expands_an_open_settings_window() {
     let stores = empty_stores("expand");
     let mut window = Window::open(WindowKind::Settings, &stores);
 
-    let commands = root_commands(|ctx| expand_for_about(ctx, &mut window, egui::ViewportId::ROOT));
+    window.reveal_about();
     assert_eq!(window.size(), EXPANDED_SIZE, "the about text is in the expanded part");
+    let commands = commands_drawing(&mut window);
     assert!(
         commands.contains(&egui::ViewportCommand::InnerSize(EXPANDED_SIZE)),
-        "the native window grows with it: {commands:?}"
+        "the native window grows with it as it is drawn: {commands:?}"
     );
 
-    let again = root_commands(|ctx| expand_for_about(ctx, &mut window, egui::ViewportId::ROOT));
+    window.reveal_about();
     assert_eq!(window.size(), EXPANDED_SIZE);
+    let again = commands_drawing(&mut window);
     assert!(
-        !again
-            .iter()
-            .any(|command| matches!(command, egui::ViewportCommand::InnerSize(_))),
+        !resizes(&again),
         "an expanded window keeps the size the user gave it: {again:?}"
+    );
+}
+
+#[test]
+fn a_window_of_its_own_is_resized_only_by_what_it_draws() {
+    let stores = empty_stores("own-viewport");
+    let icon = Arc::new(egui::IconData::default());
+    let mut window = Window::open(WindowKind::Settings, &stores);
+    assert_eq!(
+        window.viewport(&icon).inner_size,
+        Some(COMPACT_SIZE),
+        "it opens compact"
+    );
+
+    window.reveal_about();
+
+    assert_eq!(
+        window.viewport(&icon).inner_size,
+        Some(COMPACT_SIZE),
+        "a new size here would resize the native window again, past where the window keeps itself on screen"
     );
 }
 
@@ -251,9 +280,7 @@ fn the_about_menu_brings_the_about_text_into_view() {
     );
 
     let mut open_compact = Window::open(WindowKind::Settings, &stores);
-    drop(root_commands(|ctx| {
-        expand_for_about(ctx, &mut open_compact, egui::ViewportId::ROOT);
-    }));
+    open_compact.reveal_about();
     assert!(
         ends_in_view(&mut open_compact, labels::ENGLISH.section_about),
         "a window About expanded shows the about text"

@@ -10,6 +10,7 @@ use egui::Ui;
 
 use crate::hotkey_editor::show_hotkey;
 use crate::labels::{Labels, labels_for};
+use crate::screen_fit::{Placement, fit_on_screen};
 use crate::settings_form::{ButtonBar, GatedControl, SettingsForm, is_on};
 use crate::theme::BUTTON_SIZE;
 use crate::{Button, Platform, UiAction, widgets};
@@ -55,9 +56,10 @@ const fn interface_languages(text: &Labels) -> [(InterfaceLanguageValue, &'stati
 /// where they were.
 pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 340.0);
 
-/// The window's inner size with every section. The options sit two to a row, and the widest needs 257 points in either
-/// interface language, so two columns fit in this width. The sections are taller than a small screen, so they scroll
-/// above the bottom bar; this height shows the controls used every day and the whole first section.
+/// The window's inner size with every section, where the screen has room for it; a shorter screen gets a shorter
+/// window. The options sit two to a row, and the widest needs 257 points in either interface language, so two columns
+/// fit in this width. The sections are taller than a small screen, so they scroll above the bottom bar; this height
+/// shows the controls used every day and the first section, whole unless an error message takes a line.
 pub const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
@@ -496,15 +498,25 @@ const fn window_size(form: &SettingsForm) -> egui::Vec2 {
     }
 }
 
-/// Acts on a clicked button. The expand button concerns this window alone: it resizes the window and asks the process
-/// nothing.
-fn press(ui: &Ui, form: &mut SettingsForm, button: Button, actions: &mut Vec<UiAction>) {
-    if button == Button::ToggleExpanded {
-        form.toggle_expanded();
-        ui.ctx()
-            .send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size(form)));
+/// Gives the native window of `ctx`'s viewport the inner size `wanted`, moved up or made shorter as
+/// [`fit_on_screen`] says, so the bottom bar stays on screen. When the window's place or its monitor is unknown, it
+/// only asks for `wanted`.
+fn resize_on_screen(ctx: &egui::Context, wanted: egui::Vec2) {
+    let native = ctx.input(|input| {
+        let info = input.viewport();
+        Some((info.outer_rect?, info.inner_rect?, info.monitor_size?))
+    });
+    let placement = native.map_or(
+        Placement {
+            move_to: None,
+            inner_size: wanted,
+        },
+        |(outer, inner, monitor)| fit_on_screen(outer, inner, monitor, wanted),
+    );
+    if let Some(corner) = placement.move_to {
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(corner));
     }
-    actions.extend(button.action());
+    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(placement.inner_size));
 }
 
 /// The settings window: draw it every frame, act on what it returns.
@@ -513,6 +525,8 @@ pub struct SettingsWindow {
     form: SettingsForm,
     /// The about text is to be scrolled into view on the next frame.
     about_to_reveal: bool,
+    /// What the window shows changed size, and its native window is to take the new size on the next frame.
+    resize_pending: bool,
 }
 
 impl SettingsWindow {
@@ -521,6 +535,7 @@ impl SettingsWindow {
         Self {
             form: SettingsForm::new(prefs, platform),
             about_to_reveal: false,
+            resize_pending: false,
         }
     }
 
@@ -540,11 +555,25 @@ impl SettingsWindow {
     }
 
     /// Shows every section, for a way in that leads to something only the expanded window shows, such as the about
-    /// text. An expanded window stays as it is.
+    /// text. The native window grows on the next frame; an expanded window stays as it is.
     pub const fn expand(&mut self) {
         if !self.form.is_expanded() {
-            self.form.toggle_expanded();
+            self.toggle_expanded();
         }
+    }
+
+    const fn toggle_expanded(&mut self) {
+        self.form.toggle_expanded();
+        self.resize_pending = true;
+    }
+
+    /// Acts on a clicked button. The expand button concerns this window alone: it resizes the window and asks the
+    /// process nothing.
+    fn press(&mut self, button: Button, actions: &mut Vec<UiAction>) {
+        if button == Button::ToggleExpanded {
+            self.toggle_expanded();
+        }
+        actions.extend(button.action());
     }
 
     /// The inner size of what the window shows now: the size to open it at, or to give it in another native window.
@@ -580,9 +609,13 @@ impl SettingsWindow {
             .show(ui, |ui| window_contents(ui, form, about_to_reveal, &mut actions))
             .inner;
         if let Some(button) = clicked {
-            press(ui, form, button, &mut actions);
+            self.press(button, &mut actions);
         }
-        if let Some(view) = form.take_save() {
+        if self.resize_pending {
+            self.resize_pending = false;
+            resize_on_screen(ui.ctx(), self.size());
+        }
+        if let Some(view) = self.form.take_save() {
             actions.insert(0, UiAction::Save(view));
         }
         actions
