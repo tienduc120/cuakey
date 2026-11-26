@@ -616,6 +616,21 @@ fn about_has_three_items() {
 }
 
 #[test]
+fn about_columns_are_32_apart() {
+    for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
+        let ctx = themed();
+        let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
+        let shown = settled(&ctx, &mut window);
+        let [name, version, source, _] = about_places(&shown, text).map(|(_, place)| place);
+
+        // The first column is as wide as its widest text in either language, so the gap is 32 in one language and
+        // more in the other.
+        let gap = source.left() - name.right().max(version.right());
+        assert!(gap > 32.0 - 0.5, "the source starts {gap} after the first column");
+    }
+}
+
+#[test]
 fn about_name_says_no_open_source() {
     for name in [VIETNAMESE.about_name, ENGLISH.about_name] {
         assert!(!name.contains("nguồn mở") && !name.contains("open-source"), "{name}");

@@ -336,6 +336,9 @@ fn options_section(ui: &mut Ui, form: &mut SettingsForm, section: &Section, acti
     }
 }
 
+/// The room between the about texts' two columns, so the source reads apart from the name and the version.
+const ABOUT_COLUMN_GAP: f32 = 32.0;
+
 /// The about texts: the name and the source link in one row, the version with its licence under the name. The first
 /// column and the link's label take the room of their widest text in either interface language, so the link stays
 /// where it is when the language changes.
@@ -344,7 +347,8 @@ fn about_grid(ui: &mut Ui, text: &Labels) {
         [text.about_name, text.about_version_license]
     });
     let source = widgets::widest_in_both_languages(ui, &TextStyle::Body, |text| [text.about_source]);
-    egui::Grid::new("about").num_columns(2).show(ui, |ui| {
+    let spacing = egui::vec2(ABOUT_COLUMN_GAP, ui.spacing().item_spacing.y);
+    egui::Grid::new("about").num_columns(2).spacing(spacing).show(ui, |ui| {
         fixed_width_cell(ui, first, |ui| ui.label(text.about_name));
         ui.horizontal(|ui| {
             fixed_width_cell(ui, source, |ui| ui.label(text.about_source));
