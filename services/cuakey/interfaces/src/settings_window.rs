@@ -59,7 +59,8 @@ pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 267.0);
 /// The window's inner size with every section, where the screen has room for it; a shorter screen gets a shorter
 /// window. The options sit two to a row, and the widest needs 257 points in either interface language, so two columns
 /// fit in this width. The sections are taller than a small screen, so they scroll above the bottom bar; this height
-/// shows the controls used every day and the first section, whole unless an error message takes a line.
+/// shows the controls used every day, the whole first section even with a line for an error message, and the start of
+/// the next.
 pub const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
@@ -230,7 +231,14 @@ struct Section {
     button: Option<Button>,
 }
 
+/// The sections in the order they are drawn, the system options first.
 const SECTIONS: [Section; 3] = [
+    Section {
+        id: "system_options",
+        title: |text| text.section_system,
+        options: &SYSTEM_OPTIONS,
+        button: None,
+    },
     Section {
         id: "typing_options",
         title: |text| text.section_typing,
@@ -242,12 +250,6 @@ const SECTIONS: [Section; 3] = [
         title: |text| text.section_macros,
         options: &MACRO_OPTIONS,
         button: Some(Button::OpenMacros),
-    },
-    Section {
-        id: "system_options",
-        title: |text| text.section_system,
-        options: &SYSTEM_OPTIONS,
-        button: None,
     },
 ];
 

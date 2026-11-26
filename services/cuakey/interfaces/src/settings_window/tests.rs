@@ -585,6 +585,36 @@ fn hotkey_rows_line_up() {
 }
 
 #[test]
+fn system_section_comes_first() {
+    for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
+        let ctx = themed();
+        let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
+        let shown = settled(&ctx, &mut window);
+        let tops: Vec<f32> = [
+            text.section_system,
+            text.section_typing,
+            text.section_macros,
+            text.section_about,
+        ]
+        .iter()
+        .map(|title| {
+            place_of(&shown, title)
+                .unwrap_or_else(|| panic!("{title} is drawn"))
+                .top()
+        })
+        .collect();
+        assert!(
+            tops.windows(2).all(|pair| pair[0] < pair[1]),
+            "{} first, then {}, {} and {}: {tops:?}",
+            text.section_system,
+            text.section_typing,
+            text.section_macros,
+            text.section_about
+        );
+    }
+}
+
+#[test]
 fn sections_use_two_columns() {
     let ctx = themed();
     let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
@@ -831,7 +861,7 @@ fn expanding_does_not_scroll() {
         shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     }
     assert!(
-        is_visible(&shown, ENGLISH.section_typing),
+        is_visible(&shown, ENGLISH.section_system),
         "the sections start at the top"
     );
     assert!(!is_visible(&shown, ENGLISH.section_about), "the about text waits below");
@@ -851,7 +881,7 @@ fn expanding_does_not_scroll() {
     for _ in 0..2 {
         shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
     }
-    assert!(is_visible(&shown, ENGLISH.section_typing));
+    assert!(is_visible(&shown, ENGLISH.section_system));
     assert!(!is_visible(&shown, ENGLISH.section_about), "expanding does not scroll");
 }
 
