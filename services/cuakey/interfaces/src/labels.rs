@@ -411,7 +411,7 @@ pub const ENGLISH: Labels = Labels {
     about_credits: "Typing behaviour modelled on OpenKey",
 
     button_exit: "Exit",
-    button_reset: "Reset to defaults",
+    button_reset: "Reset all",
     button_close: "Close",
     button_expand: "More ▼",
     button_collapse: "Less ▲",

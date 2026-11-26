@@ -38,8 +38,8 @@ fn margin() -> f32 {
 }
 
 /// The default preferences with the Vietnamese interface. The tests of the bar's place at the window's own size use
-/// it: the test font draws about 9 points a letter, which makes the English reset label far wider than any real font
-/// does, too wide for four buttons in a row.
+/// it: the test font draws about 9 points a letter, which makes the Vietnamese reset label wider than the smallest
+/// button, so the bar is at its widest.
 fn vietnamese() -> PreferencesView {
     let mut view = PreferencesView::default();
     view.system.interface_language = InterfaceLanguageValue::Vietnamese;
@@ -533,39 +533,57 @@ fn bar_buttons_take_the_widest_label() {
 
 #[test]
 fn bar_labels_are_never_cut() {
-    // English at a width that holds four of the test font's wide English buttons, Vietnamese at the window's own.
-    let english_screen = egui::vec2(BIG_SCREEN.x, EXPANDED_SIZE.y);
-    for (view, text, size) in [
-        (vietnamese(), &VIETNAMESE, EXPANDED_SIZE),
-        (PreferencesView::default(), &ENGLISH, english_screen),
-    ] {
+    for (view, text) in [(vietnamese(), &VIETNAMESE), (PreferencesView::default(), &ENGLISH)] {
         let ctx = themed();
         let mut window = SettingsWindow::new(view, Platform::Windows).expanded();
-        let shown = show(&ctx, &mut window, size, Vec::new());
+        let shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
         let bar = [
             text.button_reset,
             text.button_collapse,
             text.button_exit,
             text.button_close,
         ];
-        let needs = bar.map(|label| {
-            pass(&ctx, Vec::new(), |ui| {
-                widgets::button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
-            })
-        });
-        assert!(
-            needs.iter().any(|need| *need > BUTTON_SIZE.x),
-            "the test font's wide glyphs give the bar a label wider than the smallest button: {needs:?}"
-        );
         let buttons = bar.map(|label| button_of(&shown, label));
         for (label, button) in bar.iter().zip(buttons) {
             assert_eq!(button.size(), buttons[0].size(), "{label} is as large as the others");
-            assert!(button.width() > BUTTON_SIZE.x, "{label} grew with the widest label");
+            let need = pass(&ctx, Vec::new(), |ui| {
+                widgets::button_text_width(ui, label) + 2.0 * ui.spacing().button_padding.x
+            });
+            assert!(button.width() + 0.5 >= need, "{label} needs {need}: {button:?}");
             let drawn = place_of(&shown, label).unwrap().width();
             let full = pass(&ctx, Vec::new(), |ui| widgets::button_text_width(ui, label));
             assert!(near(drawn, full), "{label} is drawn whole: {drawn} of {full}");
         }
     }
+}
+
+#[test]
+fn the_english_bar_fits_the_expanded_window() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows).expanded();
+    let shown = show(&ctx, &mut window, EXPANDED_SIZE, Vec::new());
+    let bar = [
+        ENGLISH.button_reset,
+        ENGLISH.button_collapse,
+        ENGLISH.button_exit,
+        ENGLISH.button_close,
+    ];
+
+    for label in bar {
+        assert!(is_visible(&shown, label), "{label} is drawn whole, inside the window");
+        let text = place_of(&shown, label).unwrap();
+        assert!(button_of(&shown, label).contains_rect(text), "{label} fits its button");
+    }
+    let [reset, collapse, _, close] = bar.map(|label| button_of(&shown, label));
+    assert!(
+        close.right() <= EXPANDED_SIZE.x - margin() + 0.5,
+        "the last button ends inside the window: {close:?}"
+    );
+    let gap = collapse.left() - reset.right();
+    assert!(
+        gap >= 24.0,
+        "the reset stays apart from the buttons used every day: {gap}"
+    );
 }
 
 #[test]
