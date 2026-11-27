@@ -638,10 +638,10 @@ fn about_name_says_no_open_source() {
 }
 
 #[test]
-fn version_is_1_0_1() {
+fn version_is_1_0_2() {
     for text in [&VIETNAMESE, &ENGLISH] {
         assert!(
-            text.about_version_license.contains("1.0.1"),
+            text.about_version_license.contains("1.0.2"),
             "{}",
             text.about_version_license
         );
