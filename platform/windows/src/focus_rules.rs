@@ -30,6 +30,7 @@ pub struct ElementFlags {
 
 // UI Automation control type ids.
 const EDIT: i32 = 50004;
+const GROUP: i32 = 50026;
 const DATA_ITEM: i32 = 50029;
 const DOCUMENT: i32 = 50030;
 
@@ -57,6 +58,8 @@ pub fn classify(props: &ElementProps) -> FocusClass {
         // A web page's body is a document too, so a document must show it takes typing: a writable value, or the
         // text-edit pattern, which a rich editor offers even when its value says read-only.
         DOCUMENT => props.value_read_only == Some(false) || props.flags.text_edit,
+        // A plain contenteditable, as Zalo's chat box is, is a group; its writable value is all that says it takes typing.
+        GROUP => props.value_read_only == Some(false),
         _ => false,
     };
     if editable {

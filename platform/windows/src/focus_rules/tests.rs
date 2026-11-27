@@ -6,6 +6,7 @@ const BUTTON: i32 = 50000;
 const EDIT: i32 = 50004;
 const LIST: i32 = 50008;
 const TEXT: i32 = 50020;
+const GROUP: i32 = 50026;
 const DATA_ITEM: i32 = 50029;
 const DOCUMENT: i32 = 50030;
 const PANE: i32 = 50033;
@@ -196,6 +197,57 @@ fn windows_terminal() {
         classify(&open_console),
         FocusClass::Text,
         "its console host takes typing"
+    );
+}
+
+#[test]
+fn contenteditable_group() {
+    // A chat box as Zalo reports it: a group with a writable value and no text-edit pattern.
+    let chat_box = ElementProps {
+        value_read_only: Some(false),
+        ..element(GROUP, "zalo.exe", "")
+    };
+
+    assert_eq!(
+        classify(&chat_box),
+        FocusClass::Text,
+        "a group that says its value is writable takes typing"
+    );
+}
+
+#[test]
+fn only_a_group_with_a_writable_value_takes_typing() {
+    let read_only = ElementProps {
+        value_read_only: Some(true),
+        ..element(GROUP, "zalo.exe", "")
+    };
+    let video_player = element(GROUP, "chrome.exe", "html5-video-player");
+    let disabled = ElementProps {
+        flags: ElementFlags {
+            enabled: false,
+            ..ENABLED
+        },
+        value_read_only: Some(false),
+        ..element(GROUP, "zalo.exe", "")
+    };
+    let password = ElementProps {
+        flags: ElementFlags {
+            password: true,
+            ..ENABLED
+        },
+        value_read_only: Some(false),
+        ..element(GROUP, "zalo.exe", "")
+    };
+
+    assert_eq!(
+        [&read_only, &video_player, &disabled].map(classify),
+        [FocusClass::NotText; 3],
+        "a group with a read-only value, one with no value, and a disabled one take no typing"
+    );
+    assert_eq!(
+        classify(&password),
+        FocusClass::Password,
+        "a password box still comes first"
     );
 }
 
