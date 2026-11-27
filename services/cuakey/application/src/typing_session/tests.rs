@@ -591,6 +591,41 @@ fn an_app_switch_restores_what_the_app_last_used() {
 }
 
 #[test]
+fn a_switch_made_before_the_first_app_is_known_is_kept_for_that_app() {
+    let prefs = PreferencesView {
+        app_memory: vec![AppMemoryView {
+            app: "chrome.exe".to_owned(),
+            language: LanguageValue::Vietnamese,
+            code_table: CodeTableValue::Unicode,
+        }],
+        ..remembering()
+    };
+    // Right after start the focus watch has not named the app yet, as a slow input box keeps it from doing.
+    let mut typist = Typist::with(&prefs).in_app("");
+    typist.chord(&[KeyName::Ctrl, KeyName::Shift]);
+
+    let switched = typist.session.app_switched("chrome.exe");
+
+    assert_eq!(
+        switched,
+        AppSwitchResult::default(),
+        "the answer that lands late must not undo the switch"
+    );
+    let after = typist.session.preferences();
+    assert_eq!(after.language, LanguageValue::English);
+    let chrome = after
+        .app_memory
+        .iter()
+        .find(|memory| memory.app == "chrome.exe")
+        .unwrap();
+    assert_eq!(
+        chrome.language,
+        LanguageValue::English,
+        "and chrome keeps what was chosen"
+    );
+}
+
+#[test]
 fn apply_takes_the_new_settings() {
     let mut typist = Typist::with_defaults();
     let mut prefs = vietnamese();

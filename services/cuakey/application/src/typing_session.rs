@@ -262,6 +262,9 @@ pub struct TypingSession {
     hotkeys: HotkeyMatcher,
     bindings: HotkeyBindings,
     front: FrontApp,
+    /// The language was switched while no app was named yet, as just after start, when the first classification of the
+    /// focused control may still be on its way. The app it names next keeps that choice instead of its older one.
+    switched_before_app_known: bool,
     /// The word before the key, kept in one buffer so a key allocates nothing once typing is under way.
     word_before: String,
 }
@@ -280,6 +283,7 @@ impl TypingSession {
             preferences,
             composer,
             hotkeys: HotkeyMatcher::new(),
+            switched_before_app_known: false,
             word_before: String::new(),
         })
     }
@@ -333,7 +337,12 @@ impl TypingSession {
         };
         let language = self.preferences.language();
         let code_table = self.preferences.settings().typing().code_table();
+        let keep_language = std::mem::take(&mut self.switched_before_app_known);
         self.preferences.apply_app_switch(&name);
+        if keep_language {
+            self.preferences.set_language(language);
+            self.preferences.remember_app(name);
+        }
         self.refresh_composer();
         AppSwitchResult {
             language_changed: self.preferences.language() != language,
@@ -351,7 +360,9 @@ impl TypingSession {
         made_for: Option<&str>,
     ) -> Result<(), SessionError> {
         let before = self.app_state();
+        let switched_before_app_known = self.switched_before_app_known;
         *self = Self::new(prefs, macros)?;
+        self.switched_before_app_known = switched_before_app_known;
         if self.app_state() != before
             && let Some(app) = made_for.and_then(|app| AppName::new(app).ok())
         {
@@ -414,10 +425,11 @@ impl TypingSession {
             Language::English => Language::Vietnamese,
         };
         self.preferences.set_language(language);
-        if self.preferences.settings().switching().smart_switch().is_on()
-            && let Ok(app) = AppName::new(app)
-        {
-            self.preferences.remember_app(app);
+        if self.preferences.settings().switching().smart_switch().is_on() {
+            match AppName::new(app) {
+                Ok(app) => self.preferences.remember_app(app),
+                Err(_) => self.switched_before_app_known = true,
+            }
         }
         self.refresh_composer();
     }
