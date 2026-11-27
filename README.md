@@ -28,6 +28,19 @@ Download the zip from the Releases page, unpack it, and run `cuakey.exe`.
 The build is not code-signed. If Windows SmartScreen warns about it, choose "More info", then "Run anyway".
 On PCs with Smart App Control turned on, unsigned builds may be blocked.
 
+To remove CuaKey, turn off "Start with Windows" in the settings, choose Exit from the tray menu, and delete the folder.
+Settings and macros stay in `%APPDATA%\CuaKey`.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+Signed releases are built by GitHub Actions from the tagged source in this repository, and only `cuakey.exe` is signed.
+
+- Committers and reviewers: [tienduc120](https://github.com/tienduc120)
+- Approvers: [tienduc120](https://github.com/tienduc120); each release is approved by hand before it is signed
+- Privacy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+
 ## Shortcuts
 
 | Shortcut                      | Action                                                                  |
@@ -74,7 +87,8 @@ This project stands on public work. Material that is copied or adapted is listed
 - The character charts the code tables are written from: Unicode's [CP1258 mapping](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1258.TXT), the [TCVN 5712 (VSCII) chart](https://en.wikipedia.org/wiki/VSCII), and the [VNI Windows chart](https://vietunicode.sourceforge.net/charset/) of the Vietnamese Unicode FAQs.
 - Crates we depend on: [tokio](https://github.com/tokio-rs/tokio), tokio-util, [serde](https://github.com/serde-rs/serde), [thiserror](https://github.com/dtolnay/thiserror), [anyhow](https://github.com/dtolnay/anyhow), [tracing](https://github.com/tokio-rs/tracing), [tracing-subscriber](https://github.com/tokio-rs/tracing), [jiff](https://github.com/BurntSushi/jiff), [clap](https://github.com/clap-rs/clap), [proc-macro2](https://github.com/dtolnay/proc-macro2), [syn](https://github.com/dtolnay/syn), [cargo_metadata](https://github.com/oli-obk/cargo_metadata), [toml and toml_edit](https://github.com/toml-rs/toml), [walkdir](https://github.com/BurntSushi/walkdir), [serde_json](https://github.com/serde-rs/json), [windows](https://github.com/microsoft/windows-rs) (Microsoft), [egui](https://github.com/emilk/egui) and its [eframe](https://github.com/emilk/egui/tree/main/crates/eframe), [rfd](https://github.com/PolyMeilex/rfd), [winresource](https://github.com/BenjaminRi/winresource) for the executable's icons and version information, and [cc](https://github.com/rust-lang/cc-rs) for the comparison tool only.
 - [OpenKey](https://github.com/tuyenvm/OpenKey) (Mai Vu Tuyen): the typing behaviour CuaKey is compared against, as a black box, by a local tool in `tools/openkey-compare`. Its sources are fetched and built on the developer's machine; none of its code is copied.
-- Developer tools we run, not copy: [cargo-nextest](https://github.com/nextest-rs/nextest), [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) (Embark Studios), [cargo-shear](https://github.com/Boshen/cargo-shear), [typos](https://github.com/crate-ci/typos), [lefthook](https://github.com/evilmartians/lefthook) (Evil Martians), [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), [zizmor](https://github.com/zizmorcore/zizmor), [taiki-e/install-action](https://github.com/taiki-e/install-action), [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache).
+- Developer tools we run, not copy: [cargo-nextest](https://github.com/nextest-rs/nextest), [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) (Embark Studios), [cargo-shear](https://github.com/Boshen/cargo-shear), [typos](https://github.com/crate-ci/typos), [lefthook](https://github.com/evilmartians/lefthook) (Evil Martians), [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), [zizmor](https://github.com/zizmorcore/zizmor), [taiki-e/install-action](https://github.com/taiki-e/install-action), [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache), [actions/upload-artifact](https://github.com/actions/upload-artifact).
+- [SignPath](https://signpath.io) and the [SignPath Foundation](https://signpath.org): free code signing for open source releases, through the [submit-signing-request](https://github.com/SignPath/github-action-submit-signing-request) action.
 
 **Referenced for design** (no code copied)
 

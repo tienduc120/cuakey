@@ -16,3 +16,5 @@ Their versions are pinned once in the root `Cargo.toml` and their licenses are c
 ## Developer tools (installed, not copied)
 
 cargo-nextest, cargo-deny, cargo-shear, typos, lefthook, zizmor. Each keeps its own license; `cargo xtask doctor` checks their versions.
+
+The release workflow also runs `actions/upload-artifact` (MIT) and SignPath's `submit-signing-request` action, whose repository states no license. Neither is copied.

@@ -19,5 +19,6 @@ One file per decision, numbered, never edited after acceptance (supersede it wit
 | [0013](0013-rules-from-published-rust-guides.md) | Rules from published Rust guides | accepted; decision 6 in part superseded by 0014 |
 | [0014](0014-desktop-app.md) | A Windows desktop app, not a server | accepted |
 | [0015](0015-dependencies.md) | Dependencies of the desktop app | accepted |
+| [0016](0016-signed-releases.md) | Signed releases through SignPath Foundation | accepted |
 
 Needs an ADR first: a new external dependency, a hosted service, the toolchain pin or a pinned tool moving, a change to a published contract, or a gate added, loosened, or removed.

@@ -1,4 +1,5 @@
-# Protected. Builds and publishes the Windows zip when a version tag is pushed.
+# Protected. Builds and publishes the Windows zip when a version tag is pushed. When the repository variable
+# SIGNPATH_ORGANIZATION_ID is set, cuakey.exe is signed through SignPath before it is packed (ADR-0016).
 name: release
 
 on:
@@ -10,7 +11,8 @@ permissions: {}
 jobs:
   release:
     runs-on: windows-latest
-    timeout-minutes: 45
+    # Signing waits for a person to approve the request, so this allows for that wait.
+    timeout-minutes: 90
     permissions:
       contents: write
     steps:
@@ -24,6 +26,38 @@ jobs:
       # No build cache here: a release must not restore a cache other workflows can write.
       - name: Build
         run: cargo build --release --locked -p cuakey-desktop
+
+      # SignPath reads the unsigned executable from a workflow artifact, so the file it signs provably comes from this build.
+      - name: Upload the unsigned executable
+        id: unsigned
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cuakey-unsigned
+          path: target/release/cuakey.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      # Waits for the approver in SignPath; the signed file lands in signed/.
+      - name: Sign
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: cuakey
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      # A release never ships a file whose signature does not verify.
+      - name: Use the signed executable
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        run: |
+          $signature = Get-AuthenticodeSignature signed/cuakey.exe
+          if ($signature.Status -ne 'Valid') { throw "cuakey.exe is not validly signed: $($signature.Status)" }
+          Copy-Item signed/cuakey.exe target/release/cuakey.exe -Force
 
       - name: Package
         env:
