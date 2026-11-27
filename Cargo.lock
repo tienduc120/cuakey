@@ -416,7 +416,7 @@ checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
 
 [[package]]
 name = "cuakey-application"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cuakey-domain",
  "thiserror 2.0.21",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "cuakey-desktop"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cuakey-application",
  "cuakey-infrastructure",
@@ -441,14 +441,14 @@ dependencies = [
 
 [[package]]
 name = "cuakey-domain"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "cuakey-infrastructure"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cuakey-application",
  "cuakey-domain",
@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "cuakey-interfaces"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cuakey-application",
  "egui",
@@ -689,7 +689,7 @@ dependencies = [
 
 [[package]]
 name = "example-application"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "example-domain",
  "platform-clock",
@@ -699,7 +699,7 @@ dependencies = [
 
 [[package]]
 name = "example-desktop"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "example-application",
  "example-infrastructure",
@@ -712,7 +712,7 @@ dependencies = [
 
 [[package]]
 name = "example-domain"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "jiff",
  "thiserror 2.0.21",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "example-infrastructure"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "example-application",
  "example-domain",
@@ -730,7 +730,7 @@ dependencies = [
 
 [[package]]
 name = "example-interfaces"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "example-application",
  "platform-clock",
@@ -1723,14 +1723,14 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "platform-clock"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "jiff",
 ]
 
 [[package]]
 name = "platform-task"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "thiserror 2.0.21",
  "tokio",
@@ -1739,7 +1739,7 @@ dependencies = [
 
 [[package]]
 name = "platform-windows"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "platform-clock",
  "platform-task",
@@ -2906,7 +2906,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",
