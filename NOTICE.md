@@ -17,4 +17,4 @@ Their versions are pinned once in the root `Cargo.toml` and their licenses are c
 
 cargo-nextest, cargo-deny, cargo-shear, typos, lefthook, zizmor. Each keeps its own license; `cargo xtask doctor` checks their versions.
 
-The release workflow also runs `actions/upload-artifact` (MIT) and SignPath's `submit-signing-request` action, whose repository states no license. Neither is copied.
+The release workflow also runs `actions/upload-artifact` (MIT), and `cargo xtask msix` runs MakeAppx from the Windows SDK. Neither is copied.
