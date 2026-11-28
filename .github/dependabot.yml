@@ -1,0 +1,17 @@
+# One weekly pull request that updates the actions the workflows pin by SHA. Crate versions are left out: changing one
+# is a decision made in the root Cargo.toml, not a routine bump.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # A release gets a week to be found bad before it is proposed.
+    cooldown:
+      default-days: 7
+    # Keeps the bot's commits within the commit message check: `ci: bump ...`.
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
