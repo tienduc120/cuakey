@@ -1,6 +1,6 @@
 # 0016 - Signed releases through SignPath Foundation
 
-- **Status**: accepted
+- **Status**: superseded by 0017
 - **Date**: 2026-11-27
 
 ## Context
