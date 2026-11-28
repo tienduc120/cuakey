@@ -6,7 +6,7 @@ use crate::testing::{FakePreferencesStore, Health};
 use crate::{
     AppMemoryView, BehaviourPrefs, CodeTableValue, CompatibilityPrefs, ConvertCaseValue, ConvertPrefs, HotkeyView,
     InputMethodValue, InterfaceLanguageValue, KeyName, LanguageValue, MacroPrefs, PreferencesView, StoreError,
-    SwitchPrefs, SystemPrefs, Toggle, TypingPrefs, UpdateError,
+    SwitchPrefs, SystemPrefs, ThemeValue, Toggle, TypingPrefs, UpdateError,
 };
 
 fn hotkey(modifiers: [Toggle; 4], key: Option<KeyName>) -> HotkeyView {
@@ -70,6 +70,7 @@ fn everything_changed() -> PreferencesView {
             run_as_administrator: On,
             desktop_shortcut: On,
             interface_language: InterfaceLanguageValue::Vietnamese,
+            theme: ThemeValue::Light,
         },
         behaviours: BehaviourPrefs {
             settings_hotkey: hotkey([Off, Off, On, Off], Some(KeyName::F9)),
@@ -223,11 +224,44 @@ async fn reset_keeps_always_on_and_memory() {
         ..PreferencesView::default()
     };
     expected.system.interface_language = current.system.interface_language;
+    expected.system.theme = current.system.theme;
     assert_eq!(
         prefs, expected,
-        "defaults, with the app lists and the interface language kept"
+        "defaults, with the app lists, the interface language and the theme kept"
     );
     assert_eq!(reset.store().saved(), vec![expected], "saved");
+}
+
+#[test]
+fn the_theme_round_trips_through_the_view_and_starts_dark() {
+    for theme in [ThemeValue::Light, ThemeValue::Dark] {
+        let mut prefs = PreferencesView::default();
+        prefs.system.theme = theme;
+
+        let back = PreferencesView::of(&prefs.to_preferences().unwrap());
+
+        assert_eq!(back.system.theme, theme);
+    }
+    assert_eq!(
+        PreferencesView::default().system.theme,
+        ThemeValue::Dark,
+        "a new install is dark"
+    );
+}
+
+#[tokio::test]
+async fn reset_keeps_the_theme() {
+    let reset = ResetPreferences::new(FakePreferencesStore::new(Health::Working));
+    let mut current = PreferencesView::default();
+    current.system.theme = ThemeValue::Light;
+
+    let prefs = reset.execute(&current).await.unwrap();
+
+    assert_eq!(
+        prefs.system.theme,
+        ThemeValue::Light,
+        "the theme is set from the window's corner, apart from the settings a reset puts back"
+    );
 }
 
 #[tokio::test]

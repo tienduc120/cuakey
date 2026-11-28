@@ -31,3 +31,10 @@ pub enum InterfaceLanguage {
     Vietnamese,
     English,
 }
+
+/// The colours the app's own windows are drawn in, whatever Windows itself uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Theme {
+    Light,
+    Dark,
+}

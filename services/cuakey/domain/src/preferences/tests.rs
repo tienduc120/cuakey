@@ -3,7 +3,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use super::Preferences;
 use crate::{
     AppName, AppState, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, InterfaceLanguage, KeyCode,
-    Language, Modifier, ModifierSet, OnOff, PreferencesError, ProfileId, SettingChange, Settings,
+    Language, Modifier, ModifierSet, OnOff, PreferencesError, ProfileId, SettingChange, Settings, Theme,
 };
 
 fn mods(list: &[Modifier]) -> ModifierSet {
@@ -84,6 +84,20 @@ fn interface_language_defaults_to_english() {
         fresh().settings().system().interface_language(),
         InterfaceLanguage::English
     );
+}
+
+#[test]
+fn the_theme_defaults_to_dark() {
+    assert_eq!(fresh().settings().system().theme(), Theme::Dark);
+}
+
+#[test]
+fn a_theme_change_is_kept() {
+    let mut preferences = fresh();
+
+    preferences.update(SettingChange::Theme(Theme::Light)).unwrap();
+
+    assert_eq!(preferences.settings().system().theme(), Theme::Light);
 }
 
 #[test]

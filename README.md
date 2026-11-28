@@ -19,7 +19,7 @@ Vietnamese typing for Windows, small and written in Rust.
 - Spell check that restores the keys you typed when a word is not Vietnamese.
 - Macros in a `macros.txt` file, compatible with OpenKey and UniKey.
 - Code table conversion, and quick convert from the clipboard.
-- An English or Vietnamese interface; windows reopen where you closed them.
+- An English or Vietnamese interface, light or dark (the button in the settings window's corner); windows reopen where you closed them.
 
 ## Install
 

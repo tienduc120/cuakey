@@ -47,7 +47,7 @@ pub use preferences::{
     AppMemoryView, BehaviourPrefs, CodeTableValue, CompatibilityPrefs, ConvertCaseValue, ConvertPrefs, HotkeyView,
     InputMethodValue, InterfaceLanguageValue, LanguageValue, LoadPreferences, LoadPreferencesError, MacroPrefs,
     PreferencesView, ResetPreferences, ResetPreferencesError, SavePreferences, SavePreferencesError, SwitchPrefs,
-    SystemPrefs, Toggle, TypingPrefs, UpdateError, app_name,
+    SystemPrefs, ThemeValue, Toggle, TypingPrefs, UpdateError, app_name,
 };
 pub use quick_convert::{QuickConvert, QuickConvertError, QuickConvertResult};
 pub use typing_session::{

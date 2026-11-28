@@ -1,8 +1,9 @@
-use egui::epaint::{RectShape, TextShape};
+use egui::epaint::{CircleShape, ColorMode, RectShape, TextShape};
 use egui::{Context, Event, Key, Modifiers, PointerButton, Pos2, RawInput, Rect, Response, Shape, TextStyle};
 
-use super::{CHECKBOX_GAP, CHECKBOX_SIZE, checkbox, text_width, widest_in_both_languages};
+use super::{CHECKBOX_GAP, CHECKBOX_SIZE, RADIO_SIZE, checkbox, radio, text_width, widest_in_both_languages};
 use crate::labels::{ENGLISH, Labels, VIETNAMESE};
+use crate::theme::{Accents, accents};
 
 const LABEL: &str = "Kêu Beep";
 
@@ -204,6 +205,138 @@ fn the_widest_text_of_either_language_sets_the_width() {
         }
     });
     output.textures_delta.clear();
+}
+
+/// The accents of the theme a default context draws in.
+fn default_accents() -> &'static Accents {
+    accents(&Context::default().global_style().visuals)
+}
+
+#[test]
+fn an_empty_box_has_a_strong_outline_at_rest() {
+    let (_, shapes) = draw(&Context::default(), false, Vec::new());
+
+    let outline = the_box_shape(&shapes).stroke;
+
+    assert_eq!(
+        outline.color,
+        default_accents().strong_stroke,
+        "seen at a glance on the window"
+    );
+    assert!(outline.width >= 1.0, "{outline:?}");
+}
+
+#[test]
+fn a_ticked_box_is_filled_with_the_accent_and_ticked_on_it() {
+    let (_, shapes) = draw(&Context::default(), true, Vec::new());
+
+    let fill = the_box_shape(&shapes).fill;
+    let tick = shapes.iter().find_map(|shape| {
+        if let Shape::Path(path) = shape {
+            Some(path.stroke.color.clone())
+        } else {
+            None
+        }
+    });
+
+    assert_eq!(fill, default_accents().accent);
+    assert_eq!(tick, Some(ColorMode::Solid(default_accents().on_accent)));
+}
+
+const CHOICE: &str = "Tiếng Việt";
+
+/// Draws one radio button in a pass fed `events`, and returns its response and what the pass painted.
+fn draw_radio(ctx: &Context, chosen: bool, events: Vec<Event>) -> (Response, Vec<Shape>) {
+    let input = RawInput {
+        events,
+        ..RawInput::default()
+    };
+    let mut response = None;
+    let mut output = ctx.run_ui(input, |ui| response = Some(radio(ui, CHOICE, chosen)));
+    output.textures_delta.clear();
+    let shapes = output.shapes.into_iter().map(|clipped| clipped.shape).collect();
+    (response.unwrap(), flatten(shapes))
+}
+
+/// The circles a pass painted, largest first: the radio's ring, then its dot when it has one.
+fn circles(shapes: &[Shape]) -> Vec<CircleShape> {
+    let mut circles: Vec<CircleShape> = shapes
+        .iter()
+        .filter_map(|shape| {
+            if let Shape::Circle(circle) = shape {
+                Some(*circle)
+            } else {
+                None
+            }
+        })
+        .collect();
+    circles.sort_by(|a, b| b.radius.total_cmp(&a.radius));
+    circles
+}
+
+#[test]
+fn a_radio_is_a_circle_as_large_as_a_checkbox_beside_its_label() {
+    let ctx = Context::default();
+
+    let (response, shapes) = draw_radio(&ctx, false, Vec::new());
+    let ring = *circles(&shapes).first().expect("the radio draws its circle");
+    let label = the_label(&shapes);
+
+    assert!((ring.radius - RADIO_SIZE / 2.0).abs() < 0.01, "{ring:?}");
+    assert_eq!(label.galley.text(), CHOICE);
+    let gap = label.pos.x - (ring.center.x + ring.radius);
+    assert!(
+        (gap - CHECKBOX_GAP).abs() < 0.01,
+        "the label starts {gap} px after the circle"
+    );
+    let at = response.rect.center();
+    drop(draw_radio(
+        &ctx,
+        false,
+        vec![Event::PointerMoved(at), primary(at, true)],
+    ));
+    let (released, _) = draw_radio(&ctx, false, vec![primary(at, false)]);
+    assert!(released.clicked(), "the click lands on the radio");
+}
+
+#[test]
+fn an_unchosen_radio_has_a_strong_outline_and_no_dot() {
+    let (_, shapes) = draw_radio(&Context::default(), false, Vec::new());
+
+    let rings = circles(&shapes);
+
+    assert_eq!(rings.len(), 1, "{rings:?}");
+    assert_eq!(rings[0].stroke.color, default_accents().strong_stroke);
+}
+
+#[test]
+fn a_chosen_radio_is_filled_with_the_accent_and_shows_its_dot() {
+    let (_, shapes) = draw_radio(&Context::default(), true, Vec::new());
+
+    let rings = circles(&shapes);
+
+    assert_eq!(rings.len(), 2, "{rings:?}");
+    assert_eq!(rings[0].fill, default_accents().accent);
+    assert_eq!(rings[1].fill, default_accents().on_accent);
+    assert!(rings[1].radius < rings[0].radius);
+}
+
+#[test]
+fn space_chooses_a_focused_radio() {
+    let ctx = Context::default();
+    let mut output = ctx.run_ui(RawInput::default(), |ui| radio(ui, CHOICE, false).request_focus());
+    output.textures_delta.clear();
+    let space = Event::Key {
+        key: Key::Space,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: Modifiers::NONE,
+    };
+
+    let (response, _) = draw_radio(&ctx, false, vec![space]);
+
+    assert!(response.clicked(), "Space picks the radio that has focus");
 }
 
 #[test]

@@ -1,7 +1,9 @@
-use cuakey_application::{CodeTableValue, InterfaceLanguageValue, KeyName, PreferencesView, Toggle};
+use cuakey_application::{CodeTableValue, InterfaceLanguageValue, KeyName, PreferencesView, ThemeValue, Toggle};
 use egui::epaint::RectShape;
 
-use super::{COMPACT_SIZE, EXPANDED_SIZE, SECTIONS, SettingsWindow, bar_button_width, bar_labels, checkbox};
+use super::{
+    COMPACT_SIZE, EXPANDED_SIZE, SECTIONS, SettingsWindow, THEME_BUTTON_SIZE, bar_button_width, bar_labels, checkbox,
+};
 use crate::labels::{ENGLISH, Labels, VIETNAMESE};
 use crate::theme::{self, BUTTON_SIZE};
 use crate::{Platform, UiAction, widgets};
@@ -28,7 +30,7 @@ const BIG_SCREEN: egui::Vec2 = egui::vec2(2000.0, 2000.0);
 /// A context with the look the app gives every window.
 fn themed() -> egui::Context {
     let ctx = egui::Context::default();
-    theme::apply(&ctx);
+    theme::apply(&ctx, ThemeValue::Dark);
     ctx
 }
 
@@ -1038,6 +1040,91 @@ fn choosing_english_redraws_at_once() {
     );
     assert!(place_of(&next, "Exit").is_some(), "the next frame speaks English");
     assert_eq!(place_of(&next, "Thoát"), None);
+}
+
+/// The frame of the theme button in a window drawn on a screen of `size`: a square in the top-right corner, inside the
+/// window's margin.
+fn theme_button_at(size: egui::Vec2) -> egui::Rect {
+    let margin = themed().global_style().spacing.window_margin;
+    let corner = egui::pos2(size.x - f32::from(margin.right), f32::from(margin.top));
+    egui::Rect::from_min_max(
+        egui::pos2(corner.x - THEME_BUTTON_SIZE, corner.y),
+        egui::pos2(corner.x, corner.y + THEME_BUTTON_SIZE),
+    )
+}
+
+/// Clicks the theme button and returns the pass that saw the release.
+fn click_theme_button(ctx: &egui::Context, window: &mut SettingsWindow) -> Shown {
+    let at = theme_button_at(BIG_SCREEN).center();
+    show(ctx, window, BIG_SCREEN, Vec::new());
+    show(
+        ctx,
+        window,
+        BIG_SCREEN,
+        vec![egui::Event::PointerMoved(at), primary(at, true)],
+    );
+    show(ctx, window, BIG_SCREEN, vec![primary(at, false)])
+}
+
+/// The theme each save in `actions` stores.
+fn saved_themes(actions: &[UiAction]) -> Vec<ThemeValue> {
+    actions
+        .iter()
+        .filter_map(|action| {
+            if let UiAction::Save(view) = action {
+                Some(view.system.theme)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn the_theme_button_sits_in_the_top_right_corner() {
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+
+    let shown = show(&themed(), &mut window, BIG_SCREEN, Vec::new());
+
+    assert!(
+        shown
+            .rects
+            .iter()
+            .any(|shape| shape.rect == theme_button_at(BIG_SCREEN)),
+        "a button frame fills the corner square"
+    );
+}
+
+#[test]
+fn the_window_draws_in_the_theme_of_its_preferences() {
+    let ctx = themed();
+    let mut view = PreferencesView::default();
+    view.system.theme = ThemeValue::Light;
+    let mut window = SettingsWindow::new(view, Platform::Windows);
+
+    show(&ctx, &mut window, BIG_SCREEN, Vec::new());
+
+    assert_eq!(
+        ctx.theme(),
+        egui::Theme::Light,
+        "the preferences' theme, not the one the context had"
+    );
+}
+
+#[test]
+fn the_theme_button_switches_the_windows_to_light_and_back_and_saves_each_choice() {
+    let ctx = themed();
+    let mut window = SettingsWindow::new(PreferencesView::default(), Platform::Windows);
+
+    let first = click_theme_button(&ctx, &mut window);
+    let after_first = ctx.theme();
+    let second = click_theme_button(&ctx, &mut window);
+    let after_second = ctx.theme();
+
+    assert_eq!(saved_themes(&first.actions), [ThemeValue::Light], "the choice is saved");
+    assert_eq!(after_first, egui::Theme::Light, "every window turns light at once");
+    assert_eq!(saved_themes(&second.actions), [ThemeValue::Dark]);
+    assert_eq!(after_second, egui::Theme::Dark);
 }
 
 #[test]

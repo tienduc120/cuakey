@@ -43,6 +43,10 @@ pub struct Labels {
     pub interface_vietnamese: &'static str,
     pub interface_english: &'static str,
 
+    /// What the theme button in the window's corner does, shown on hover and read out by screen readers.
+    pub theme_to_dark: &'static str,
+    pub theme_to_light: &'static str,
+
     pub new_tone_style: &'static str,
     pub fix_autocomplete: &'static str,
     pub spell_check: &'static str,
@@ -212,6 +216,9 @@ pub const VIETNAMESE: Labels = Labels {
     interface_vietnamese: "Tiếng Việt",
     interface_english: "English",
 
+    theme_to_dark: "Chuyển sang nền tối",
+    theme_to_light: "Chuyển sang nền sáng",
+
     new_tone_style: "Đặt dấu oà, uý (thay vì òa, úy)",
     fix_autocomplete: "Sửa lỗi gợi ý (trình duyệt, Excel)",
     spell_check: "Kiểm tra chính tả",
@@ -379,6 +386,9 @@ pub const ENGLISH: Labels = Labels {
     interface_language: "Interface:",
     interface_vietnamese: "Tiếng Việt",
     interface_english: "English",
+
+    theme_to_dark: "Switch to the dark theme",
+    theme_to_light: "Switch to the light theme",
 
     new_tone_style: "Tone marks as oà, uý (not òa, úy)",
     fix_autocomplete: "Fix autocomplete (browsers, Excel)",

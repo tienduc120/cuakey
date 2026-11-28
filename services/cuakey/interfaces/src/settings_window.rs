@@ -4,7 +4,7 @@
 //! the interface language of the view it edits.
 
 use cuakey_application::{
-    CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+    CodeTableValue, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, ThemeValue, Toggle,
 };
 use egui::{TextStyle, Ui};
 
@@ -12,7 +12,7 @@ use crate::hotkey_editor::show_hotkey;
 use crate::labels::{Labels, labels_for};
 use crate::screen_fit::{Placement, fit_on_screen};
 use crate::settings_form::{ButtonBar, GatedControl, SettingsForm, is_on};
-use crate::theme::BUTTON_SIZE;
+use crate::theme::{self, BUTTON_SIZE};
 use crate::{Button, Platform, UiAction, widgets};
 
 const fn input_methods(text: &Labels) -> [(InputMethodValue, &'static str); 3] {
@@ -63,6 +63,10 @@ pub const COMPACT_SIZE: egui::Vec2 = egui::vec2(560.0, 267.0);
 /// the next.
 pub const EXPANDED_SIZE: egui::Vec2 = egui::vec2(COMPACT_SIZE.x, 620.0);
 
+/// The side of the square theme button in the window's top-right corner: a little taller than the first row, which
+/// leaves it clear of the second.
+pub(crate) const THEME_BUTTON_SIZE: f32 = 28.0;
+
 /// A checkbox for an on/off preference. Returns the new state when the user clicked it.
 pub(crate) fn checkbox(ui: &mut Ui, label: &str, current: Toggle) -> Option<bool> {
     let on = is_on(current);
@@ -110,7 +114,9 @@ fn radios<T: Copy + PartialEq>(ui: &mut Ui, current: T, choices: &[(T, &str)]) -
     let mut selected = current;
     ui.horizontal(|ui| {
         for (value, label) in choices {
-            ui.radio_value(&mut selected, *value, *label);
+            if widgets::radio(ui, label, selected == *value).clicked() {
+                selected = *value;
+            }
         }
     });
     (selected != current).then_some(selected)
@@ -574,10 +580,31 @@ fn window_contents(
     Drawn { clicked, rows_height }
 }
 
-/// The controls used every day and, when expanded, the other sections in a scroll area below; in compact mode nothing
-/// scrolls. Returns the height of the controls used every day and the message under them.
+/// The button in the top-right corner of `ui`, laid over the first row's empty end, that switches the windows between
+/// light and dark. It shows where a click leads: a moon in the light theme, a sun in the dark one. Returns whether it
+/// was clicked.
+fn theme_button(ui: &Ui, form: &SettingsForm) -> bool {
+    let text = labels_for(form.view());
+    let (icon, hint) = match form.view().system.theme {
+        ThemeValue::Light => (widgets::ThemeIcon::Moon, text.theme_to_dark),
+        ThemeValue::Dark => (widgets::ThemeIcon::Sun, text.theme_to_light),
+    };
+    let inner = ui.max_rect();
+    let rect = egui::Rect::from_min_max(
+        egui::pos2(inner.right() - THEME_BUTTON_SIZE, inner.top()),
+        egui::pos2(inner.right(), inner.top() + THEME_BUTTON_SIZE),
+    );
+    widgets::icon_button(ui, rect, icon, hint).clicked()
+}
+
+/// The controls used every day with the theme button beside them and, when expanded, the other sections in a scroll
+/// area below; in compact mode nothing scrolls. Returns the height of the controls used every day and the message under
+/// them. The theme button comes after the controls used every day, so Tab reaches it after them, as they are read.
 fn contents(ui: &mut Ui, form: &mut SettingsForm, about_to_reveal: &mut bool, actions: &mut Vec<UiAction>) -> f32 {
     let rows_height = ui.scope(|ui| daily_controls(ui, form)).response.rect.height();
+    if theme_button(ui, form) {
+        form.toggle_theme();
+    }
     if form.is_expanded() {
         egui::ScrollArea::vertical().show(ui, |ui| expanded_sections(ui, form, about_to_reveal, actions));
     }
@@ -742,6 +769,8 @@ impl SettingsWindow {
             self.resize_pending = false;
             resize_on_screen(ui.ctx(), self.size());
         }
+        // The windows share one context, so every open window takes the theme the user just chose.
+        theme::set_theme(ui.ctx(), self.form.view().system.theme);
         if let Some(view) = self.form.take_save() {
             actions.insert(0, UiAction::Save(view));
         }

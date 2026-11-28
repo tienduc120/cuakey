@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cuakey_application::{InterfaceLanguageValue, LoadPreferencesError, PreferencesView, StoreError};
+use cuakey_application::{InterfaceLanguageValue, LoadPreferencesError, PreferencesView, StoreError, ThemeValue};
 
 use super::{Origin, Stores};
 
@@ -73,4 +73,21 @@ fn the_interface_language_is_read_from_the_store() {
     stores.save_preferences(&prefs).unwrap();
 
     assert_eq!(stores.interface_language(), InterfaceLanguageValue::Vietnamese);
+}
+
+#[test]
+fn the_theme_is_read_from_the_store() {
+    let folder = TempFolder::new("theme");
+    let stores = Stores::in_folder(folder.0.clone()).unwrap();
+    assert_eq!(
+        stores.theme(),
+        ThemeValue::Dark,
+        "nothing is stored yet, so the default"
+    );
+
+    let mut prefs = PreferencesView::default();
+    prefs.system.theme = ThemeValue::Light;
+    stores.save_preferences(&prefs).unwrap();
+
+    assert_eq!(stores.theme(), ThemeValue::Light);
 }

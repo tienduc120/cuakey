@@ -1,6 +1,6 @@
 use cuakey_application::{
     AppMemoryView, CodeTableValue, HotkeyView, InputMethodValue, InterfaceLanguageValue, KeyName, LanguageValue,
-    PreferencesView, Toggle,
+    PreferencesView, ThemeValue, Toggle,
 };
 
 use super::{ButtonBar, GatedControl, SettingsForm};
@@ -63,6 +63,7 @@ fn flipped(base: &PreferencesView) -> PreferencesView {
     view.system.run_as_administrator = flip(base.system.run_as_administrator);
     view.system.desktop_shortcut = flip(base.system.desktop_shortcut);
     view.system.interface_language = InterfaceLanguageValue::Vietnamese;
+    view.system.theme = ThemeValue::Light;
     view.behaviours.settings_hotkey = hotkey(KeyName::F10);
     view.behaviours.keep_w = flip(base.behaviours.keep_w);
     view.behaviours.only_text_boxes = flip(base.behaviours.only_text_boxes);
@@ -100,6 +101,9 @@ fn apply_every_control(form: &mut SettingsForm, target: &PreferencesView) {
     form.set_run_as_administrator(on(target.system.run_as_administrator));
     form.set_desktop_shortcut(on(target.system.desktop_shortcut));
     form.set_interface_language(target.system.interface_language);
+    if form.view().system.theme != target.system.theme {
+        form.toggle_theme();
+    }
     form.set_settings_hotkey(target.behaviours.settings_hotkey);
     form.set_keep_w(on(target.behaviours.keep_w));
     form.set_only_text_boxes(on(target.behaviours.only_text_boxes));
@@ -113,6 +117,19 @@ fn every_control_round_trips() {
     let mut form = SettingsForm::new(base, Platform::Windows);
     apply_every_control(&mut form, &target);
     assert_eq!(form.take_save(), Some(target));
+}
+
+#[test]
+fn switching_the_theme_saves_the_other_one() {
+    let mut form = SettingsForm::new(PreferencesView::default(), Platform::Windows);
+
+    form.toggle_theme();
+    let first = form.take_save().map(|view| view.system.theme);
+    form.toggle_theme();
+    let second = form.take_save().map(|view| view.system.theme);
+
+    assert_eq!(first, Some(ThemeValue::Light), "a dark window switches to light");
+    assert_eq!(second, Some(ThemeValue::Dark), "and back to dark");
 }
 
 #[test]

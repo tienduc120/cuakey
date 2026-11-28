@@ -71,6 +71,7 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
     let fonts = system_fonts().map_err(StartError::Fonts)?;
     let icon = Arc::new(window_icon());
     let places = stores.window_places();
+    let chosen_theme = stores.theme();
     // No context exists yet, so the zoom is the one a new context starts with.
     let first = Window::open(kind, &stores).at_place(&places, Options::default().zoom_factor, is_on_a_monitor);
     let options = native_options(&first, &icon);
@@ -79,7 +80,7 @@ fn start(kind: WindowKind) -> Result<(), StartError> {
         options,
         Box::new(move |creation| {
             install_system_font(&creation.egui_ctx, &fonts)?;
-            theme::apply(&creation.egui_ctx);
+            theme::apply(&creation.egui_ctx, chosen_theme);
             let inbox = Rc::new(RefCell::new(Vec::new()));
             let messages = {
                 let inbox = Rc::clone(&inbox);

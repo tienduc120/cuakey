@@ -1,4 +1,4 @@
-use cuakey_application::{InterfaceLanguageValue, SystemPrefs, Toggle};
+use cuakey_application::{InterfaceLanguageValue, SystemPrefs, ThemeValue, Toggle};
 use cuakey_interfaces::Notice;
 use platform_windows::{StartupError, StartupMode};
 
@@ -45,6 +45,7 @@ fn system() -> SystemPrefs {
         run_as_administrator: Toggle::Off,
         desktop_shortcut: Toggle::Off,
         interface_language: InterfaceLanguageValue::English,
+        theme: ThemeValue::Light,
     }
 }
 

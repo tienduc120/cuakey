@@ -1,7 +1,7 @@
 use cuakey_application::PreferencesStore as _;
 use cuakey_domain::{
     AppName, CodeTable, ConvertCase, ConvertOptions, Hotkey, InputMethod, InterfaceLanguage, KeyCode, Language,
-    Modifier, ModifierSet, OnOff, Preferences, ProfileId, SettingChange, Settings,
+    Modifier, ModifierSet, OnOff, Preferences, ProfileId, SettingChange, Settings, Theme,
 };
 use platform_clock::{FixedClock, Timestamp};
 
@@ -40,6 +40,7 @@ fn customised() -> Preferences {
         SettingChange::BeepOnSwitch(OnOff::On),
         SettingChange::ChromiumFix(OnOff::On),
         SettingChange::StartWithWindows(OnOff::Off),
+        SettingChange::Theme(Theme::Light),
         SettingChange::KeepW(OnOff::Off),
         SettingChange::NotifyWhenConvertDone(OnOff::Off),
         SettingChange::ConvertOptions(
@@ -161,6 +162,30 @@ async fn interface_language_round_trips_through_the_file() {
         loaded.settings().system().interface_language(),
         InterfaceLanguage::Vietnamese
     );
+}
+
+#[tokio::test]
+async fn the_theme_round_trips_through_the_file() {
+    let dir = TestDir::new("theme_round_trip");
+    let mut saved = defaults();
+    saved.update(SettingChange::Theme(Theme::Light)).unwrap();
+
+    store(&dir).save(&saved).await.unwrap();
+    let text = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert!(text.contains(r#""theme": "light""#), "written by name: {text}");
+    assert_eq!(loaded.settings().system().theme(), Theme::Light);
+}
+
+#[tokio::test]
+async fn a_file_from_before_the_theme_loads_dark() {
+    let dir = TestDir::new("missing_theme");
+    write_settings(&dir, r#"{"system":{"start_with_windows":"off"}}"#);
+
+    let loaded = store(&dir).load().await.unwrap().unwrap();
+
+    assert_eq!(loaded.settings().system().theme(), Theme::Dark);
 }
 
 #[tokio::test]

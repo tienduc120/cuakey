@@ -9,7 +9,7 @@ use cuakey_application::{
     ImportMode, InterfaceLanguageValue, LoadMacros, LoadMacrosError, LoadPreferences, LoadPreferencesError,
     LoadWindowPlaces, MacroView, PreferencesView, QuickConvert, QuickConvertError, QuickConvertResult,
     ResetPreferences, ResetPreferencesError, SaveMacros, SaveMacrosError, SavePreferences, SavePreferencesError,
-    SaveWindowPlaces, SaveWindowPlacesError, WindowPlaces,
+    SaveWindowPlaces, SaveWindowPlacesError, ThemeValue, WindowPlaces,
 };
 use cuakey_infrastructure::{JsonPreferencesStore, JsonWindowPlacesStore, TextMacroStore, WindowsClipboard};
 use platform_clock::SystemClock;
@@ -146,6 +146,11 @@ impl Stores {
     /// The interface language the stored preferences ask for, or the default one when they cannot be read.
     pub(crate) fn interface_language(&self) -> InterfaceLanguageValue {
         self.load_preferences().unwrap_or_default().system.interface_language
+    }
+
+    /// The theme the stored preferences ask for, or the default one when they cannot be read.
+    pub(crate) fn theme(&self) -> ThemeValue {
+        self.load_preferences().unwrap_or_default().system.theme
     }
 }
 

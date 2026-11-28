@@ -1,7 +1,7 @@
 use cuakey_domain::{
     AppName, BehaviourSettings, CodeTable, CompatibilitySettings, ConvertCase, ConvertOptions, ConvertSettings, Hotkey,
     HotkeyKey, InputMethod, InterfaceLanguage, Language, MacroSettings, Modifier, ModifierSet, OnOff, Preferences,
-    PreferencesError, ProfileId, SettingChange, Settings, SwitchSettings, SystemSettings, TypingSettings,
+    PreferencesError, ProfileId, SettingChange, Settings, SwitchSettings, SystemSettings, Theme, TypingSettings,
 };
 
 use crate::{KeyName, PreferencesStore, StoreError};
@@ -32,6 +32,11 @@ mirror_enum! {
 mirror_enum! {
     /// The language the app's own windows and menus speak.
     InterfaceLanguageValue mirrors InterfaceLanguage { Vietnamese, English }
+}
+
+mirror_enum! {
+    /// The colours the app's own windows are drawn in.
+    ThemeValue mirrors Theme { Light, Dark }
 }
 
 mirror_enum! {
@@ -237,7 +242,7 @@ impl CompatibilityPrefs {
     }
 }
 
-/// How the app starts, installs itself, and which language it speaks.
+/// How the app starts, installs itself, which language it speaks, and how its windows look.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SystemPrefs {
     pub start_with_windows: Toggle,
@@ -245,6 +250,7 @@ pub struct SystemPrefs {
     pub run_as_administrator: Toggle,
     pub desktop_shortcut: Toggle,
     pub interface_language: InterfaceLanguageValue,
+    pub theme: ThemeValue,
 }
 
 impl From<&SystemSettings> for SystemPrefs {
@@ -255,18 +261,20 @@ impl From<&SystemSettings> for SystemPrefs {
             run_as_administrator: system.run_as_administrator().into(),
             desktop_shortcut: system.desktop_shortcut().into(),
             interface_language: system.interface_language().into(),
+            theme: system.theme().into(),
         }
     }
 }
 
 impl SystemPrefs {
-    fn changes(&self) -> [SettingChange; 5] {
+    fn changes(&self) -> [SettingChange; 6] {
         [
             SettingChange::StartWithWindows(self.start_with_windows.into()),
             SettingChange::ShowSettingsAtStartup(self.show_settings_at_startup.into()),
             SettingChange::RunAsAdministrator(self.run_as_administrator.into()),
             SettingChange::DesktopShortcut(self.desktop_shortcut.into()),
             SettingChange::InterfaceLanguage(self.interface_language.into()),
+            SettingChange::Theme(self.theme.into()),
         ]
     }
 }
@@ -572,6 +580,8 @@ impl<S: PreferencesStore> ResetPreferences<S> {
         };
         // A user who reads only one of the languages must still be able to read the window after the reset.
         defaults.system.interface_language = current.system.interface_language;
+        // The theme is set from the window's corner, apart from the settings the reset puts back.
+        defaults.system.theme = current.system.theme;
         let preferences = defaults.to_preferences()?;
         self.store
             .save(&preferences)

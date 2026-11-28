@@ -3,7 +3,8 @@
 //! without a window.
 
 use cuakey_application::{
-    CodeTableValue, HotkeyView, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, Toggle,
+    CodeTableValue, HotkeyView, InputMethodValue, InterfaceLanguageValue, LanguageValue, PreferencesView, ThemeValue,
+    Toggle,
 };
 
 use crate::{Button, Platform};
@@ -172,6 +173,15 @@ impl SettingsForm {
     /// The language the app's windows, menus and messages speak.
     pub fn set_interface_language(&mut self, language: InterfaceLanguageValue) {
         self.view.system.interface_language = language;
+        self.changed = true;
+    }
+
+    /// Switches the app's windows from light to dark, or back: the button in the window's corner.
+    pub const fn toggle_theme(&mut self) {
+        self.view.system.theme = match self.view.system.theme {
+            ThemeValue::Light => ThemeValue::Dark,
+            ThemeValue::Dark => ThemeValue::Light,
+        };
         self.changed = true;
     }
 

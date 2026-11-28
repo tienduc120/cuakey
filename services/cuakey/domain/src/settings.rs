@@ -1,6 +1,6 @@
 use crate::{
     CodeTable, ConvertOptions, Hotkey, InputMethod, InterfaceLanguage, KeyCode, Modifier, ModifierSet, OnOff,
-    PreferencesError, SettingChange,
+    PreferencesError, SettingChange, Theme,
 };
 
 /// Declares read-only accessors for fields that are all `Copy`.
@@ -151,7 +151,7 @@ impl Default for CompatibilitySettings {
     }
 }
 
-/// How the app starts, installs itself, and which language it speaks.
+/// How the app starts, installs itself, which language it speaks, and how its windows look.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SystemSettings {
     start_with_windows: OnOff,
@@ -159,6 +159,7 @@ pub struct SystemSettings {
     run_as_administrator: OnOff,
     desktop_shortcut: OnOff,
     interface_language: InterfaceLanguage,
+    theme: Theme,
 }
 
 impl SystemSettings {
@@ -168,6 +169,7 @@ impl SystemSettings {
         run_as_administrator: OnOff,
         desktop_shortcut: OnOff,
         interface_language: InterfaceLanguage,
+        theme: Theme,
     }
 }
 
@@ -179,6 +181,7 @@ impl Default for SystemSettings {
             run_as_administrator: OnOff::Off,
             desktop_shortcut: OnOff::Off,
             interface_language: InterfaceLanguage::English,
+            theme: Theme::Dark,
         }
     }
 }
@@ -316,6 +319,7 @@ impl Settings {
             SettingChange::RunAsAdministrator(v) => self.system.run_as_administrator = v,
             SettingChange::DesktopShortcut(v) => self.system.desktop_shortcut = v,
             SettingChange::InterfaceLanguage(v) => self.system.interface_language = v,
+            SettingChange::Theme(v) => self.system.theme = v,
             SettingChange::SettingsHotkey(v) => self.behaviours.settings_hotkey = v,
             SettingChange::KeepW(v) => self.behaviours.keep_w = v,
             SettingChange::OnlyTextBoxes(v) => self.behaviours.only_text_boxes = v,

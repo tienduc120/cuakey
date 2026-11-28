@@ -1,4 +1,4 @@
-use cuakey_application::{HotkeyView, InterfaceLanguageValue, KeyName, Toggle};
+use cuakey_application::{HotkeyView, InterfaceLanguageValue, KeyName, ThemeValue, Toggle};
 
 use super::{KEYS, key_field, key_from_egui, key_label, key_to_egui, press_key, show_hotkey};
 use crate::{labels, theme};
@@ -110,7 +110,7 @@ fn space_on_a_modifier_box_flips_that_modifier() {
 /// A context with the look the app gives every window.
 fn themed() -> egui::Context {
     let ctx = egui::Context::default();
-    theme::apply(&ctx);
+    theme::apply(&ctx, ThemeValue::Dark);
     ctx
 }
 

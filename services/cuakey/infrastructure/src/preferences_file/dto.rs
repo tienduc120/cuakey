@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use cuakey_domain::{
     AppName, AppState, BehaviourSettings, CodeTable, CompatibilitySettings, ConvertCase, ConvertOptions,
     ConvertSettings, InputMethod, InterfaceLanguage, Language, MacroSettings, OnOff, Preferences, PreferencesError,
-    ProfileId, SettingChange, Settings, SwitchSettings, SystemSettings, TypingSettings,
+    ProfileId, SettingChange, Settings, SwitchSettings, SystemSettings, Theme, TypingSettings,
 };
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,7 @@ stored_enum!(InputMethodFile mirrors InputMethod { Telex, Vni, SimpleTelex });
 stored_enum!(CodeTableFile mirrors CodeTable { Unicode, Tcvn3, VniWindows, UnicodeCompound, Cp1258 });
 stored_enum!(LanguageFile mirrors Language { Vietnamese, English });
 stored_enum!(InterfaceLanguageFile mirrors InterfaceLanguage { Vietnamese, English });
+stored_enum!(ThemeFile mirrors Theme { Light, Dark });
 stored_enum!(ConvertCaseFile mirrors ConvertCase { Keep, Upper, Lower, SentenceStart, EachWord });
 
 /// Declares one group of settings: a stored struct whose fields are the domain group's, read back as the changes that
@@ -156,6 +157,7 @@ group!(SystemFile of SystemSettings {
     run_as_administrator: OnOffFile => RunAsAdministrator,
     desktop_shortcut: OnOffFile => DesktopShortcut,
     interface_language: InterfaceLanguageFile => InterfaceLanguage,
+    theme: ThemeFile => Theme,
 });
 
 group!(BehavioursFile of BehaviourSettings {
