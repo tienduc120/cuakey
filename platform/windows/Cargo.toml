@@ -16,6 +16,8 @@ thiserror = { workspace = true, features = ["std"] }
 platform-task = { workspace = true }
 tracing = { workspace = true }
 windows = { workspace = true, features = [
+  "ApplicationModel",
+  "Foundation",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
   "Win32_Security",
@@ -29,6 +31,7 @@ windows = { workspace = true, features = [
   "Win32_System_Registry",
   "Win32_System_TaskScheduler",
   "Win32_System_Threading",
+  "Win32_Storage_Packaging_Appx",
   "Win32_System_Variant",
   "Win32_UI_Accessibility",
   "Win32_UI_Input_Ime",

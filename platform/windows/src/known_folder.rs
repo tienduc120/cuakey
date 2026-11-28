@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Shell::{
-    FOLDERID_Desktop, FOLDERID_Fonts, FOLDERID_RoamingAppData, KF_FLAG_DEFAULT, SHGetKnownFolderPath,
+    FOLDERID_Desktop, FOLDERID_Fonts, FOLDERID_LocalAppData, FOLDERID_RoamingAppData, KF_FLAG_DEFAULT,
+    SHGetKnownFolderPath,
 };
 use windows::core::{GUID, PWSTR};
 
@@ -23,6 +24,11 @@ pub fn roaming_app_data() -> Result<PathBuf, KnownFolderError> {
 /// The folder Windows keeps its fonts in, where the windows find one that covers Vietnamese.
 pub fn system_fonts() -> Result<PathBuf, KnownFolderError> {
     known_folder(&FOLDERID_Fonts)
+}
+
+/// The user's local application data folder, which holds the execution aliases of the packages they installed.
+pub(crate) fn local_app_data() -> Result<PathBuf, KnownFolderError> {
+    known_folder(&FOLDERID_LocalAppData)
 }
 
 /// The user's desktop folder.

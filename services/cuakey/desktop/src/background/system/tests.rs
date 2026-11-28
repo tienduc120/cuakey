@@ -1,7 +1,42 @@
 use cuakey_application::{InterfaceLanguageValue, SystemPrefs, Toggle};
-use platform_windows::StartupMode;
+use cuakey_interfaces::Notice;
+use platform_windows::{StartupError, StartupMode};
 
-use super::{SystemChanges, startup_mode, system_changes};
+use super::{Occasion, SystemChanges, startup_mode, startup_notice, system_changes};
+
+#[test]
+fn a_startup_the_user_turned_off_in_task_manager_stays_off_quietly_at_start() {
+    let notice = startup_notice(&StartupError::DisabledByUser, Occasion::Start);
+
+    assert_eq!(
+        notice, None,
+        "the app starts every session, and must not nag about the user's own choice"
+    );
+}
+
+#[test]
+fn turning_startup_on_against_task_manager_says_where_to_turn_it_on() {
+    let notice = startup_notice(&StartupError::DisabledByUser, Occasion::Change);
+
+    assert_eq!(notice, Some(Notice::StartupOffInTaskManager));
+}
+
+#[test]
+fn a_task_change_refused_for_rights_asks_for_administrator_at_any_time() {
+    for occasion in [Occasion::Start, Occasion::Change] {
+        assert_eq!(
+            startup_notice(&StartupError::NeedsElevation, occasion),
+            Some(Notice::StartupNeedsAdministrator)
+        );
+    }
+}
+
+#[test]
+fn a_startup_task_windows_left_off_is_not_changed() {
+    let notice = startup_notice(&StartupError::PackageStartupOff(3), Occasion::Change);
+
+    assert_eq!(notice, Some(Notice::StartupNotChanged));
+}
 
 fn system() -> SystemPrefs {
     SystemPrefs {

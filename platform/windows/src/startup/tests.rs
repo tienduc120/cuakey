@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{BatteryRules, Instances, RunLevel, StartupMode, Step, Trigger, run_value, steps, task_spec};
+use super::{BatteryRules, Install, Instances, RunLevel, StartupMode, Step, Trigger, run_value, steps, task_spec};
 
 #[test]
 fn run_value_quotes_path() {
@@ -38,20 +38,74 @@ fn task_settings_suit_a_long_running_typing_app() {
 #[test]
 fn the_step_that_can_need_elevation_goes_first() {
     assert_eq!(
-        steps(StartupMode::Off),
+        steps(Install::Loose, StartupMode::Off),
         [Step::DeleteTask, Step::DeleteRunValue],
         "off removes both, task first"
     );
     assert_eq!(
-        steps(StartupMode::Normal),
+        steps(Install::Loose, StartupMode::Normal),
         [Step::DeleteTask, Step::SetRunValue],
         "a normal start drops the task before it adds the registry value"
     );
     assert_eq!(
-        steps(StartupMode::Elevated),
+        steps(Install::Loose, StartupMode::Elevated),
         [Step::CreateTask, Step::DeleteRunValue],
         "an elevated start creates the task before it drops the registry value"
     );
+}
+
+#[test]
+fn a_packaged_app_starts_through_its_package_not_the_run_key() {
+    assert_eq!(
+        steps(Install::Packaged, StartupMode::Off),
+        [Step::DeleteTask, Step::DisablePackageStartup],
+        "off removes the task and turns the package's startup off"
+    );
+    assert_eq!(
+        steps(Install::Packaged, StartupMode::Normal),
+        [Step::DeleteTask, Step::EnablePackageStartup],
+        "Windows never reads a packaged app's own copy of the Run key, so the package's startup takes its place"
+    );
+    assert_eq!(
+        steps(Install::Packaged, StartupMode::Elevated),
+        [Step::CreateTask, Step::DisablePackageStartup],
+        "the package's startup cannot run elevated, so the task does it"
+    );
+}
+
+#[cfg(windows)]
+mod package_startup_outcome {
+    use windows::ApplicationModel::StartupTaskState;
+
+    use super::super::system::{StartupError, enable_outcome};
+
+    #[test]
+    fn an_enabled_task_is_success() {
+        enable_outcome(StartupTaskState::Enabled).unwrap();
+        assert!(
+            enable_outcome(StartupTaskState::EnabledByPolicy).is_ok(),
+            "a policy that keeps it on is on as well"
+        );
+    }
+
+    #[test]
+    fn a_task_the_user_turned_off_says_so() {
+        assert!(
+            matches!(
+                enable_outcome(StartupTaskState::DisabledByUser),
+                Err(StartupError::DisabledByUser)
+            ),
+            "only the user can turn it on again, in Task Manager, so the app must tell them"
+        );
+    }
+
+    #[test]
+    fn a_task_left_off_otherwise_keeps_its_state() {
+        assert!(matches!(
+            enable_outcome(StartupTaskState::DisabledByPolicy),
+            Err(StartupError::PackageStartupOff(3))
+        ));
+    }
 }
 
 #[cfg(windows)]

@@ -26,15 +26,15 @@ use cuakey_interfaces::{
 use platform_clock::{Clock, SystemClock};
 use platform_windows::{
     AppMessage, CreateMessageWindowError, FocusCell, FocusChange, FocusClass, FocusWatch, KeyboardHook, MessageWindow,
-    RelaunchError, SingleInstanceError, SingleInstanceGuard, StartFocusWatchError, StartHookError, StartupError,
-    StartupMode, Tray, TrayError, TrayEvent, apply_startup, beep, double_click_time, foreground_layout, ime_open,
-    is_elevated, is_english, post_to, relaunch_elevated, set_desktop_shortcut, show_notice, show_notice_and_wait,
+    RelaunchError, SingleInstanceError, SingleInstanceGuard, StartFocusWatchError, StartHookError, StartupMode, Tray,
+    TrayError, TrayEvent, apply_startup, beep, double_click_time, foreground_layout, ime_open, is_elevated, is_english,
+    post_to, program_path, relaunch_elevated, set_desktop_shortcut, show_notice, show_notice_and_wait,
     trim_working_set,
 };
 
 use self::hook::{HookHandler, HookWorld, Report, SessionUpdate};
 use self::menu::{MenuMap, menu_app, tray_icon, tray_tooltip};
-use self::system::{SystemChanges, startup_mode, system_changes};
+use self::system::{Occasion, SystemChanges, startup_mode, startup_notice, system_changes};
 use self::tray_clicks::{TrayClicks, TrayResponse};
 use crate::args::{Mode, window_args};
 use crate::processes::{BACKGROUND_CLASS, UI_CLASS, shown_window, take_instance, window_kind};
@@ -93,7 +93,7 @@ fn start(focus_log: Option<&Path>, args: &[String]) -> Result<(), StartError> {
     };
     // The defaults in place of unread preferences are not the user's way to start, so Windows keeps its own.
     if prefs.origin.may_save() {
-        apply_startup_mode(startup_mode(&prefs.view.system), language);
+        apply_startup_mode(startup_mode(&prefs.view.system), Occasion::Start, language);
     }
     serve(stores, prefs, macros, focus_log)
 }
@@ -140,7 +140,7 @@ fn elevate_if_asked(
     let notice = match relaunch_elevated(args) {
         Ok(()) => return Ok(None),
         Err(RelaunchError::Cancelled) => Notice::ElevationRefused,
-        Err(error @ (RelaunchError::CurrentExe(_) | RelaunchError::Launch(_))) => {
+        Err(error @ (RelaunchError::ProgramPath(_) | RelaunchError::Launch(_))) => {
             tracing::warn!(error = ?error, "could not start again as administrator");
             Notice::ElevationFailed
         }
@@ -583,35 +583,33 @@ fn tell_window_process(message: AppMessage) {
 /// Carries out `changes` in Windows, telling in `language` what could not be done.
 fn apply_system_changes(changes: SystemChanges, language: InterfaceLanguageValue) {
     if let Some(mode) = changes.startup {
-        apply_startup_mode(mode, language);
+        apply_startup_mode(mode, Occasion::Change, language);
     }
     if let Some(shortcut) = changes.shortcut {
         put_shortcut(shortcut, language);
     }
 }
 
-fn apply_startup_mode(mode: StartupMode, language: InterfaceLanguageValue) {
-    let notice = match apply_startup(mode) {
-        Ok(()) => return,
-        Err(StartupError::NeedsElevation) => Notice::StartupNeedsAdministrator,
-        Err(error @ (StartupError::CurrentExe(_) | StartupError::Registry { .. } | StartupError::Task { .. })) => {
-            tracing::warn!(error = ?error, "could not change how the app starts with Windows");
-            Notice::StartupNotChanged
-        }
+fn apply_startup_mode(mode: StartupMode, occasion: Occasion, language: InterfaceLanguageValue) {
+    let Err(error) = apply_startup(mode) else {
+        return;
     };
-    notify(language, notice_message(notice, language));
+    tracing::warn!(error = ?error, "could not change how the app starts with Windows");
+    if let Some(notice) = startup_notice(&error, occasion) {
+        notify(language, notice_message(notice, language));
+    }
 }
 
 fn put_shortcut(shortcut: Toggle, language: InterfaceLanguageValue) {
-    let exe = match std::env::current_exe() {
-        Ok(exe) => exe,
+    let program = match program_path() {
+        Ok(program) => program,
         Err(error) => {
-            tracing::warn!(error = ?error, "could not find the program's own path");
+            tracing::warn!(error = ?error, "could not find the path that starts the program");
             notify(language, notice_message(Notice::ShortcutNotChanged, language));
             return;
         }
     };
-    if let Err(error) = set_desktop_shortcut(shortcut == Toggle::On, &exe) {
+    if let Err(error) = set_desktop_shortcut(shortcut == Toggle::On, &program) {
         tracing::warn!(error = ?error, "could not change the desktop shortcut");
         notify(language, notice_message(Notice::ShortcutNotChanged, language));
     }

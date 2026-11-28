@@ -149,6 +149,7 @@ pub struct Labels {
     pub notice_elevation_refused: &'static str,
     pub notice_elevation_failed: &'static str,
     pub notice_startup_needs_administrator: &'static str,
+    pub notice_startup_off_in_task_manager: &'static str,
     pub notice_startup_not_changed: &'static str,
     pub notice_shortcut_not_changed: &'static str,
     pub notice_not_started: &'static str,
@@ -315,6 +316,8 @@ pub const VIETNAMESE: Labels = Labels {
     notice_elevation_refused: "Không được cấp quyền Admin, CuaKey chạy với quyền thường",
     notice_elevation_failed: "Không khởi động lại được CuaKey với quyền Admin",
     notice_startup_needs_administrator: "Cần chạy CuaKey với quyền Admin để đổi cách khởi động cùng Windows",
+    notice_startup_off_in_task_manager: "CuaKey đang bị tắt khởi động cùng Windows trong Task Manager. Hãy bật lại ở \
+                                         mục Ứng dụng khởi động (Startup apps)",
     notice_startup_not_changed: "Không đổi được cài đặt khởi động cùng Windows",
     notice_shortcut_not_changed: "Không đổi được biểu tượng trên Desktop",
     notice_not_started: "Không khởi động được CuaKey",
@@ -481,6 +484,8 @@ pub const ENGLISH: Labels = Labels {
     notice_elevation_refused: "Administrator rights were not granted, so CuaKey runs with normal rights",
     notice_elevation_failed: "Could not restart CuaKey as administrator",
     notice_startup_needs_administrator: "Run CuaKey as administrator to change how it starts with Windows",
+    notice_startup_off_in_task_manager: "Starting with Windows is turned off for CuaKey in Task Manager. Turn it on \
+                                         under Startup apps",
     notice_startup_not_changed: "Could not change how CuaKey starts with Windows",
     notice_shortcut_not_changed: "Could not change the desktop shortcut",
     notice_not_started: "Could not start CuaKey",

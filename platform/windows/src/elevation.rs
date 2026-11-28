@@ -1,7 +1,5 @@
 //! Whether the process runs with administrator rights, and starting it again with them.
 
-use std::io;
-
 use windows::Win32::Foundation::{CloseHandle, ERROR_CANCELLED, HANDLE};
 use windows::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation};
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
@@ -9,11 +7,13 @@ use windows::Win32::UI::Shell::{SEE_MASK_NOASYNC, SHELLEXECUTEINFOW, ShellExecut
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::core::{HSTRING, PCWSTR, w};
 
+use crate::package::{ProgramPathError, program_path};
+
 /// Why `CuaKey` could not start itself again with administrator rights.
 #[derive(Debug, thiserror::Error)]
 pub enum RelaunchError {
-    #[error("could not find the program's own path")]
-    CurrentExe(#[source] io::Error),
+    #[error("could not find the path that starts the program")]
+    ProgramPath(#[source] ProgramPathError),
     /// The user refused the administrator prompt.
     #[error("the administrator prompt was refused")]
     Cancelled,
@@ -65,8 +65,8 @@ impl Drop for Token {
 /// Starts this program again with administrator rights, passing it `args`, after the system's prompt. The caller
 /// decides what happens to this process. A refused prompt is [`RelaunchError::Cancelled`].
 pub fn relaunch_elevated(args: &[String]) -> Result<(), RelaunchError> {
-    let exe = std::env::current_exe().map_err(RelaunchError::CurrentExe)?;
-    let file = HSTRING::from(exe.as_os_str());
+    let program = program_path().map_err(RelaunchError::ProgramPath)?;
+    let file = HSTRING::from(program.as_os_str());
     let parameters = HSTRING::from(command_line(args));
     let mut info = SHELLEXECUTEINFOW {
         cbSize: u32::try_from(size_of::<SHELLEXECUTEINFOW>()).unwrap_or(0),

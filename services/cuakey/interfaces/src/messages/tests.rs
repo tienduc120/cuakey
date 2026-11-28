@@ -179,7 +179,7 @@ fn a_window_built_on_an_unread_file_says_its_changes_are_not_saved() {
     );
 }
 
-const ALL_NOTICES: [Notice; 11] = [
+const ALL_NOTICES: [Notice; 12] = [
     Notice::ConvertDone,
     Notice::DefaultsNotSaved,
     Notice::SettingsUnreadNotSaved,
@@ -187,11 +187,25 @@ const ALL_NOTICES: [Notice; 11] = [
     Notice::ElevationRefused,
     Notice::ElevationFailed,
     Notice::StartupNeedsAdministrator,
+    Notice::StartupOffInTaskManager,
     Notice::StartupNotChanged,
     Notice::ShortcutNotChanged,
     Notice::NotStarted,
     Notice::WindowNotOpened,
 ];
+
+#[test]
+fn a_startup_the_user_turned_off_says_where_to_turn_it_on() {
+    assert_eq!(
+        notice_message(Notice::StartupOffInTaskManager, InterfaceLanguageValue::English),
+        "Starting with Windows is turned off for CuaKey in Task Manager. Turn it on under Startup apps"
+    );
+    assert_eq!(
+        notice_message(Notice::StartupOffInTaskManager, VIETNAMESE),
+        "CuaKey đang bị tắt khởi động cùng Windows trong Task Manager. Hãy bật lại ở mục Ứng dụng khởi động \
+         (Startup apps)"
+    );
+}
 
 #[test]
 fn a_finished_quick_convert_says_so() {

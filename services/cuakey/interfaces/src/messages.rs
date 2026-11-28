@@ -26,6 +26,8 @@ pub enum Notice {
     ElevationFailed,
     /// Starting with Windows as administrator can only be changed by an app that runs as administrator.
     StartupNeedsAdministrator,
+    /// The user turned `CuaKey` off among the startup apps in Task Manager, where only they can turn it on again.
+    StartupOffInTaskManager,
     StartupNotChanged,
     ShortcutNotChanged,
     /// The app could not start at all.
@@ -44,6 +46,7 @@ pub const fn notice_message(notice: Notice, language: InterfaceLanguageValue) ->
         Notice::ElevationRefused => text.notice_elevation_refused,
         Notice::ElevationFailed => text.notice_elevation_failed,
         Notice::StartupNeedsAdministrator => text.notice_startup_needs_administrator,
+        Notice::StartupOffInTaskManager => text.notice_startup_off_in_task_manager,
         Notice::StartupNotChanged => text.notice_startup_not_changed,
         Notice::ShortcutNotChanged => text.notice_shortcut_not_changed,
         Notice::NotStarted => text.notice_not_started,

@@ -38,6 +38,9 @@ mod message_window;
 mod monitor;
 #[cfg(windows)]
 mod notify;
+mod package;
+#[cfg(windows)]
+mod package_startup;
 mod send;
 #[cfg(windows)]
 mod shortcut;
@@ -84,6 +87,11 @@ pub use message_window::{CreateMessageWindowError, MessageWindow, PostError, pos
 pub use monitor::{ScreenRect, is_on_a_monitor};
 #[cfg(windows)]
 pub use notify::{show as show_notice, show_and_wait as show_notice_and_wait};
+pub use package::{EXECUTION_ALIAS, Install};
+#[cfg(windows)]
+pub use package::{ProgramPathError, program_path};
+#[cfg(windows)]
+pub use package_startup::PACKAGE_STARTUP_TASK_ID;
 #[cfg(windows)]
 pub use shortcut::{ShortcutError, set_desktop_shortcut};
 #[cfg(windows)]

@@ -3,6 +3,9 @@
 
 use std::path::Path;
 
+#[cfg(any(windows, test))]
+use crate::package::Install;
+
 /// The name of the `Run` value and of the scheduled task.
 #[cfg(windows)]
 pub(crate) const ENTRY_NAME: &str = "CuaKey";
@@ -25,16 +28,23 @@ enum Step {
     DeleteRunValue,
     CreateTask,
     DeleteTask,
+    EnablePackageStartup,
+    DisablePackageStartup,
 }
 
-/// The two changes that make `mode` the one way `CuaKey` starts. The one that touches the task goes first, since it is
-/// the one that can be refused for want of rights, and a refusal then leaves the previous state as it was.
+/// The two changes that make `mode` the one way `CuaKey`, installed as `install`, starts. The one that touches the task
+/// goes first, since it is the one that can be refused for want of rights, and a refusal then leaves the previous state
+/// as it was.
 #[cfg(any(windows, test))]
-const fn steps(mode: StartupMode) -> [Step; 2] {
+const fn steps(install: Install, mode: StartupMode) -> [Step; 2] {
+    let (start, stop) = match install {
+        Install::Loose => (Step::SetRunValue, Step::DeleteRunValue),
+        Install::Packaged => (Step::EnablePackageStartup, Step::DisablePackageStartup),
+    };
     match mode {
-        StartupMode::Off => [Step::DeleteTask, Step::DeleteRunValue],
-        StartupMode::Normal => [Step::DeleteTask, Step::SetRunValue],
-        StartupMode::Elevated => [Step::CreateTask, Step::DeleteRunValue],
+        StartupMode::Off => [Step::DeleteTask, stop],
+        StartupMode::Normal => [Step::DeleteTask, start],
+        StartupMode::Elevated => [Step::CreateTask, stop],
     }
 }
 
@@ -112,9 +122,9 @@ pub use self::system::{StartupError, apply};
 
 #[cfg(windows)]
 mod system {
-    use std::io;
     use std::path::Path;
 
+    use windows::ApplicationModel::StartupTaskState;
     use windows::Win32::Foundation::{E_ACCESSDENIED, ERROR_FILE_NOT_FOUND};
     use windows::Win32::System::Registry::{
         HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ, RegCloseKey, RegCreateKeyExW,
@@ -123,13 +133,14 @@ mod system {
     use windows::core::{HSTRING, PCWSTR, w};
 
     use super::{ENTRY_NAME, StartupMode, Step, run_value, steps};
-    use crate::task_scheduler;
+    use crate::package::{Install, ProgramPathError, program_path};
+    use crate::{package_startup, task_scheduler};
 
     /// Why the way `CuaKey` starts could not be changed.
     #[derive(Debug, thiserror::Error)]
     pub enum StartupError {
-        #[error("could not find the program's own path")]
-        CurrentExe(#[source] io::Error),
+        #[error("could not find the path that starts the program")]
+        ProgramPath(#[source] ProgramPathError),
         #[error("could not {action} the startup entry in the registry")]
         Registry {
             action: &'static str,
@@ -145,20 +156,52 @@ mod system {
         /// The startup task can only be changed by an elevated process.
         #[error("changing the startup task needs `CuaKey` to run as administrator")]
         NeedsElevation,
+        #[error("could not {action} the package's startup task")]
+        PackageStartup {
+            action: &'static str,
+            #[source]
+            source: windows::core::Error,
+        },
+        /// The user turned `CuaKey` off among the startup apps in Task Manager, which only they can undo.
+        #[error("the user turned the app off among the startup apps")]
+        DisabledByUser,
+        /// Windows left the package's startup task off, as a policy or another setting has it.
+        #[error("windows left the package's startup task off, in state {0}")]
+        PackageStartupOff(i32),
     }
 
     /// Makes `mode` the one way `CuaKey` starts with Windows.
     pub fn apply(mode: StartupMode) -> Result<(), StartupError> {
-        let exe = std::env::current_exe().map_err(StartupError::CurrentExe)?;
-        for step in steps(mode) {
+        let program = program_path().map_err(StartupError::ProgramPath)?;
+        for step in steps(Install::current(), mode) {
             match step {
-                Step::SetRunValue => set_run_value(ENTRY_NAME, &exe)?,
+                Step::SetRunValue => set_run_value(ENTRY_NAME, &program)?,
                 Step::DeleteRunValue => delete_run_value(ENTRY_NAME)?,
-                Step::CreateTask => task_scheduler::create(ENTRY_NAME, &exe).map_err(create_task_error)?,
+                Step::CreateTask => task_scheduler::create(ENTRY_NAME, &program).map_err(create_task_error)?,
                 Step::DeleteTask => task_scheduler::delete(ENTRY_NAME).or_else(delete_task_error)?,
+                Step::EnablePackageStartup => {
+                    let state = package_startup::enable().map_err(|source| package_startup_error("turn on", source))?;
+                    enable_outcome(state)?;
+                }
+                Step::DisablePackageStartup => {
+                    package_startup::disable().map_err(|source| package_startup_error("turn off", source))?;
+                }
             }
         }
         Ok(())
+    }
+
+    fn package_startup_error(action: &'static str, source: windows::core::Error) -> StartupError {
+        StartupError::PackageStartup { action, source }
+    }
+
+    /// What the state of the package's startup task, after asking to turn it on, means.
+    pub(super) const fn enable_outcome(state: StartupTaskState) -> Result<(), StartupError> {
+        match state {
+            StartupTaskState::Enabled | StartupTaskState::EnabledByPolicy => Ok(()),
+            StartupTaskState::DisabledByUser => Err(StartupError::DisabledByUser),
+            other => Err(StartupError::PackageStartupOff(other.0)),
+        }
     }
 
     /// What a failure to create the task means: a refusal for want of rights, or a failure.
