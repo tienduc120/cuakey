@@ -73,7 +73,11 @@ fn compatibility_and_system_defaults_match_the_documented_ones() {
     assert_eq!(compat.clipboard_input(), OnOff::Off, "clipboard input");
     assert_eq!(compat.store_app_support(), OnOff::Off, "store app support");
     assert_eq!(system.start_with_windows(), OnOff::On, "start with windows");
-    assert_eq!(system.show_settings_at_startup(), OnOff::On, "show settings at startup");
+    assert_eq!(
+        system.show_settings_at_startup(),
+        OnOff::Off,
+        "the settings window stays closed at startup; the tray icon opens it"
+    );
     assert_eq!(system.run_as_administrator(), OnOff::Off, "run as administrator");
     assert_eq!(system.desktop_shortcut(), OnOff::Off, "desktop shortcut");
 }

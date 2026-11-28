@@ -66,7 +66,7 @@ fn everything_changed() -> PreferencesView {
         },
         system: SystemPrefs {
             start_with_windows: Off,
-            show_settings_at_startup: Off,
+            show_settings_at_startup: On,
             run_as_administrator: On,
             desktop_shortcut: On,
             interface_language: InterfaceLanguageValue::Vietnamese,

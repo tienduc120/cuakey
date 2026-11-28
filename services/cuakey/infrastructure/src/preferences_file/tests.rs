@@ -229,7 +229,7 @@ async fn an_old_file_keeps_its_values_with_the_new_field() {
     assert_eq!(system.desktop_shortcut(), OnOff::On, "stored value kept");
     assert_eq!(
         system.show_settings_at_startup(),
-        OnOff::On,
+        OnOff::Off,
         "absent value takes its default"
     );
     assert_eq!(system.interface_language(), InterfaceLanguage::English, "the new field");

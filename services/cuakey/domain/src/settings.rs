@@ -177,7 +177,7 @@ impl Default for SystemSettings {
     fn default() -> Self {
         Self {
             start_with_windows: OnOff::On,
-            show_settings_at_startup: OnOff::On,
+            show_settings_at_startup: OnOff::Off,
             run_as_administrator: OnOff::Off,
             desktop_shortcut: OnOff::Off,
             interface_language: InterfaceLanguage::English,
