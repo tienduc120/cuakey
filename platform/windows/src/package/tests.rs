@@ -1,4 +1,5 @@
-use std::path::{Path, PathBuf};
+use std::ffi::OsStr;
+use std::path::Path;
 
 use super::alias_path;
 
@@ -8,9 +9,11 @@ fn the_alias_lives_in_the_users_windows_apps_folder() {
 
     let alias = alias_path(local);
 
+    // Compared part by part, since CI also runs this on Linux, where a backslash is no separator.
+    let below_local: Vec<&OsStr> = alias.strip_prefix(local).unwrap().iter().collect();
     assert_eq!(
-        alias,
-        PathBuf::from(r"C:\Users\someone\AppData\Local\Microsoft\WindowsApps\cuakey.exe"),
+        below_local,
+        ["Microsoft", "WindowsApps", "cuakey.exe"],
         "Windows keeps every execution alias of the user in this one folder"
     );
 }
