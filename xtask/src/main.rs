@@ -4,6 +4,7 @@ mod compare_openkey;
 mod doctor;
 mod gates;
 mod hook;
+mod msix;
 mod scaffold;
 
 use std::io::{self, Write as _};
@@ -51,6 +52,15 @@ enum Cmd {
         #[arg(long)]
         aggregate: String,
     },
+    /// Pack the release build into the Microsoft Store package in target/msix; --register tries it on this PC instead.
+    Msix {
+        /// The executable to pack; the release build when left out.
+        #[arg(long)]
+        exe: Option<PathBuf>,
+        /// Register the staged package with Windows (Developer Mode) instead of packing it.
+        #[arg(long)]
+        register: bool,
+    },
     /// Compare typing with `OpenKey` as a black box; arguments after `--` go to the comparison tool.
     CompareOpenkey {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -74,6 +84,7 @@ fn main() -> ExitCode {
         Cmd::Hook { event } => return hook::run(&root, &event),
         Cmd::Doctor => doctor::run(&root, &mut out),
         Cmd::NewService { name, aggregate } => scaffold::new_service(&root, &name, &aggregate, &mut out).map(|()| true),
+        Cmd::Msix { exe, register } => msix::run(&root, exe.as_deref(), register, &mut out),
         Cmd::CompareOpenkey { args } => compare_openkey::run(&root, &args),
     };
     match result {

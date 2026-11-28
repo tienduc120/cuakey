@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Microsoft Store package (ADR-0017). `cargo xtask msix` writes the workspace version over 0.0.0.0. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap17="http://schemas.microsoft.com/appx/manifest/uap/windows10/17"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap17 desktop rescap">
+  <!-- The identity Partner Center reserved for CuaKey; the Store refuses a package with any other. -->
+  <Identity Name="TienDuc.CuaKey" Publisher="CN=D1D517AB-753E-4C06-8D6D-0FC657D783F9" Version="0.0.0.0" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>CuaKey</DisplayName>
+    <PublisherDisplayName>Tien Duc</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!-- An update waits until CuaKey next starts, rather than closing it mid-sentence. -->
+    <uap17:UpdateWhileInUse>defer</uap17:UpdateWhileInUse>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us" />
+    <Resource Language="vi-vn" />
+  </Resources>
+  <Applications>
+    <Application Id="CuaKey" Executable="cuakey.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="CuaKey" Description="Bộ gõ Tiếng Việt" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <!-- The path that survives updates, for the scheduled task, the desktop shortcut and the restart as administrator. -->
+        <uap3:Extension Category="windows.appExecutionAlias" Executable="cuakey.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap3:AppExecutionAlias>
+            <desktop:ExecutionAlias Alias="cuakey.exe" />
+          </uap3:AppExecutionAlias>
+        </uap3:Extension>
+        <!-- Off until the app turns it on, following its own "start with Windows" setting. -->
+        <desktop:Extension Category="windows.startupTask" Executable="cuakey.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="CuaKey" Enabled="false" DisplayName="CuaKey" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <!-- The "run as administrator" setting, so the keyboard reaches windows that run as administrator. -->
+    <rescap:Capability Name="allowElevation" />
+  </Capabilities>
+</Package>

@@ -47,3 +47,6 @@ fn main() -> ExitCode {
 fn main() -> ExitCode {
     ExitCode::FAILURE
 }
+
+#[cfg(test)]
+mod tests;
